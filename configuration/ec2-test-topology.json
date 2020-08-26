@@ -1,0 +1,552 @@
+[
+  {
+    "nodeAddress": {
+      "addr": "18.130.216.242",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 0,
+    "producers": [
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "3.10.235.25",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 1,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "35.176.19.127",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 2,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "18.130.88.117",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 3,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "18.130.123.202",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 4,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "3.10.212.254",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 5,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "3.9.139.127",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 6,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "18.130.123.51",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 7,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "35.178.210.135",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 8,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.8.2.92",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  },
+  {
+    "nodeAddress": {
+      "addr": "3.8.2.92",
+      "port": 3000,
+      "valency": 1
+    },
+    "nodeId": 9,
+    "producers": [
+      {
+        "addr": "18.130.216.242",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.235.25",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.176.19.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.88.117",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.202",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.10.212.254",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "3.9.139.127",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "18.130.123.51",
+        "port": 3000,
+        "valency": 1
+      },
+      {
+        "addr": "35.178.210.135",
+        "port": 3000,
+        "valency": 1
+      }
+    ]
+  }
+]
