@@ -9,13 +9,13 @@ module Blockchain.RPC.Types (
   BlockchainBlockHash(..),
   ObftSignature(..),
   BlockchainCheckpoint(..),
-  BlockchainRPCResponse(..),
-  BlockchainLatestBlockResult(..),
-  BlockchainJSONRequest,
-  BlockchainLatestBlockResponse,
-  BlockchainCheckpointResponse,
+  RPCResponse(..),
+  RPCLatestBlockResult(..),
+  RPCJSONRequest,
+  RPCLatestBlockResponse,
+  RPCCheckpointResponse,
   mkLatestBlockRequest,
-  mkBlockchainCheckpointRequest
+  mkCheckpointRequest
 ) where
 
 import Cardano.Prelude
@@ -59,46 +59,46 @@ instance ToJSON BlockchainCheckpoint where
       Array $ V.fromList $ (\(ObftSignature s) -> String s) <$> sigs
     ]
 
-data BlockchainJSONRequest p = BlockchainJSONRequest {
+data RPCJSONRequest p = RPCJSONRequest {
   jsonrpc :: !Text,
   method  :: !Text,
   params  :: p,
   id      :: Int
 } deriving (Show, Eq, Generic)
 
-instance ToJSON (BlockchainJSONRequest BlockchainCheckpoint)
-instance ToJSON (BlockchainJSONRequest [Int])
+instance ToJSON (RPCJSONRequest BlockchainCheckpoint)
+instance ToJSON (RPCJSONRequest [Int])
 
-data BlockchainRPCResponse r = BlockchainRPCResponse {
+data RPCResponse r = RPCResponse {
   responseJsonrpc :: !Text,
   responseResult  :: r,
   responseid      :: Int
 } deriving (Generic, Eq, Show)
 
-data BlockchainLatestBlockResult = BlockchainLatestBlockResult {
+data RPCLatestBlockResult = RPCLatestBlockResult {
   number :: !PowBlockNo,
   hash   :: !PowBlockHash
 } deriving (Generic, Eq, Show)
-instance FromJSON BlockchainLatestBlockResult
+instance FromJSON RPCLatestBlockResult
 
 
-type BlockchainLatestBlockResponse = BlockchainRPCResponse BlockchainLatestBlockResult
-type BlockchainCheckpointResponse  = BlockchainRPCResponse Bool
+type RPCLatestBlockResponse = RPCResponse RPCLatestBlockResult
+type RPCCheckpointResponse  = RPCResponse Bool
 
-parseRpcResponse ::  (FromJSON r) => Value -> Parser (BlockchainRPCResponse r)
-parseRpcResponse = withObject "BlockchainRpcResponse" $ \v ->
-                BlockchainRPCResponse
+parseRpcResponse ::  (FromJSON r) => Value -> Parser (RPCResponse r)
+parseRpcResponse = withObject "RpcResponse" $ \v ->
+                RPCResponse
                     <$> v .: "jsonrpc"
                     <*> v .: "result"
                     <*> v .: "id"
 
-instance FromJSON BlockchainLatestBlockResponse where
+instance FromJSON RPCLatestBlockResponse where
   parseJSON = parseRpcResponse
-instance FromJSON BlockchainCheckpointResponse where
+instance FromJSON RPCCheckpointResponse where
   parseJSON = parseRpcResponse
 
-mkLatestBlockRequest :: Int -> BlockchainJSONRequest [Int]
-mkLatestBlockRequest k = BlockchainJSONRequest "2.0" "checkpointing_getLatestBlock" [k] 1
+mkLatestBlockRequest :: Int -> RPCJSONRequest [Int]
+mkLatestBlockRequest k = RPCJSONRequest "2.0" "checkpointing_getLatestBlock" [k] 1
 
-mkBlockchainCheckpointRequest :: BlockchainCheckpoint -> BlockchainJSONRequest BlockchainCheckpoint
-mkBlockchainCheckpointRequest chkpt = BlockchainJSONRequest "2.0" "checkpointing_pushCheckpoint" chkpt 1
+mkCheckpointRequest :: BlockchainCheckpoint -> RPCJSONRequest BlockchainCheckpoint
+mkCheckpointRequest chkpt = RPCJSONRequest "2.0" "checkpointing_pushCheckpoint" chkpt 1

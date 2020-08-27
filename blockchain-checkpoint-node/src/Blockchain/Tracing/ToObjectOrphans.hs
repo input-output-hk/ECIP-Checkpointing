@@ -180,15 +180,15 @@ instance DefinePrivacyAnnotation (TimeTravelErrorTrace c ext)
 instance DefineSeverity (TimeTravelErrorTrace c ext) where
   defineSeverity _ = Error
 
-instance DefinePrivacyAnnotation (BlockchainRpcTrace)
-instance DefineSeverity (BlockchainRpcTrace) where
-  defineSeverity (BlockchainRpcPushedCheckpoint _) =
+instance DefinePrivacyAnnotation (RpcTrace)
+instance DefineSeverity (RpcTrace) where
+  defineSeverity (RpcPushedCheckpoint _) =
     Debug
-  defineSeverity (BlockchainRpcLatestBlock _) =
+  defineSeverity (RpcLatestBlock _) =
     Debug
-  defineSeverity (BlockchainRpcNetworkError _ _) =
+  defineSeverity (RpcNetworkError _ _) =
     Error
-  defineSeverity (BlockchainRpcResponseParseError _ _) =
+  defineSeverity (RpcResponseParseError _ _) =
     Error
 
 instance DefinePrivacyAnnotation (WithAddr Socket.SockAddr ErrorPolicyTrace)
@@ -416,7 +416,7 @@ instance Transformable Text IO (WithDomainName DnsTrace) where
                                <*> pure (LogMessage $ pack $ show s)
   trTransformer UserdefinedFormatting verb tr = trStructured verb tr
 
-instance Transformable Text IO BlockchainRpcTrace where
+instance Transformable Text IO RpcTrace where
   trTransformer StructuredLogging verb tr = trStructured verb tr
   trTransformer TextualRepresentation _verb tr = Tracer $ \s ->
     traceWith tr =<< LogObject <$> pure mempty
@@ -607,22 +607,22 @@ instance ToObject (TimeTravelErrorTrace c ext) where
     mkObject [ "kind" .= String "TimeTravelError"
              , "error" .= show err ]
 
-instance ToObject BlockchainRpcTrace where
-  toObject _verb (BlockchainRpcPushedCheckpoint ckpt) =
-    mkObject [ "kind" .= String "BlockchainRpcPushedCheckpoint"
+instance ToObject RpcTrace where
+  toObject _verb (RpcPushedCheckpoint ckpt) =
+    mkObject [ "kind" .= String "RpcPushedCheckpoint"
              , "checkpoint" .= show ckpt ]
 
-  toObject _verb (BlockchainRpcLatestBlock blk) =
-    mkObject [ "kind" .= String "BlockchainRpcLatestBlock"
+  toObject _verb (RpcLatestBlock blk) =
+    mkObject [ "kind" .= String "RpcLatestBlock"
              , "block" .= show blk ]
 
-  toObject _verb (BlockchainRpcNetworkError op err) =
-    mkObject [ "kind" .= String "BlockchainRpcNetworkError"
+  toObject _verb (RpcNetworkError op err) =
+    mkObject [ "kind" .= String "RpcNetworkError"
              , "operation" .= show op
              , "error" .= show err ]
 
-  toObject _verb (BlockchainRpcResponseParseError op err) =
-    mkObject [ "kind" .= String "BlockchainRpcResponseParseError"
+  toObject _verb (RpcResponseParseError op err) =
+    mkObject [ "kind" .= String "RpcResponseParseError"
              , "operation" .= show op
              , "error" .= show err ]
 

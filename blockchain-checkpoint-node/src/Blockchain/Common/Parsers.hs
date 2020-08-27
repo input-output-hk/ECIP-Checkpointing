@@ -223,7 +223,7 @@ parseTraceOptions m = TraceOptions
   <*> parseTraceErrorPolicy m
   <*> parseTraceMux m
   <*> parseTraceLedgerState m
-  <*> parseTraceBlockchainRpc m
+  <*> parseTraceRpc m
 
 parseTraceBlockFetchClient :: MParser Bool
 parseTraceBlockFetchClient m =
@@ -428,10 +428,10 @@ parseTraceMux m =
       <> m
     )
 
-parseTraceBlockchainRpc :: MParser Bool
-parseTraceBlockchainRpc m =
+parseTraceRpc :: MParser Bool
+parseTraceRpc m =
     switch (
-         long "trace-blockchain-rpc"
+         long "trace-rpc"
       <> help "Trace the blockchain rpc events."
       <> m
     )

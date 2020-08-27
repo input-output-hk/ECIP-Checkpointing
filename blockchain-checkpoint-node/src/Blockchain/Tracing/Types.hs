@@ -1,7 +1,7 @@
 module Blockchain.Tracing.Types (
-  BlockchainRpcTrace(..),
+  RpcTrace(..),
   MorphoStateTrace(..),
-  BlockchainRpcOperation(..),
+  RpcOperation(..),
   TimeTravelErrorTrace(..)
 ) where
 
@@ -11,14 +11,14 @@ import Blockchain.RPC.Types
 import Blockchain.Ledger.Block
 import Blockchain.Ledger.SnapshotTimeTravel
 
-data BlockchainRpcOperation = BlockchainFetchLatestBlock | BlockchainPushCheckpoint
+data RpcOperation = BlockchainFetchLatestBlock | BlockchainPushCheckpoint
   deriving (Eq, Show)
 
-data BlockchainRpcTrace =
-    BlockchainRpcPushedCheckpoint BlockchainCheckpointResponse
-  | BlockchainRpcLatestBlock BlockchainLatestBlockResponse
-  | BlockchainRpcNetworkError BlockchainRpcOperation Text
-  | BlockchainRpcResponseParseError BlockchainRpcOperation Text
+data RpcTrace =
+    RpcPushedCheckpoint RPCCheckpointResponse
+  | RpcLatestBlock RPCLatestBlockResponse
+  | RpcNetworkError RpcOperation Text
+  | RpcResponseParseError RpcOperation Text
   deriving (Eq, Show)
 
 data MorphoStateTrace c ext = MorphoStateTrace (LedgerState (MorphoBlock c ext))

@@ -5,9 +5,9 @@
 
 
 -- | This module implements an ECDSA signature scheme based on SEC_p256k1 curve.
--- The point is to match the same signature scheme used in Blockchain, which enables public key recovery
--- (https://github.com/input-output-hk/blockchain/blob/develop/core/src/main/scala/io/iohk/ethereum/crypto/ECDSASignature.scala).
--- As in Blockchain the signature includes a recoveryId which can take the value of 27 or 28 (respectively for
+-- The point is to match the same signature scheme used in Mantis, which enables public key recovery
+-- (https://github.com/input-output-hk/mantis/blob/master/core/src/main/scala/io/iohk/ethereum/crypto/ECDSASignature.scala).
+-- As in Mantis the signature includes a recoveryId which can take the value of 27 or 28 (respectively for
 -- negative and positive value of y coordinate of point R)
 module Blockchain.Crypto.ECDSASignature (
   Signature(..),

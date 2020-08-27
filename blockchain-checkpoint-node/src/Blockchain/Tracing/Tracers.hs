@@ -85,7 +85,7 @@ data Tracers peer blk c ext = Tracers {
 
       -- | Trace the Mux (flag --trace-mux' will turn on textual output)
     , muxTracer             :: Tracer IO (WithMuxBearer peer (MuxTrace NodeToNodeProtocols))
-    , blockchainRpcTracer     :: Tracer IO BlockchainRpcTrace
+    , rpcTracer     :: Tracer IO RpcTrace
     , morphoStateTracer     :: Tracer IO (MorphoStateTrace c ext)
     , timeTravelErrorTracer :: Tracer IO (TimeTravelErrorTrace c ext)
     }
@@ -245,11 +245,11 @@ mkTracers traceOptions tracer = do
           $ annotateSeverity
           $ toLogObject' StructuredLogging tracingVerbosity
           $ addName "TimeTravelError" tracer      
-    , blockchainRpcTracer
-        = tracerOnOff (traceBlockchainRpc traceOptions)
+    , rpcTracer
+        = tracerOnOff (traceRpc traceOptions)
           $ annotateSeverity
           $ toLogObject' StructuredLogging tracingVerbosity
-          $ addName "BlockchainRpc" tracer
+          $ addName "Rpc" tracer
     }
   where
     -- Turn on/off a tracer depending on what was parsed from the command line.

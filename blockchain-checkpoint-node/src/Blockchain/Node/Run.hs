@@ -218,7 +218,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
           publishStableCheckpoint cfg nc nodeTracers dbPath metrics nid registry chainDB pInfo
 
         -- Fetch the current blockchain stable block
-        void $ forkLinkedThread registry $ requestCurrentBlock (blockchainRpcTracer nodeTracers) nodeKernel nc nodeTracers metrics
+        void $ forkLinkedThread registry $ requestCurrentBlock (rpcTracer nodeTracers) nodeKernel nc nodeTracers metrics
   where
     nid = case ncNodeId nc of
             (CoreId  n) -> n
@@ -233,7 +233,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         }
       }
 
-requestCurrentBlock :: Tracer IO BlockchainRpcTrace ->
+requestCurrentBlock :: Tracer IO RpcTrace ->
                        NodeKernel IO peer (MorphoBlock c ext) ->
                        NodeConfiguration ->
                        Tracers peer blk c ext ->
@@ -243,15 +243,15 @@ requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
   threadDelay (fromMaybe 1000 $ ncBlockchainBlockFetchInterval nc)
   catch
     go
-    (httpExceptionHandler BlockchainFetchLatestBlock $ blockchainRpcTracer nodeTracers)
+    (httpExceptionHandler BlockchainFetchLatestBlock $ rpcTracer nodeTracers)
   where
     go = do
-      er <- getBlockchainLatestBlock (ncBlockchainRpcUrl nc) (ncCheckpointInterval nc)
+      er <- getBlockchainLatestBlock (ncRpcUrl nc) (ncCheckpointInterval nc)
       either
-        (traceWith tr . BlockchainRpcResponseParseError BlockchainFetchLatestBlock . pack)
+        (traceWith tr . RpcResponseParseError BlockchainFetchLatestBlock . pack)
         processResponse
         er
-    processResponse :: BlockchainRPCResponse BlockchainLatestBlockResult -> IO ()
+    processResponse :: RPCResponse RPCLatestBlockResult -> IO ()
     processResponse resp = do
       set (fromIntegral . powBlockNo $ blockRef resp) $ mLatestPowBlock metrics
       st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
@@ -259,8 +259,8 @@ requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
       case maybeVote of
         Nothing -> pure ()
         Just vote -> addTxs [voteToTx vote] >> pure ()
-      (traceWith tr . BlockchainRpcLatestBlock) resp
-    blockRef (BlockchainRPCResponse _ (BlockchainLatestBlockResult n h) _) = PowBlockRef n h
+      (traceWith tr . RpcLatestBlock) resp
+    blockRef (RPCResponse _ (RPCLatestBlockResult n h) _) = PowBlockRef n h
     voteToTx = mkMorphoGenTx . Tx
     chainDB = getChainDB kernel
     Mempool{addTxs} = getMempool kernel
@@ -307,8 +307,8 @@ publishStableCheckpoint cfg nc nodeTracers dbPath metrics nid registry chainDB p
           Just chkp -> do
             traceWith (morphoStateTracer nodeTracers) (MorphoStateTrace extState)
             catch
-                (pushCheckpointToBlockchain (blockchainRpcTracer nodeTracers) chkp >> updatePushedCheckpointMetrics stableLedgerState)
-                (httpExceptionHandler BlockchainPushCheckpoint $ blockchainRpcTracer nodeTracers)
+                (pushCheckpointToBlockchain (rpcTracer nodeTracers) chkp >> updatePushedCheckpointMetrics stableLedgerState)
+                (httpExceptionHandler BlockchainPushCheckpoint $ rpcTracer nodeTracers)
   where
     checkpointToPush st =
       if checkpointAt st == morphoTip st && morphoTip st /= genesisPoint
@@ -320,10 +320,10 @@ publishStableCheckpoint cfg nc nodeTracers dbPath metrics nid registry chainDB p
         chkpt = BlockchainCheckpoint
                 (BlockchainBlockHash $ bytesToHex hashBytes)
                 (ObftSignature . sigToHex <$> chkpSignatures chkp)
-      er <- pushBlockchainCheckpoint (ncBlockchainRpcUrl nc) chkpt
+      er <- pushBlockchainCheckpoint (ncRpcUrl nc) chkpt
       either
-        (traceWith tr . BlockchainRpcResponseParseError BlockchainPushCheckpoint . pack)
-        (traceWith tr . BlockchainRpcPushedCheckpoint) er
+        (traceWith tr . RpcResponseParseError BlockchainPushCheckpoint . pack)
+        (traceWith tr . RpcPushedCheckpoint) er
     updatePushedCheckpointMetrics st = do
       set (ledgerStateToBlockNum st) $ mPushedCheckpoint metrics
       set (ledgerStateToNbVotes st) $ mNbVotesLastCheckpoint metrics
@@ -331,5 +331,5 @@ publishStableCheckpoint cfg nc nodeTracers dbPath metrics nid registry chainDB p
     ledgerStateToNbVotes = fromIntegral . length . chkpSignatures . lastCheckpoint . morphoLedgerState
 
 
-httpExceptionHandler :: BlockchainRpcOperation -> Tracer IO BlockchainRpcTrace -> HttpException -> IO ()
-httpExceptionHandler op t he = traceWith t . BlockchainRpcNetworkError op . pack $ displayException he
+httpExceptionHandler :: RpcOperation -> Tracer IO RpcTrace -> HttpException -> IO ()
+httpExceptionHandler op t he = traceWith t . RpcNetworkError op . pack $ displayException he

@@ -13,5 +13,5 @@ ${exe} --topology configuration/blockchain-topology.json \
        --trace-mempool \
        --trace-forge \
        --trace-ledger-state \
-       --trace-blockchain-rpc \
+       --trace-rpc \
        --tracing-verbosity-maximal

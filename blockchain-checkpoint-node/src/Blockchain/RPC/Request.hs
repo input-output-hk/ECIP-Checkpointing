@@ -13,13 +13,13 @@ import           Network.HTTP.Client
 
 import Blockchain.RPC.Types
 
-getBlockchainLatestBlock :: Text -> Int -> IO (Either String BlockchainLatestBlockResponse)
+getBlockchainLatestBlock :: Text -> Int -> IO (Either String RPCLatestBlockResponse)
 getBlockchainLatestBlock rpcUrl k = do
   r <- request
   m <- blockchainManager
   parseResponse . BL.toStrict . responseBody <$> httpLbs r m
   where
-    parseResponse :: ByteString -> Either String BlockchainLatestBlockResponse
+    parseResponse :: ByteString -> Either String RPCLatestBlockResponse
     parseResponse = eitherDecode' . BL.fromStrict
     request :: IO Request
     request = do
@@ -28,13 +28,13 @@ getBlockchainLatestBlock rpcUrl k = do
                      requestHeaders = [("content-type", "application/json")],
                      requestBody = RequestBodyLBS $ encode $ mkLatestBlockRequest k }
 
-pushBlockchainCheckpoint :: Text -> BlockchainCheckpoint -> IO (Either String BlockchainCheckpointResponse)
+pushBlockchainCheckpoint :: Text -> BlockchainCheckpoint -> IO (Either String RPCCheckpointResponse)
 pushBlockchainCheckpoint rpcUrl mc = do
   r <- request
   m <- blockchainManager
   parseResponse . BL.toStrict . responseBody <$> httpLbs r m
   where
-    parseResponse :: ByteString -> Either String BlockchainCheckpointResponse
+    parseResponse :: ByteString -> Either String RPCCheckpointResponse
     parseResponse = eitherDecode' . BL.fromStrict
     request :: IO Request
     request = do
@@ -42,7 +42,7 @@ pushBlockchainCheckpoint rpcUrl mc = do
       pure initReq
         { method = "POST",
           requestHeaders = [("content-type", "application/json")],
-          requestBody = RequestBodyLBS . encode  $ mkBlockchainCheckpointRequest mc }
+          requestBody = RequestBodyLBS . encode  $ mkCheckpointRequest mc }
 
 blockchainManager :: IO Manager
 blockchainManager = newManager defaultManagerSettings

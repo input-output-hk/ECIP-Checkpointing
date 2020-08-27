@@ -101,7 +101,7 @@ SlotDuration: 5
 SnapshotsOnDisk: 60
 SnapshotInterval: 60
 BlockchainBlockFetchInterval: 5000000
-BlockchainRpcUrl: http://127.0.0.1:8546
+RpcUrl: http://127.0.0.1:8546
 PrometheusPort: 13788
 
 # Checkpointing parameters

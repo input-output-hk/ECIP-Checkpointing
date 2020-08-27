@@ -34,7 +34,7 @@ resp_checkpoint = '''
 }
 '''
 
-class BlockchainRPCHandler(BaseHTTPRequestHandler):
+class RPCHandler(BaseHTTPRequestHandler):
     def _set_headers(self):
         self.send_response(200)
         self.send_header("Content-type", "application/json")
@@ -73,7 +73,7 @@ class BlockchainRPCHandler(BaseHTTPRequestHandler):
             self.wfile.write(str_resp.encode("utf8"))
 
 def startServer():
-    httpd = HTTPServer(("localhost",8546), BlockchainRPCHandler)
+    httpd = HTTPServer(("localhost",8546), RPCHandler)
     print(f"Starting server on localhost:8546")
     httpd.serve_forever()
     return True

@@ -54,7 +54,7 @@ data NodeConfiguration =
       , ncSnapshotsOnDisk :: Int
       , ncSnapshotInterval :: Int
       , ncBlockchainBlockFetchInterval :: Maybe Int
-      , ncBlockchainRpcUrl :: Text
+      , ncRpcUrl :: Text
       , ncPrometheusPort :: Int
       -- FIXME: separate data type: CheckpointingConfiguration
       , ncCheckpointInterval :: Int
@@ -84,7 +84,7 @@ instance FromJSON NodeConfiguration where
                   snapshotsOnDisk <- v .: "SnapshotsOnDisk"
                   snapshotInterval <- v .: "SnapshotInterval"
                   blockFetchInterval <- v .:? "BlockchainBlockFetchInterval"
-                  blockchainRpcUrl <- v .: "BlockchainRpcUrl"
+                  rpcUrl <- v .: "RpcUrl"
                   promPort <- v .: "PrometheusPort"
 
 
@@ -111,7 +111,7 @@ instance FromJSON NodeConfiguration where
                            snapshotsOnDisk
                            snapshotInterval
                            blockFetchInterval
-                           blockchainRpcUrl
+                           rpcUrl
                            promPort
                            checkpointInterval
                            requiredMajority
@@ -295,7 +295,7 @@ data TraceOptions = TraceOptions
   , traceErrorPolicy :: !Bool
   , traceMux :: !Bool
   , traceLedgerState :: !Bool
-  , traceBlockchainRpc :: !Bool
+  , traceRpc :: !Bool
   } deriving (Eq, Show)
 
 newtype ConfigYamlFilePath = ConfigYamlFilePath
