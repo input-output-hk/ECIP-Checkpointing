@@ -13,18 +13,17 @@ sudo apt -y install zlib1g-dev libgmp-dev libffi-dev tmux
 # Getting binaries
 mkdir bin
 pushd bin
-curl ${BIN_URL} > blockchain-checkpoint-node
+curl ${BIN_URL} > morpho-checkpoint-node
 curl ${WRAPPER_URL} > start-node
-chmod u+x blockchain-checkpoint-node
+chmod u+x morpho-checkpoint-node
 chmod u+x start-node
 popd
 
 # Getting Config
 mkdir configuration
 pushd configuration
-curl ${TOPOLOGY_URL} > blockchain-topology.json
-curl ${CONFIG_URL} > blockchain-configuration.yaml
-curl ${GENESIS_URL} > shelley-staging-genesis.json
+curl ${TOPOLOGY_URL} > morpho-topology.json
+curl ${CONFIG_URL} > morpho-configuration.yaml
 popd
 
 # Done

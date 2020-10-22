@@ -1,19 +1,70 @@
-# checkpointing_code_plus_ecip
+* Binary Cache
 
-// TODO: Add information related to the ECIP proposal.
+Unless if you are looking for a rather expensive lap/desk heater, you
+are probably off better leveraging the project 42 hydra binary cache
+instead of rebuilding the whole world by yourself.
 
-## Specification
+We'll need to setup both the general IOHK cache =hydra.iohk.io= and
+the project42-specific one =hydra.project42.iohkdev.io=.
 
-- [OBFT-Checkpointing-Specification](https://github.com/input-output-hk/OBFT-Checkpointing-Specification)
+** On a NixOS Machine
 
-## Code
+You can setup these two extra substituters in your =configuration.nix=
+machine description:
+
+#+begin_src
+nix = {
+  binaryCachePublicKeys = [
+    "hydra.project42.iohkdev.io-1:RgWYMSuGbLEc2x7lXFhywxb+s61bZSiigIHG3PTcRos="
+    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
+  ];
+  binaryCaches = [
+    "https://hydra.project42.iohkdev.io/"
+    "https://hydra.iohk.io"
+    "https://cache.nixos.org/"
+  ];
+  extraOptions = ''
+    builders-use-substitutes = true
+  '';
+};
+#+end_src
+
+** On a Non-NixOS Machine
+
+You need to setup the following substituers in your
+=/etc/nix/nix.conf= nix configuration.
+
+#+begin_src
+substituters = https://hydra.project42.iohkdev.io/ https://hydra.iohk.io https://cache.nixos.org/
+trusted-substituters = https://hydra.project42.iohkdev.io/ https://hydra.iohk.io https://cache.nixos.org
+trusted-public-keys = hydra.project42.iohkdev.io-1:RgWYMSuGbLEc2x7lXFhywxb+s61bZSiigIHG3PTcRos= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+builders-use-substitutes = true
+#+end_src
 
 * Build the Project
 
-To build =blockchain-checkpoint-node=, run
+To build =morpho-checkpoint-node=, run
 
 #+begin_src sh
-» nix build -f . blockchain-checkpoint-node.components.exes.blockchain-checkpoint-node
+» nix build -f . morpho-checkpoint-node.components.exes.morpho-checkpoint-node
+#+end_src
+
+* Code Formatting
+
+We are using the =ormolu= formatter for the Haskell files, =cabal
+format= for the cabal files.
+
+The CI will reject any non-formatted PR, please make sure you properly
+format your code before opening one.
+
+You can use the pre-commit hook to automatically run the formatters
+before comitting. You can enable the provided pre-commit hook by
+running:
+
+#+begin_src sh
+cd $root_of_this_git_repo
+ln -s $PWD/pre-commit .git/hooks/pre-commit
 #+end_src
 
 * Interactive Dev Env
@@ -23,7 +74,7 @@ incrementally build the project, run:
 
 #+begin_src sh
 » nix-shell
-» cabal new-build blockchain-checkpoint-node
+» cabal new-build morpho-checkpoint-node
 #+end_src
 
 You can use =ghcid= (included in the shell) to check for errors on
