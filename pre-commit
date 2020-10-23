@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+cabal format $(find . -type f -name "*.cabal")
+
+for f in $(find morpho-checkpoint-node -type f -name "*.hs");do
+  ormolu -m inplace "$f"
+done
