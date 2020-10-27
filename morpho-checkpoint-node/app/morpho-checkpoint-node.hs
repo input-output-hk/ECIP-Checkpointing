@@ -1,9 +1,6 @@
 import Cardano.Prelude
-import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
-import Cardano.Shell.Types (CardanoFeature (..))
 import Morpho.Common.Parsers
 import Morpho.Common.TopHandler
-import Morpho.Config.Logging (createLoggingFeature)
 import Morpho.Config.Types
 import Morpho.Node.Features.Node
 import qualified Options.Applicative as Opt
@@ -14,8 +11,7 @@ import Prelude (String)
 main :: IO ()
 main = toplevelExceptionHandler $ do
   cli <- Opt.execParser opts
-  (features, nodeLayer) <- initializeAllFeatures cli
-  runCardanoApplicationWithFeatures features (cardanoApplication nodeLayer)
+  run cli
   where
     opts :: Opt.ParserInfo NodeCLI
     opts =
@@ -46,20 +42,6 @@ main = toplevelExceptionHandler $ do
         "Additional tracing options:"
           <$$> ""
           <$$> parserHelpOptions cliTracingParser
-    cardanoApplication :: NodeLayer -> CardanoApplication
-    cardanoApplication = CardanoApplication . nlRunNode
-
-initializeAllFeatures ::
-  NodeCLI ->
-  IO ([CardanoFeature], NodeLayer)
-initializeAllFeatures nCli@NodeCLI {configFp = ncFp} = do
-  (loggingLayer, loggingFeature) <- createLoggingFeature nCli
-  nodeConfig <- parseNodeConfiguration $ unConfigPath ncFp
-  (nodeLayer, nodeFeature) <- createNodeFeature loggingLayer nodeConfig nCli
-  pure
-    ( [loggingFeature, nodeFeature] :: [CardanoFeature],
-      nodeLayer
-    )
 
 -- | Produce just the brief help header for a given CLI option parser,
 --   without the options.

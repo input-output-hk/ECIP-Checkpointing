@@ -1,7 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Morpho.Node.Features.Node
-  ( NodeLayer (..),
+  ( run,
+    NodeLayer (..),
     createNodeFeature,
   )
 where
@@ -11,6 +12,8 @@ import Cardano.Shell.Types (CardanoFeature (..))
 import Morpho.Config.Logging
 import Morpho.Config.Types
 import Morpho.Node.Run (runNode)
+import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
+import Morpho.Config.Logging (createLoggingFeature)
 
 data NodeLayer
   = NodeLayer
@@ -35,3 +38,23 @@ createNodeFeature loggingLayer nc nCli = do
             featureShutdown = pure ()
           }
   pure (nodeLayer, cardanoFeature)
+
+run :: NodeCLI -> IO ()
+run cli = do
+  (features, nodeLayer) <- initializeAllFeatures cli
+  runCardanoApplicationWithFeatures features (cardanoApplication nodeLayer)
+  where
+    cardanoApplication :: NodeLayer -> CardanoApplication
+    cardanoApplication = CardanoApplication . nlRunNode
+
+initializeAllFeatures ::
+  NodeCLI ->
+  IO ([CardanoFeature], NodeLayer)
+initializeAllFeatures nCli@NodeCLI {configFp = ncFp} = do
+  (loggingLayer, loggingFeature) <- createLoggingFeature nCli
+  nodeConfig <- parseNodeConfiguration $ unConfigPath ncFp
+  (nodeLayer, nodeFeature) <- createNodeFeature loggingLayer nodeConfig nCli
+  pure
+    ( [loggingFeature, nodeFeature] :: [CardanoFeature],
+      nodeLayer
+    )
