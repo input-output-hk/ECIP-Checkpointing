@@ -112,7 +112,7 @@ instance Arbitrary PowBlockRef where
   arbitrary = PowBlockRef <$> arbitrary <*> arbitrary
 
 instance Arbitrary PowBlockHash where
-  arbitrary = PowBlockHash <$> arbitrary
+  arbitrary = PowBlockHash <$> generateBytes
 
 instance Arbitrary (HeaderHash blk) => Arbitrary (ChainHash blk) where
   arbitrary =

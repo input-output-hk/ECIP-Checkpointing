@@ -2,6 +2,7 @@ import Test.Morpho.Common.Utils
 import Test.Morpho.Crypto.ECDSASignature
 import Test.Morpho.Golden
 import Test.Morpho.Ledger.State
+import Test.Morpho.QSM
 import Test.Morpho.Serialisation
 import Test.Tasty
 import Prelude
@@ -19,5 +20,6 @@ tests = do
         ecdsaTests,
         utilsTests,
         serialiseTests,
-        goldenTests
+        goldenTests,
+        qsmTests
       ]

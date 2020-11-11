@@ -67,6 +67,7 @@ library
         hexstring -any,
         hostname -any,
         http-client -any,
+        io-sim -any,
         io-sim-classes -any,
         iohk-monitoring -any,
         iproute -any,
@@ -144,12 +145,14 @@ test-suite test
         Test.Morpho.Examples
         Test.Morpho.Generators
         Test.Morpho.Golden
+        Test.Morpho.QSM
         Test.Morpho.Serialisation
 
     default-language:   Haskell2010
     default-extensions: NoImplicitPrelude
     build-depends:
         base >=4.12.0.0,
+        async -any,
         serialise -any,
         tasty >=0.7,
         tasty-hunit -any,
@@ -164,6 +167,7 @@ test-suite test
         cardano-crypto-wrapper -any,
         containers -any,
         cryptonite -any,
+        directory,
         morpho-checkpoint-node -any,
         ouroboros-network -any,
         ouroboros-consensus -any,
@@ -171,5 +175,6 @@ test-suite test
         text -any,
         QuickCheck -any,
         quickcheck-instances -any,
+        quickcheck-state-machine >= 0.7,
         iohk-monitoring -any,
         cborg -any
