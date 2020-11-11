@@ -228,6 +228,7 @@ exampleTraceOptions = TraceOptions {
   , traceDnsResolver = False
   , traceErrorPolicy = False
   , traceMux = False
+  , traceHandshake = True
   , traceLedgerState = True
   , tracePoWNodeRpc = True
   , traceTimeTravelError = True

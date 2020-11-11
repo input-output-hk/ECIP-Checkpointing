@@ -25,26 +25,30 @@ where
 
 import Cardano.BM.Data.Aggregated
 import Cardano.BM.Data.LogItem
-import Cardano.BM.Data.Tracer (WithSeverity (..), annotateSeverity, mkObject, trStructured)
+import Cardano.BM.Data.Tracer (WithSeverity (..), annotateSeverity, mkObject, showTracing, trStructured)
 import Cardano.BM.Data.Transformers
 import Cardano.BM.Trace
 import Cardano.BM.Tracing
-import Cardano.Prelude
+import Cardano.Crypto.DSIGN.Class
+import Cardano.Prelude hiding (show)
+import qualified Cardano.Prelude (show)
 import Codec.CBOR.Read (DeserialiseFailure)
 import Control.Monad.Class.MonadSTM hiding (atomically)
 import Control.Monad.Class.MonadTime
 import Control.Tracer.Transformers
 import Data.Aeson
+import qualified Data.Text as Text
 import Morpho.Config.Types
 import Morpho.Ledger.Block
 import Morpho.Ledger.SnapshotTimeTravel
-import Morpho.Tracing.ToObjectOrphans
+import Morpho.Ledger.Update
+import Morpho.Node.RunNode ()
+import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.Mux.Trace (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket
 import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.BlockchainTime.WallClock.Util
-import Ouroboros.Consensus.Ledger.SupportsMempool
 import Ouroboros.Consensus.Ledger.SupportsProtocol
 import Ouroboros.Consensus.Mempool.API
 import qualified Ouroboros.Consensus.Network.NodeToClient as NodeToClient
@@ -56,8 +60,12 @@ import qualified Ouroboros.Network.AnchoredFragment as AF
 import Ouroboros.Network.Block
 import Ouroboros.Network.BlockFetch.ClientState
 import Ouroboros.Network.BlockFetch.Decision
+import qualified Ouroboros.Network.NodeToClient as NtC
 import Ouroboros.Network.NodeToNode
+import qualified Ouroboros.Network.NodeToNode as NtN
 import Ouroboros.Network.Point
+import Ouroboros.Network.Snocket (LocalAddress)
+import Prelude (String, show)
 
 data Tracers peer localPeer h c
   = Tracers
@@ -74,9 +82,10 @@ data Tracers peer localPeer h c
         -- | Trace Mux
         muxTracer :: Tracer IO (WithMuxBearer peer MuxTrace),
         -- | Trace error policy resolution (flag '--trace-error-policy' will turn on textual output)
+        muxLocalTracer :: Tracer IO (WithMuxBearer (ConnectionId LocalAddress) MuxTrace),
         errorPolicyTracer :: Tracer IO (WithAddr Socket.SockAddr ErrorPolicyTrace),
         powNodeRpcTracer :: Tracer IO PoWNodeRpcTrace,
-        morphoStateTracer :: Tracer IO (MorphoStateTrace h c),
+        extractStateTracer :: Tracer IO (ExtractStateTrace h c),
         timeTravelErrorTracer :: Tracer IO (TimeTravelError (MorphoBlock h c)),
         -- | Chain Tip tracer.
         --
@@ -88,7 +97,11 @@ data Tracers peer localPeer h c
         --   enough for now.
         chainTipTracer :: Tracer IO Text,
         nodeToNodeTracers :: NodeToNode.Tracers IO peer (MorphoBlock h c) DeserialiseFailure,
-        nodeToClientTracers :: NodeToClient.Tracers IO localPeer (MorphoBlock h c) DeserialiseFailure
+        nodeToClientTracers :: NodeToClient.Tracers IO localPeer (MorphoBlock h c) DeserialiseFailure,
+        handshakeTracer :: Tracer IO NtN.HandshakeTr,
+        handshakeLocalTracer :: Tracer IO NtC.HandshakeTr,
+        localErrorPolicyTracer :: Tracer IO (NtN.WithAddr NtC.LocalAddress NtN.ErrorPolicyTrace),
+        acceptPolicyTracer :: Tracer IO AcceptConnectionsPolicyTrace
       }
 
 -- | get information about a chain fragment
@@ -146,11 +159,12 @@ instance ToObject (MeasureTxs blk) where
 -- Condense implementations.
 mkTracers ::
   forall peer localPeer blk h c.
-  ( HashAlgorithm h,
-    BftCrypto c,
-    Show peer,
+  ( Show peer,
     Show localPeer,
+    MorphoStateDefaultConstraints h c,
+    NoUnexpectedThunks c,
     blk ~ (MorphoBlock h c),
+    Signable (BftDSIGN c) (MorphoStdHeader h c),
     LedgerSupportsProtocol blk
   ) =>
   TraceOptions ->
@@ -158,8 +172,8 @@ mkTracers ::
   IO (Tracers peer localPeer h c)
 mkTracers traceOptions tracer = do
   -- We probably don't want to pay the extra IO cost per-counter-increment. -- sk
-  staticMetaCC <- mkLOMeta Critical Confidential
-  let name :: Text = "metrics Forge"
+  staticMetaCC <- mkLOMeta Info Confidential
+  let name :: Text = "metrics.Forge"
   forgeTracers <-
     ForgeTracers
       <$> counting (liftCounting staticMetaCC name "forged" tracer)
@@ -177,7 +191,10 @@ mkTracers traceOptions tracer = do
   pure
     Tracers
       { chainDBTracer =
-          nullTracer, -- TODO
+         tracerOnOff (traceChainDB traceOptions)
+            $ annotateSeverity
+            $ toLogObject' tracingVerbosity
+            $ appendName "ChainDB" tracer,
         consensusTracers =
           mkConsensusTracers forgeTracers traceOptions,
         ipSubscriptionTracer =
@@ -200,16 +217,21 @@ mkTracers traceOptions tracer = do
             $ annotateSeverity
             $ toLogObject' tracingVerbosity
             $ appendName "Mux" tracer,
+        muxLocalTracer =
+          tracerOnOff (traceMux traceOptions)
+            $ annotateSeverity
+            $ toLogObject' tracingVerbosity
+            $ appendName "LocalMux" tracer,
         errorPolicyTracer =
           tracerOnOff (traceErrorPolicy traceOptions)
             $ annotateSeverity
             $ toLogObject' tracingVerbosity
             $ appendName "ErrorPolicy" tracer,
-        morphoStateTracer =
+        extractStateTracer =
           tracerOnOff (traceLedgerState traceOptions)
             $ annotateSeverity
             $ toLogObject' tracingVerbosity
-            $ appendName "MorphoState" tracer,
+            $ appendName "ExtractState" tracer,
         powNodeRpcTracer =
           tracerOnOff (tracePoWNodeRpc traceOptions)
             $ annotateSeverity
@@ -228,7 +250,27 @@ mkTracers traceOptions tracer = do
         nodeToNodeTracers =
           nodeToNodeTracers' traceOptions tracer,
         nodeToClientTracers =
-          nodeToClientTracers' traceOptions tracer
+          nodeToClientTracers' traceOptions tracer,
+        handshakeTracer =
+          tracerOnOff (traceHandshake traceOptions)
+            $ annotateSeverity
+            $ toLogObject' tracingVerbosity
+            $ appendName "Handshake" tracer,
+        handshakeLocalTracer =
+          tracerOnOff (traceHandshake traceOptions)
+            $ annotateSeverity
+            $ toLogObject' tracingVerbosity
+            $ appendName "HandshakeLocal" tracer,
+        localErrorPolicyTracer =
+          tracerOnOff (traceErrorPolicy traceOptions)
+            $ annotateSeverity
+            $ toLogObject' tracingVerbosity
+            $ appendName "Handshake" tracer,
+        acceptPolicyTracer =
+          tracerOnOff (traceErrorPolicy traceOptions)
+            $ annotateSeverity
+            $ toLogObject' tracingVerbosity
+            $ appendName "Handshake" tracer
       }
   where
     tracingVerbosity :: TracingVerbosity
@@ -261,7 +303,7 @@ mkTracers traceOptions tracer = do
           logValue1 = LogValue "txsInMempool" $ PureI $ fromIntegral (msNumTxs tot)
           logValue2 :: LOContent a
           logValue2 = LogValue "txsProcessed" $ PureI $ fromIntegral n
-      meta <- mkLOMeta Critical Confidential
+      meta <- mkLOMeta Info Confidential
       traceNamedObject tr' (meta, logValue1)
       traceNamedObject tr' (meta, logValue2)
     mempoolTracer :: Tracer IO (TraceEventMempool blk)
@@ -274,7 +316,7 @@ mkTracers traceOptions tracer = do
     forgeTracer :: ForgeTracers -> TraceOptions -> Tracer IO (Consensus.TraceForgeEvent blk)
     forgeTracer forgeTracers traceOpts = Tracer $ \ev -> do
       traceWith (measureTxsEnd tracer) ev
-      traceWith (consensusForgeTracer) ev
+      traceWith consensusForgeTracer ev
       where
         -- The consensus tracer.
         consensusForgeTracer =
@@ -309,7 +351,7 @@ mkTracers traceOptions tracer = do
       Tracer IO (WithSeverity (Consensus.TraceForgeEvent blk))
     teeForge' tr =
       Tracer $ \(WithSeverity _ ev) -> do
-        meta <- mkLOMeta Critical Confidential
+        meta <- mkLOMeta Info Confidential
         traceNamedObject (appendName "metrics" tr) . (meta,) $
           case ev of
             Consensus.TraceForgedBlock slot _ _ _ ->
@@ -333,9 +375,9 @@ mkTracers traceOptions tracer = do
             Consensus.TraceBlockFromFuture slot _ ->
               LogValue "blockFromFuture" $ PureI $ fromIntegral $ unSlotNo slot
             Consensus.TraceSlotIsImmutable slot _ _ ->
-              LogValue "blockFromFuture" $ PureI $ fromIntegral $ unSlotNo slot
+              LogValue "slotIsImmutable" $ PureI $ fromIntegral $ unSlotNo slot
             Consensus.TraceNodeIsLeader slot ->
-              LogValue "blockFromFuture" $ PureI $ fromIntegral $ unSlotNo slot
+              LogValue "nodeIsLeader" $ PureI $ fromIntegral $ unSlotNo slot
     mkConsensusTracers :: ForgeTracers -> TraceOptions -> Consensus.Tracers IO peer localPeer blk
     mkConsensusTracers forgeTracers traceOpts =
       Consensus.Tracers
@@ -388,7 +430,7 @@ mkTracers traceOptions tracer = do
     readableTraceBlockchainTimeEvent :: TraceBlockchainTimeEvent -> Text
     readableTraceBlockchainTimeEvent ev = case ev of
       TraceStartTimeInTheFuture (SystemStart start) toWait ->
-        "Waiting " <> show toWait <> " until genesis start time at " <> show start
+        "Waiting " <> (Cardano.Prelude.show toWait) <> " until genesis start time at " <> Cardano.Prelude.show start
       TraceCurrentSlotUnknown _ _ -> "Current slot is not yet known"
 
 chainInformation ::
@@ -450,8 +492,9 @@ withTip varTip tr = Tracer $ \msg -> do
 
 nodeToNodeTracers' ::
   ( Show peer,
-    HashAlgorithm h,
-    BftCrypto c,
+    Signable (BftDSIGN c) (MorphoStdHeader h c),
+    MorphoStateDefaultConstraints h c,
+    NoUnexpectedThunks c,
     blk ~ (MorphoBlock h c)
   ) =>
   TraceOptions ->
@@ -476,10 +519,8 @@ nodeToNodeTracers' traceOptions tracer =
               $ toLogObject' tVerb
               $ appendName "BlockFetchProtocol" tracer,
           NodeToNode.tBlockFetchSerialisedTracer =
-            tracerOnOff (traceBlockFetchProtocolSerialised traceOptions)
-              $ annotateSeverity
-              $ toLogObject' tVerb
-              $ appendName "BlockFetchProtocolSerialised" tracer,
+            showOnOff (traceBlockFetchProtocolSerialised traceOptions)
+              "BlockFetchProtocolSerialised" tracer,
           NodeToNode.tTxSubmissionTracer =
             tracerOnOff (traceTxSubmissionProtocol traceOptions)
               $ annotateSeverity
@@ -489,8 +530,6 @@ nodeToNodeTracers' traceOptions tracer =
 
 nodeToClientTracers' ::
   ( Show peer,
-    HashAlgorithm h,
-    BftCrypto c,
     blk ~ (MorphoBlock h c)
   ) =>
   TraceOptions ->
@@ -516,7 +555,21 @@ nodeToClientTracers' traceOptions tracer =
               $ appendName "LocalStateQueryProtocol" tracer
         }
 
+instance Show a => Show (WithSeverity a) where
+  show (WithSeverity _sev a) = show a
+
 -- Turn on/off a tracer depending on what was parsed from the command line.
 tracerOnOff :: Bool -> Tracer IO a -> Tracer IO a
 tracerOnOff False _ = nullTracer
 tracerOnOff True tracer = tracer
+
+showOnOff
+  :: (Show a, HasSeverityAnnotation a)
+  => Bool -> LoggerName -> Trace IO Text -> Tracer IO a
+showOnOff False _ _ = nullTracer
+showOnOff True name trcer = annotateSeverity
+                                $ showTracing
+                                $ withName name trcer
+
+withName :: Text -> Trace IO Text -> Tracer IO String
+withName name tr = contramap Text.pack $ toLogObject $ appendName name tr

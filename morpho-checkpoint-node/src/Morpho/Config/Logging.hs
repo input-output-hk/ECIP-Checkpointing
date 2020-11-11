@@ -154,8 +154,8 @@ loggingCLIConfiguration mfp captureMetrics' =
         throwIO $ FileNotFoundException fp
 
 createLoggingFeature ::
-  NodeCLI -> IO (LoggingLayer, CardanoFeature)
-createLoggingFeature nCli = do
+  NodeCLI -> NodeConfiguration -> IO (LoggingLayer, CardanoFeature)
+createLoggingFeature nCli nc = do
   -- we parse any additional configuration if there is any
   -- We don't know where the user wants to fetch the additional
   -- configuration from, it could be from
@@ -163,7 +163,6 @@ createLoggingFeature nCli = do
   --
   -- Currently we parse outside the features since we want to have a complete
   -- parser for __every feature__.
-  nc <- parseNodeConfiguration . unConfigPath $ configFp nCli
   let logConfigFp = if ncLoggingSwitch nc then Just . unConfigPath $ configFp nCli else Nothing
   (disabled', loggingConfiguration) <- loggingCLIConfiguration logConfigFp (ncLogMetrics nc)
   -- we construct the layer

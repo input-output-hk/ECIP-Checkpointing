@@ -159,6 +159,7 @@ traceConfigParser v =
     <*> v .:? "TraceDNSResolver" .!= True
     <*> v .:? "TraceErrorPolicy" .!= True
     <*> v .:? "TraceMux" .!= True
+    <*> v .:? "TraceHandshake" .!= True
     <*> v .:? "TraceLedgerState" .!= True
     <*> v .:? "TracePoWNodeRpc" .!= True
     <*> v .:? "TraceTimeTravelError" .!= True
@@ -336,6 +337,7 @@ data TraceOptions
         traceDnsResolver :: !Bool,
         traceErrorPolicy :: !Bool,
         traceMux :: !Bool,
+        traceHandshake :: Bool,
         traceLedgerState :: !Bool,
         tracePoWNodeRpc :: !Bool,
         traceTimeTravelError :: !Bool

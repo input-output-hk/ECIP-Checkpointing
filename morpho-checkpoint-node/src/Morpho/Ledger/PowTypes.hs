@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Morpho.Ledger.PowTypes
   ( PowBlockNo (..),
@@ -54,8 +55,17 @@ data PowBlockRef
   deriving anyclass (Serialise)
   deriving anyclass (NoUnexpectedThunks)
 
-instance ToJSON PowBlockRef
-instance FromJSON PowBlockRef
+instance ToJSON PowBlockRef where
+  toJSON PowBlockRef {..} = object
+    [ ("number", toJSON powBlockNo)
+    , ("hash", toJSON powBlockHash)
+    ]
+
+instance FromJSON PowBlockRef where
+  parseJSON = withObject "PowBlockRef" $ \v ->
+    PowBlockRef
+      <$> v .: "number"
+      <*> v .: "hash"
 
 data Vote
   = Vote

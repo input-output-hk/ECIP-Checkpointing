@@ -3,40 +3,25 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Morpho.RPC.Types
-  ( PoWBlock (..),
-    PoWBlockNumber (..),
-    PoWBlockHash (..),
-    ObftSignature (..),
+  ( ObftSignature (..),
     PoWBlockchainCheckpoint (..),
     PoWNodeRPCResponse (..),
-    LatestPoWBlockResult (..),
     PoWNodeJSONRequest,
     LatestPoWBlockResponse,
     PoWNodeCheckpointResponse,
     mkLatestBlockRequest,
     mkPoWNodeCheckpointRequest,
+    getParams,
   )
 where
 
 import Cardano.Prelude
+import Control.Monad.Fail
 import Data.Aeson
 import Data.Aeson.Types
-import Data.Vector as V
+import qualified Data.Vector as V
+import Morpho.Common.Conversions
 import Morpho.Ledger.PowTypes
-
-newtype PoWBlockNumber = PoWBlockNumber Text
-  deriving (Generic, Eq, Show)
-
-instance ToJSON PoWBlockNumber
-
-instance FromJSON PoWBlockNumber
-
-newtype PoWBlockHash = PoWBlockHash Text
-  deriving (Generic, Eq, Show)
-
-instance ToJSON PoWBlockHash
-
-instance FromJSON PoWBlockHash
 
 newtype ObftSignature = ObftSignature Text
   deriving (Generic, Eq, Show)
@@ -45,29 +30,32 @@ instance ToJSON ObftSignature
 
 instance FromJSON ObftSignature
 
-data PoWBlock
-  = PoWBlock
-      { blockNumber :: !PoWBlockNumber,
-        blockHash :: !PoWBlockHash
-      }
-  deriving (Generic, Eq, Show)
-
-instance FromJSON PoWBlock
-
 data PoWBlockchainCheckpoint
   = PoWBlockchainCheckpoint
-      { parentHash :: !PoWBlockHash,
+      { parentHash :: !PowBlockHash,
         signatures :: [ObftSignature]
       }
   deriving (Generic, Eq, Show)
 
 instance ToJSON PoWBlockchainCheckpoint where
-  toJSON (PoWBlockchainCheckpoint (PoWBlockHash h) sigs) =
+  toJSON (PoWBlockchainCheckpoint (PowBlockHash h) sigs) =
     Array $
       V.fromList
-        [ String h,
+        [ String $ bytesToHex h,
           Array $ V.fromList $ (\(ObftSignature s) -> String s) <$> sigs
         ]
+
+instance FromJSON PoWBlockchainCheckpoint where
+  parseJSON = withArray "PoWBlockchainCheckpoint" $ \vector
+    -> case V.toList vector of
+          [h, Array vsigs] -> do
+            hash <- parseJSON h
+            sigs <- mapM parseSig (V.toList vsigs)
+            return $ PoWBlockchainCheckpoint hash sigs
+          _ -> fail "failed to parse PoWBlockchainCheckpoint"
+    where
+      parseSig :: Value -> Parser ObftSignature
+      parseSig = withText "ObftSignature" $ return . ObftSignature
 
 data PoWNodeJSONRequest p
   = PoWNodeJSONRequest
@@ -78,9 +66,16 @@ data PoWNodeJSONRequest p
       }
   deriving (Show, Eq, Generic)
 
+getParams :: PoWNodeJSONRequest p -> p
+getParams = params
+
 instance ToJSON (PoWNodeJSONRequest PoWBlockchainCheckpoint)
 
+instance FromJSON (PoWNodeJSONRequest PoWBlockchainCheckpoint)
+
 instance ToJSON (PoWNodeJSONRequest [Int])
+
+instance FromJSON (PoWNodeJSONRequest [Int])
 
 data PoWNodeRPCResponse r
   = PoWNodeRPCResponse
@@ -90,31 +85,23 @@ data PoWNodeRPCResponse r
       }
   deriving (Generic, Eq, Show)
 
-data LatestPoWBlockResult
-  = LatestPoWBlockResult
-      { number :: !PowBlockNo,
-        hash :: !PowBlockHash
-      }
-  deriving (Generic, Eq, Show)
-
-instance FromJSON LatestPoWBlockResult
-
-type LatestPoWBlockResponse = PoWNodeRPCResponse LatestPoWBlockResult
+type LatestPoWBlockResponse = PoWNodeRPCResponse PowBlockRef
 
 type PoWNodeCheckpointResponse = PoWNodeRPCResponse Bool
 
-parseRpcResponse :: (FromJSON r) => Value -> Parser (PoWNodeRPCResponse r)
-parseRpcResponse = withObject "PoWNodeRPCResponse" $ \v ->
-  PoWNodeRPCResponse
-    <$> v .: "jsonrpc"
-    <*> v .: "result"
-    <*> v .: "id"
+instance ToJSON r => ToJSON (PoWNodeRPCResponse r) where
+  toJSON resp = object
+    [ ("jsonrpc", toJSON $ responseJsonrpc resp)
+    , ("result", toJSON $ responseResult resp)
+    , ("id", toJSON $ responseid resp)
+    ]
 
-instance FromJSON LatestPoWBlockResponse where
-  parseJSON = parseRpcResponse
-
-instance FromJSON PoWNodeCheckpointResponse where
-  parseJSON = parseRpcResponse
+instance FromJSON r => FromJSON (PoWNodeRPCResponse r) where
+  parseJSON = withObject "PoWNodeRPCResponse" $ \v ->
+    PoWNodeRPCResponse
+      <$> v .: "jsonrpc"
+      <*> v .: "result"
+      <*> v .: "id"
 
 mkLatestBlockRequest :: Int -> PoWNodeJSONRequest [Int]
 mkLatestBlockRequest k = PoWNodeJSONRequest "2.0" "checkpointing_getLatestBlock" [k] 1

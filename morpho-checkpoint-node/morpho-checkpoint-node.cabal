@@ -36,7 +36,7 @@ library
         Morpho.Node.Features.Node
         Morpho.RPC.Request
         Morpho.RPC.Types
-        Morpho.Tracing.ToObjectOrphans
+        Morpho.Tracing.TracingOrphanInstances
         Morpho.Tracing.Types
         Morpho.Tracing.Tracers
         Morpho.Tracing.Metrics
