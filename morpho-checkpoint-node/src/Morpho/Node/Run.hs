@@ -78,8 +78,8 @@ runNode loggingLayer nc nCli = do
   let trace =
         setHostname hn $
           llAppendName loggingLayer "node" (llBasicTrace loggingLayer :: Trace IO Text)
-  pInfo <- protocolInfoMorpho nc defaultSecurityParam
-  tracers <- mkTracers (traceOpts nCli) trace
+  pInfo <- protocolInfoMorpho nc
+  tracers <- mkTracers (ncTraceOpts nc) trace
   handleSimpleNode pInfo trace tracers nCli nc
   where
     hostname = do
@@ -267,10 +267,10 @@ requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
     processResponse resp = do
       set (fromIntegral . powBlockNo $ blockRef resp) $ mLatestPowBlock metrics
       st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
-      let maybeVote = considerCandidate (blockConfigLedger $ topLevelConfigBlock $ getTopLevelConfig kernel) st (blockRef resp)
+      let maybeVote = voteBlockRef (blockConfigLedger $ topLevelConfigBlock $ getTopLevelConfig kernel) st (blockRef resp)
       case maybeVote of
-        Nothing -> pure ()
-        Just vote -> tryAddTxs [voteToTx vote] >> pure ()
+        Left _err -> pure ()
+        Right vote -> tryAddTxs [voteToTx vote] >> pure ()
       (traceWith tr . RpcLatestPoWBlock) resp
     blockRef (PoWNodeRPCResponse _ (LatestPoWBlockResult n h) _) = PowBlockRef n h
     voteToTx = mkMorphoGenTx . Tx

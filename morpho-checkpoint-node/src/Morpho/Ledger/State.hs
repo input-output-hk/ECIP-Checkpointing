@@ -27,6 +27,7 @@ import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.PowTypes
 import Ouroboros.Consensus.Block.Abstract hiding (blockNo)
 import Ouroboros.Consensus.BlockchainTime
+import Ouroboros.Consensus.Config.SecurityParam
 import Ouroboros.Network.Block
   ( ChainHash,
     Point,
@@ -60,6 +61,7 @@ data MorphoError blk
 data MorphoLedgerConfig
   = MorphoLedgerConfig
       { checkpointingInterval :: Int,
+        securityParam :: SecurityParam,
         requiredMajority :: Int,
         fedPubKeys :: [PublicKey],
         -- Used to reconstruct `EraParams`

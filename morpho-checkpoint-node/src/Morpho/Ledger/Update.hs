@@ -24,7 +24,9 @@ module Morpho.Ledger.Update
     LedgerState (..),
     MorphoStateDefaultConstraints,
     Query (..),
-    considerCandidate,
+    ExtractTxError (..),
+    WontPushCheckpoint (..),
+    voteBlockRef,
     genesisMorphoLedgerState,
     mkMorphoGenTx,
     updateMorphoState,
@@ -94,16 +96,19 @@ instance
   (MorphoStateDefaultConstraints h c) =>
   ApplyBlock (LedgerState (MorphoBlock h c)) (MorphoBlock h c)
   where
-  applyLedgerBlock bcfg = updateMorphoLedgerState (blockConfigLedger bcfg)
+  applyLedgerBlock = updateMorphoLedgerState
 
-  reapplyLedgerBlock bcfg = (mustSucceed . runExcept) .: updateMorphoLedgerState (blockConfigLedger bcfg)
+  reapplyLedgerBlock bcfg = (mustSucceed . runExcept) .: updateMorphoLedgerState bcfg
     where
       mustSucceed (Left err) = panic ("reapplyLedgerBlock: unexpected error: " <> show err)
       mustSucceed (Right st) = st
 
 updateMorphoLedgerState ::
-  (MorphoStateDefaultConstraints h c) =>
-  MorphoLedgerConfig ->
+  ( MorphoStateDefaultConstraints h c,
+    blk ~ MorphoBlock h c
+  )
+  =>
+  FullBlockConfig (LedgerState blk) blk ->
   MorphoBlock h c ->
   Ticked (LedgerState (MorphoBlock h c)) ->
   Except (MorphoError (MorphoBlock h c))
@@ -160,7 +165,7 @@ instance
 
   applyTx = applyTxMorpho
   reapplyTx = applyTxMorpho
-  maxTxCapacity = \_ -> 2000 -- TODO: calculate maxBlockSize - sizeHeaders
+  maxTxCapacity _ = 2000 -- TODO: calculate maxBlockSize - sizeHeaders
 
 instance MorphoStateDefaultConstraints h c => UpdateLedger (MorphoBlock h c)
 
@@ -209,13 +214,13 @@ updateMorphoState ::
     StandardHash blk,
     blk ~ MorphoBlock h c
   ) =>
-  MorphoLedgerConfig ->
+  FullBlockConfig (LedgerState blk) blk ->
   MorphoBlock h c ->
   MorphoState blk ->
   Except (MorphoError blk) (MorphoState blk)
 updateMorphoState cfg b st = do
-  st' <- updateMorphoTip (getHeader b) st
-  updateMorphoStateByTxs cfg (morphoGenTx <$> extractTxs b) st'
+  st' <- updateMorphoTip (blockConfigCodec cfg) (getHeader b) st
+  updateMorphoStateByTxs (blockConfigLedger cfg) (morphoGenTx <$> extractTxs b) st'
 
 updateMorphoTip ::
   ( HasHeader (Header blk),
@@ -224,18 +229,19 @@ updateMorphoTip ::
     BftCrypto c,
     blk ~ MorphoBlock h c
   ) =>
+  CodecConfig blk ->
   Header (MorphoBlock h c) ->
   MorphoState blk ->
   Except (MorphoError blk) (MorphoState blk)
-updateMorphoTip hdr (MorphoState lc chAt vs tip') =
-  if (headerPrevHash defaultCodecConfig hdr) == pointHash tip'
+updateMorphoTip cfg hdr (MorphoState lc chAt vs tip') =
+  if headerPrevHash cfg hdr == pointHash tip'
     then pure $ MorphoState lc chAt vs (headerPoint hdr)
-    else throwError $ MorphoInvalidHash (headerPrevHash defaultCodecConfig hdr) (pointHash tip')
+    else throwError $ MorphoInvalidHash (headerPrevHash cfg hdr) (pointHash tip')
 
 updateMorphoStateByTxs ::
   forall blk h c.
   (blk ~ MorphoBlock h c) =>
-  MorphoLedgerConfig ->
+  MorphoLedgerConfig -> -- FullBlockConfig (LedgerState blk) blk ->
   [Tx] ->
   MorphoState blk ->
   Except (MorphoError blk) (MorphoState blk)
@@ -266,7 +272,7 @@ updateMorphoStateByTxs cfg txs st@(MorphoState _ _ _ tip) = do
 
 updateMorphoStateByVote ::
   (blk ~ MorphoBlock h c) =>
-  MorphoLedgerConfig ->
+  MorphoLedgerConfig -> -- FullBlockConfig (LedgerState blk) blk ->
   MorphoState blk ->
   Vote ->
   Except (MorphoError blk) (MorphoState blk)
@@ -280,7 +286,7 @@ updateMorphoStateByVote cfg st@(MorphoState lc chAt vs tip) v =
       unless (pkValid p) . throwError . MorphoUnknownPublicKey $ v
       pure $ M.insert p v vs
     notDuplicate = isNothing $ find (== v) vs
-    distanceValid = isAtCorrectInterval cfg st (votedPowBlock v)
+    distanceValid = isRight $ isAtCorrectInterval cfg st (votedPowBlock v)
     pkValid p = isJust $ find (p ==) (fedPubKeys cfg)
     maybeRecoveredPoint = recoverPublicKey (voteSignature v) (powBlockRefToBytes $ votedPowBlock v)
     recoveredPoint =
@@ -289,25 +295,43 @@ updateMorphoStateByVote cfg st@(MorphoState lc chAt vs tip) v =
         pure
         maybeRecoveredPoint
 
-isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Bool
+isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
 isAtCorrectInterval cfg st blockRef =
-  (bn - lcNo) `mod` (checkpointingInterval cfg) == 0 && bn > lcNo
+  if (bn - lcNo) `mod` interval == 0 && bn > lcNo
+  then Right ()
+  else Left $ IncorectInterval blockRef bn lcNo interval
   where
     PowBlockNo lcNo = powBlockNo $ checkpointedBlock $ lastCheckpoint st
     PowBlockNo bn = powBlockNo blockRef
+    interval = checkpointingInterval cfg
 
-considerCandidate :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Maybe Vote
-considerCandidate cfg st ref
-  | isAtCorrectInterval cfg st ref = do
-    v <- Vote ref <$> sig
-    if alreadyVoted cfg st ref
-      then Nothing
-      else Just v
-  | otherwise = Nothing
+alreadyVoted :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
+alreadyVoted cfg st ref = if lastVotedBlock == Just ref
+  then Left $ DuplicatedVote ref pubKey
+  else Right ()
   where
-    sig = sign sk bytes
+    lastVotedBlock = votedPowBlock <$> M.lookup pubKey (currentVotes st)
+    KeyPair pubKey _ = nodeKeyPair cfg
+
+voteBlockRef :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError Vote
+voteBlockRef cfg st ref = do
+    _ <- isAtCorrectInterval cfg st ref
+    _ <- alreadyVoted cfg st ref
+    tryVote
+  where
     KeyPair _ sk = nodeKeyPair cfg
     bytes = powBlockRefToBytes ref
+
+    tryVote :: Either ExtractTxError Vote
+    tryVote = case sign sk bytes of
+      Nothing -> Left $ FailedToSignBlockRef ref
+      Just x -> Right (Vote ref x)
+
+data ExtractTxError
+  = IncorectInterval PowBlockRef Int Int Int
+  | DuplicatedVote PowBlockRef PublicKey
+  | FailedToSignBlockRef PowBlockRef
+  deriving (Show, Eq)
 
 findWinner :: Int -> [Vote] -> Maybe PowBlockRef
 findWinner _ [] = Nothing
@@ -322,11 +346,8 @@ findWinner m votes =
     countVotes = M.toList $ foldr f M.empty votes
     (winnerBlock, winnerCount) = maximumBy (comparing swap) countVotes
 
-alreadyVoted :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Bool
-alreadyVoted cfg st ref = lastVotedBlock == Just ref
-  where
-    lastVotedBlock = votedPowBlock <$> M.lookup pubKey (currentVotes st)
-    KeyPair pubKey _ = nodeKeyPair cfg
+data WontPushCheckpoint blk = WontPushCheckpoint (Point blk) (Point blk)
+  deriving (Show, Eq)
 
 {-------------------------------------------------------------------------------
    Hard Fork History
@@ -336,7 +357,7 @@ instance HasHardForkHistory (MorphoBlock h c) where
   type HardForkIndices (MorphoBlock h c) = '[MorphoBlock h c]
   hardForkSummary cfg _st =
     neverForksSummary
-      (defaultEraParams defaultSecurityParam (slotLength cfg))
+      (defaultEraParams (securityParam cfg) (slotLength cfg))
 
 {-------------------------------------------------------------------------------
   QueryLedger

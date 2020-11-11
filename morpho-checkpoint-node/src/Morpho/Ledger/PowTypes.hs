@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module Morpho.Ledger.PowTypes
   ( PowBlockNo (..),
@@ -25,19 +24,26 @@ import Morpho.Common.Bytes
 import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
 
-newtype PowBlockNo = PowBlockNo Int
+newtype PowBlockNo = PowBlockNo {unPowBlockNo :: Int}
   deriving stock (Eq, Show, Generic)
-  deriving newtype (Num, Ord, Real, Enum, Integral, ToJSON)
+  deriving newtype (Num, Ord, Real, Enum, Integral, ToJSON, FromJSON)
   deriving anyclass (Serialise)
   deriving anyclass (NoUnexpectedThunks)
 
-newtype PowBlockHash = PowBlockHash Bytes
+newtype PowBlockHash = PowBlockHash { unPowBlockHash :: Bytes}
   deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (Serialise)
   deriving anyclass (NoUnexpectedThunks)
 
+instance FromJSON PowBlockHash where
+  parseJSON (String text) =
+    case normalizeHex text of
+      Just h -> pure $ PowBlockHash $ bytesFromHex h
+      Nothing -> fail $ "Failed to parse block hash. Invalid hash: " <> show text
+  parseJSON invalid = fail $ "Failed to parse block hash due to type mismatch. Encountered: " <> show invalid
+
 instance ToJSON PowBlockHash where
-  toJSON _ = Null
+  toJSON (PowBlockHash bytes) = String $ bytesToHex bytes
 
 data PowBlockRef
   = PowBlockRef
@@ -49,6 +55,7 @@ data PowBlockRef
   deriving anyclass (NoUnexpectedThunks)
 
 instance ToJSON PowBlockRef
+instance FromJSON PowBlockRef
 
 data Vote
   = Vote
@@ -75,13 +82,4 @@ genesisCheckpoint = Checkpoint (PowBlockRef (PowBlockNo 0) (PowBlockHash empty))
 
 -- used for signing
 powBlockRefToBytes :: PowBlockRef -> Bytes
-powBlockRefToBytes (PowBlockRef (PowBlockNo _) (PowBlockHash h)) = h
-
-instance FromJSON PowBlockHash where
-  parseJSON (String text) =
-    case normalizeHex text of
-      Just h -> pure $ PowBlockHash $ bytesFromHex h
-      Nothing -> fail $ "Failed to parse block hash. Invalid hash: " <> show text
-  parseJSON invalid = fail $ "Failed to parse block hash due to type mismatch. Encountered: " <> show invalid
-
-instance FromJSON PowBlockNo
+powBlockRefToBytes = unPowBlockHash . powBlockHash

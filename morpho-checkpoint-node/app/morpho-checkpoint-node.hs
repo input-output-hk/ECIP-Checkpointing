@@ -18,10 +18,9 @@ main = toplevelExceptionHandler $ do
       Opt.info
         ( nodeCliParser
             <**> helperBrief "help" "Show this help text" nodeCliHelpMain
-            <**> helperBrief "help-tracing" "Show help for tracing options" cliHelpTracing
         )
         ( Opt.fullDesc
-            <> Opt.progDesc "Start node of the Cardano blockchain."
+            <> Opt.progDesc "Start a OBFT-Checkpoint node."
         )
     helperBrief :: String -> String -> String -> Opt.Parser (a -> a)
     helperBrief l d helpText =
@@ -36,12 +35,6 @@ main = toplevelExceptionHandler $ do
         parserHelpHeader "morpho-checkpoint-node" nodeCliParser
           <$$> ""
           <$$> parserHelpOptions nodeCliParser
-    cliHelpTracing :: String
-    cliHelpTracing =
-      renderHelpDoc 80 $
-        "Additional tracing options:"
-          <$$> ""
-          <$$> parserHelpOptions cliTracingParser
 
 -- | Produce just the brief help header for a given CLI option parser,
 --   without the options.

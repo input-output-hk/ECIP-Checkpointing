@@ -151,6 +151,7 @@ test-suite test
         tasty-hunit -any,
         tasty-quickcheck -any,
         tasty-hspec -any,
+        time -any,
         hspec-core -any,
         bytestring -any,
         cardano-prelude -any,
@@ -166,4 +167,5 @@ test-suite test
         text -any,
         QuickCheck -any,
         quickcheck-instances -any,
+        iohk-monitoring -any,
         cborg -any
