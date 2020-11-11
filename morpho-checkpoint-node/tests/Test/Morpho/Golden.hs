@@ -217,10 +217,10 @@ test_golden_ApplyTxErr =
 
 test_golden_parseNodeConfiguration :: Assertion
 test_golden_parseNodeConfiguration = do
-  cfg <- parseNodeConfiguration "tests/Test/Morpho/Golden/Config.yaml"
+  cfg <- parseNodeConfiguration "tests/configuration/Golden/Config.yaml"
   assertEqual "NodeConfiguration" cfg exampleNodeConfig
 
 test_golden_parseTopology :: Assertion
 test_golden_parseTopology = do
-  topology <- readTopologyFile "tests/Test/Morpho/Golden/Topology.json"
+  topology <- readTopologyFile "tests/configuration/Golden/Topology.json"
   assertEqual "Topology" topology (Right exampleTopology)

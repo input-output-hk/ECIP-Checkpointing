@@ -252,10 +252,13 @@ requestCurrentBlock ::
   MorphoMetrics ->
   IO ()
 requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
-  threadDelay (fromMaybe 1000 $ ncPoWBlockFetchInterval nc)
-  catch
-    go
-    (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers)
+  threadDelay (fromMaybe (1000 * 1000) $ ncPoWBlockFetchInterval nc)
+  handle (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers) $ do
+    er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc)
+    either
+      (traceWith tr . RpcResponseParseError FetchLatestPoWBlock)
+      processResponse
+      er
   where
     go = do
       er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc)
