@@ -34,6 +34,7 @@ library
         Morpho.Node.Run
         Morpho.Node.RunNode
         Morpho.Node.Features.Node
+        Morpho.RPC.PoWMock
         Morpho.RPC.Request
         Morpho.RPC.Types
         Morpho.Tracing.TracingOrphanInstances
@@ -88,7 +89,10 @@ library
         transformers -any,
         transformers-except -any,
         vector -any,
-        yaml -any
+        yaml -any,
+        wai -any,
+        http-types,
+        warp -any
 
 executable morpho-checkpoint-node
     main-is:            morpho-checkpoint-node.hs
