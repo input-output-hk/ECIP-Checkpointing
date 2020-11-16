@@ -1,12 +1,14 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 {-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -15,18 +17,21 @@ module Test.Morpho.QSM (qsmTests) where
 
 import Prelude
 
-import Control.Monad (forM)
+import Control.Monad (forM, forM_)
 import Control.Monad.IO.Class
 import Control.Concurrent.Async
 import Data.Kind (Type)
+import Data.List ((\\), union)
 import Data.Map (Map)
 import qualified Data.Map as M
+import Data.Maybe
 import GHC.Generics (Generic, Generic1)
 import System.Directory
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (monadicIO)
-import Test.Morpho.Generators ()
-import Test.StateMachine.Sequential
+import Test.StateMachine
+import Test.StateMachine.Sequential ()
+import qualified Test.StateMachine.Types.Rank2 as Rank2
 import Test.Tasty
 import Test.Tasty.QuickCheck
 import Test.StateMachine
@@ -40,8 +45,9 @@ import Morpho.Node.Features.Node
 
 qsmTests :: TestTree
 qsmTests = testGroup "qsm-tests"
-  [ testProperty "single node" prop_1,
-    testProperty "two nodes" prop_2
+  [ testProperty "1 node  majority = 1" prop_1,
+    testProperty "2 nodes majority = 1" prop_2,
+    testProperty "2 nodes majority = 2" prop_3
   ]
 
 newtype Node = Node Int
@@ -49,15 +55,43 @@ newtype Node = Node Int
   deriving newtype ToExpr
 
 -- TODO extend the tests: test more properties of the chain.
-newtype Chain = Chain {
-  nextBlockNo :: PowBlockNo
-  } deriving (Eq, Show, Generic)
-    deriving newtype ToExpr
+data Chain
+  = Chain
+      { nextBlockNo :: PowBlockNo
+      , unusedPowBlockRef :: Map PowBlockRef [Node]
+      }
+  deriving (Eq, Show, Generic)
+  deriving anyclass (ToExpr)
+
+updateChain :: Config -> Chain -> Command r -> (Chain, Maybe PowBlockRef)
+updateChain Config {..} Chain {..} (SendPowBlock toNodes block)
+  = (chain', mElected)
+  where
+    eiUnused = M.alterF f block unusedPowBlockRef
+    (blockNo, blocks, mElected) = case eiUnused of
+      Deleted refs -> (extendBlockNo nextBlockNo, refs, Just block)
+      Appened refs -> (nextBlockNo, refs, Nothing)
+    chain'
+      = Chain
+        { nextBlockNo = blockNo
+        , unusedPowBlockRef = blocks
+        }
+    f mOld =
+      let allNodes = addToOld mOld
+      in if length allNodes >= majority
+        then Deleted Nothing
+        else Appened (Just allNodes)
+
+    addToOld Nothing = toNodes
+    addToOld (Just oldNodes) = union oldNodes toNodes
+
+data MapResult a = Appened a | Deleted a
+  deriving Functor
 
 newtype MockedChain = MockedChain {
   nextMockedBlockNo :: PowBlockNo
   } deriving (Eq, Show, Generic)
-    deriving newtype ToExpr
+     deriving newtype ToExpr
 
 type Block = PowBlockRef
 
@@ -65,19 +99,22 @@ data Error = Error
   deriving (Eq, Show, Generic, ToExpr)
 
 initChain :: Chain
-initChain = Chain $ PowBlockNo checkpointInterval
+initChain = Chain {
+    nextBlockNo = PowBlockNo checkpointInterval
+  , unusedPowBlockRef = M.empty
+  }
 
 shrinker :: Model Symbolic -> Command Symbolic -> [Command Symbolic]
 shrinker _ _ = []
 
 data Model (r :: Type -> Type) = Model {
-    nodes :: Map Node MockedChain
+    nodes :: [Node]
   , chain :: Chain
   }
   deriving (Eq, Show, Generic)
 
 data Command (r :: Type -> Type) =
-    CreatePoWBlock Node Block
+    SendPowBlock [Node] Block
     deriving (Eq, Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable, CommandNames)
 
 newtype Response (r :: Type -> Type) = Response
@@ -85,8 +122,10 @@ newtype Response (r :: Type -> Type) = Response
   deriving stock (Eq, Show, Generic1)
   deriving anyclass Rank2.Foldable
 
-data ValidationData = ValidationData !PowBlockHash !Int
-    deriving (Eq, Show)
+data ValidationData
+  = ValidationData !PowBlockHash !Int
+  | NoCheckpoint
+  deriving (Eq, Show)
 
 instance ToExpr Bytes
 instance ToExpr PowBlockHash
@@ -102,100 +141,142 @@ checkpointInterval = 4
 extendBlockNo :: PowBlockNo -> PowBlockNo
 extendBlockNo = PowBlockNo . (+ checkpointInterval) . unPowBlockNo
 
-initModel :: Map Node MockedChain -> Model r
+initModel :: [Node] -> Model r
 initModel mockMap = Model mockMap initChain
 
-transition :: Model r -> Command r -> Response r -> Model r
-transition m cmd resp = case (cmd, getResponse resp) of
-    (CreatePoWBlock node blk, Right _) ->
-      -- TODO check if there has been adoption of the block, based on the majority required
-      Model {
-        nodes = extendMockChain node
-      , chain = Chain $ extendBlockNo $ powBlockNo blk
-      }
-    (CreatePoWBlock _node _blk, Left _) -> m
-    where
-    extendMockChain node =
-      M.alter (\(Just (MockedChain n)) -> Just (MockedChain $ extendBlockNo n)) node (nodes m)
+transition :: Config -> Model r -> Command r -> Response r -> Model r
+transition cfg Model {..} cmd _resp =
+  let (chain', _) = updateChain cfg chain cmd
+  in Model nodes chain'
 
 precondition :: Model Symbolic -> Command Symbolic -> Logic
 precondition Model {..} _ = Top
 
-postcondition :: Model Concrete -> Command Concrete -> Response Concrete -> Logic
-postcondition m@Model {..} cmd@CreatePoWBlock {} resp =
-    toMock m cmd .== resp
+postcondition :: Config -> Model Concrete -> Command Concrete -> Response Concrete -> Logic
+postcondition cfg m@Model {..} cmd@SendPowBlock {} resp =
+    resp .== toMock cfg m cmd
 
-semantics :: Map Node MockNodeHandle -> Command Concrete -> IO (Response Concrete)
-semantics handles (CreatePoWBlock node blockRef) = do
-    let mockNode = case M.lookup node handles of
-          Nothing -> error $ "Couldn't find " ++ show node ++ " in " ++ show handles
-          Just mNode -> mNode
-    addPoWBlock mockNode blockRef
-    res <- waitAll $ M.toList handles
+semantics :: Config -> Map Node MockNodeHandle -> Command Concrete -> IO (Response Concrete)
+semantics cfg handles (SendPowBlock toNodes blockRef) = do
+    let getHandle node =
+          fromMaybe (error $ "Couldn't find " ++ show node ++ " in " ++ show handles)
+          (M.lookup node handles)
+    let sendHandles = getHandle <$> toNodes
+    forM_ sendHandles (\h -> addPoWBlock h blockRef)
+    res <- waitAll cfg $ M.toList handles
     return $ Response $ Right res
 
 -- | Wait and get the next nextpoint from all the nodes.
-waitAll :: [(Node, MockNodeHandle)] -> IO [(Node, ValidationData)]
-waitAll = mapConcurrently $ \(node, mockHandle) -> do
-  checkpoint <- waitCheckpoint mockHandle
-  return (node, ValidationData (parentHash checkpoint) (Prelude.length $ signatures checkpoint))
+waitAll :: Config -> [(Node, MockNodeHandle)] -> IO [(Node, ValidationData)]
+waitAll cfg = mapConcurrently $ \(node, mockHandle) -> do
+  mCheckpoint <- waitCheckpoint 15 mockHandle
+  let res = case mCheckpoint of
+        Nothing -> NoCheckpoint
+        Just chkp -> ValidationData (parentHash chkp) (majority cfg)
+  return (node, res)
 
 generator :: Model Symbolic -> Maybe (Gen (Command Symbolic))
 generator Model {..} = Just $ do
--- TODO extend the generators
-  (node, mockedChain) <- elements $ M.toList nodes
-  let blockNo = max (nextMockedBlockNo mockedChain) (nextBlockNo chain)
-  block <- genBlockRef blockNo -- (unPowBlockNo $ nextBlockNo mockedChain)
-  return $ CreatePoWBlock node block
+  -- TODO extend the generators
+  (toNodes, block) <- frequency
+        [ (1,newBlockGen)
+        , (if M.null (unusedPowBlockRef chain) then 0 else 100, existingBlockGen)]
+  return $ SendPowBlock toNodes block
   where
+    newBlockGen = do
+        toNodes <- suchThat (sublistOf nodes) (not . null)
+        let blockNo = nextBlockNo chain
+        block <- genBlockRef blockNo
+        return (toNodes, block)
+    existingBlockGen = do
+        (block, oldNodes) <- elements $ M.toList (unusedPowBlockRef chain)
+        newNodes <- suchThat (sublistOf $ nodes \\ oldNodes) (not . null)
+        return (newNodes, block)
     genBlockRef blockNo =
       PowBlockRef blockNo <$> arbitrary
 
-toMock :: Model r -> Command r -> Response r
-toMock m cmd = case cmd of
-    CreatePoWBlock _node block ->
-      Response $ Right $
-        M.toList $ fmap (\_ -> ValidationData (powBlockHash block) 1) (nodes m)
+toMock :: Config -> Model r -> Command r -> Response r
+toMock cfg Model {..} cmd = Response $ Right $
+  case snd $ updateChain cfg chain cmd of
+    Just elected ->
+      map (,ValidationData (powBlockHash elected) (majority cfg)) nodes
+    _ ->
+      map (,NoCheckpoint) nodes
 
-mock :: Model Symbolic -> Command Symbolic -> GenSym (Response Symbolic)
-mock m cmd = return $ toMock m cmd
+mock :: Config -> Model Symbolic -> Command Symbolic -> GenSym (Response Symbolic)
+mock cfg m cmd = return $ toMock cfg m cmd
 
-mkSM :: Int -> [NodeHandle] -> StateMachine Model Command IO Response
-mkSM n handles = StateMachine (initModel mockMap) transition precondition postcondition
-       Nothing generator shrinker (semantics $ mockNode <$> handlesMap) mock noCleanup
-    where
-      nodes = Node <$> [0..(n - 1)]
-      handlesMap = M.fromList $ zip nodes handles
-      mockMap = M.fromList $ zip nodes (replicate n (MockedChain $ PowBlockNo checkpointInterval))
+mkSM :: Config -> [NodeHandle] -> StateMachine Model Command IO Response
+mkSM cfg@Config {..} handles =
+  StateMachine
+    (initModel mockMap)
+    (transition cfg)
+    precondition
+    (postcondition cfg)
+    Nothing
+    generator
+    shrinker
+    (semantics cfg $ mockNode <$> handlesMap)
+    (mock cfg)
+    noCleanup
+  where
+    nodes = Node <$> [0 .. (nodesNumber - 1)]
+    handlesMap = M.fromList $ zip nodes handles
+    mockMap = nodes
 
-unusedSM :: Int -> StateMachine Model Command IO Response
-unusedSM n = mkSM n $ error "NodeHandle not used on generation or shrinking"
+unusedSM :: Config -> StateMachine Model Command IO Response
+unusedSM cfg = mkSM cfg $ error "NodeHandle not used on generation or shrinking"
 
 prop_1 :: Property
 prop_1 = noShrinking $ withMaxSuccess 1 $
-  forAllCommands (unusedSM 1) (Just 2) $ \cmds -> monadicIO $ do
+  forAllCommands (unusedSM config) (Just 2) $ \cmds -> monadicIO $ do
     nodeHandles <- liftIO $ setup 1 1
-    let sm = mkSM 1 nodeHandles
+    let sm = mkSM config nodeHandles
     (hist, _model, res) <- runCommands sm cmds
     liftIO $ mapM_ cleanup nodeHandles
     prettyCommands sm hist (res === Ok)
+  where
+    config = Config {
+        nodesNumber = 1
+      , majority = 1
+      }
 
 prop_2 :: Property
 prop_2 = noShrinking $ withMaxSuccess 1 $
-  forAllCommands (unusedSM 2) (Just 2) $ \cmds -> monadicIO $ do
+  forAllCommands (unusedSM config) (Just 2) $ \cmds -> monadicIO $ do
     nodeHandles <- liftIO $ setup 2 2
-    liftIO $ print cmds
-    let sm = mkSM 2 nodeHandles
+    let sm = mkSM config nodeHandles
     (hist, _model, res) <- runCommands sm cmds
     liftIO $ mapM_ cleanup nodeHandles
     prettyCommands sm hist (res === Ok)
+  where
+    config = Config {
+        nodesNumber = 2
+      , majority = 1
+      }
+
+prop_3 :: Property
+prop_3 = verbose $ noShrinking $ withMaxSuccess 3
+  $ forAllCommands (unusedSM config) (Just 1)
+  $ \cmds -> monadicIO $ do
+    nodeHandles <- liftIO $ setup 2 3
+    liftIO $ print cmds
+    let sm = mkSM config nodeHandles
+    (hist, _model, res) <- runCommands sm cmds
+    liftIO $ mapM_ cleanup nodeHandles
+    prettyCommands sm hist (res === Ok)
+  where
+    config = Config {
+        nodesNumber = 2
+      , majority = 2
+      }
 
 setup :: Int -> Int -> IO [NodeHandle]
 setup nodesNum testId = do
   let testDir = mkTestDir testId
   removePathForcibly testDir
   createDirectoryIfMissing True testDir
-  forM [0..(nodesNum -1)] $ runDualNode testDir testId
+  forM [0..(nodesNum - 1)] $ runDualNode testDir testId
 
 cleanup :: NodeHandle -> IO ()
 cleanup NodeHandle {..} = do
@@ -231,6 +312,11 @@ data NodeHandle = NodeHandle {
     _nodeId :: Int
   , mockNode :: MockNodeHandle
   , mainNode :: Async ()
+  }
+
+data Config = Config {
+    nodesNumber :: Int
+  , majority :: Int
   }
 
 mkTestDir :: Int -> String

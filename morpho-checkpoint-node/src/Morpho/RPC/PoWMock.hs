@@ -23,6 +23,7 @@ import Network.HTTP.Types (status200, status404)
 import Network.Wai
 import Network.Wai.Handler.Warp
 import Prelude
+import System.Timeout
 
 data RPCRequst = GetBlock (PoWNodeJSONRequest [Int])
                | PutCheckpoint (PoWNodeJSONRequest PoWBlockchainCheckpoint)
@@ -94,8 +95,8 @@ tryReadCheckPoint MockNodeHandle {..} = readMVar currentCheckPoint
 killServer :: MockNodeHandle -> IO ()
 killServer MockNodeHandle {..} = cancel threadHandle
 
-waitCheckpoint :: MockNodeHandle -> IO PoWBlockchainCheckpoint
-waitCheckpoint MockNodeHandle {..} = do
+waitCheckpoint :: Int -> MockNodeHandle -> IO (Maybe PoWBlockchainCheckpoint)
+waitCheckpoint time MockNodeHandle {..} = timeout (time * 1000 * 1000) $ do
     takeMVar checkPointLock
     Just chkp <- readMVar currentCheckPoint
     return chkp
