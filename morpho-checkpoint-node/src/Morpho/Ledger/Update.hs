@@ -106,8 +106,7 @@ instance
 updateMorphoLedgerState ::
   ( MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c
-  )
-  =>
+  ) =>
   FullBlockConfig (LedgerState blk) blk ->
   MorphoBlock h c ->
   Ticked (LedgerState (MorphoBlock h c)) ->
@@ -298,30 +297,30 @@ updateMorphoStateByVote cfg st@(MorphoState lc chAt vs tip) v =
 isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
 isAtCorrectInterval cfg st blockRef =
   if (bn - lcNo) `mod` interval == 0 && bn > lcNo
-  then Right ()
-  else Left $ IncorectInterval blockRef bn lcNo interval
+    then Right ()
+    else Left $ IncorectInterval blockRef bn lcNo interval
   where
     PowBlockNo lcNo = powBlockNo $ checkpointedBlock $ lastCheckpoint st
     PowBlockNo bn = powBlockNo blockRef
     interval = checkpointingInterval cfg
 
 alreadyVoted :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
-alreadyVoted cfg st ref = if lastVotedBlock == Just ref
-  then Left $ DuplicatedVote ref pubKey
-  else Right ()
+alreadyVoted cfg st ref =
+  if lastVotedBlock == Just ref
+    then Left $ DuplicatedVote ref pubKey
+    else Right ()
   where
     lastVotedBlock = votedPowBlock <$> M.lookup pubKey (currentVotes st)
     KeyPair pubKey _ = nodeKeyPair cfg
 
 voteBlockRef :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError Vote
 voteBlockRef cfg st ref = do
-    _ <- isAtCorrectInterval cfg st ref
-    _ <- alreadyVoted cfg st ref
-    tryVote
+  _ <- isAtCorrectInterval cfg st ref
+  _ <- alreadyVoted cfg st ref
+  tryVote
   where
     KeyPair _ sk = nodeKeyPair cfg
     bytes = powBlockRefToBytes ref
-
     tryVote :: Either ExtractTxError Vote
     tryVote = case sign sk bytes of
       Nothing -> Left $ FailedToSignBlockRef ref

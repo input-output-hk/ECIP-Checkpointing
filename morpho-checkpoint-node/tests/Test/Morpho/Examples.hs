@@ -202,38 +202,38 @@ exampleNodeConfig =
     publicKey = fromMaybe (error "publicKey") $ importPublicKey $ bytesFromHex hex
 
 exampleTraceOptions :: TraceOptions
-exampleTraceOptions = TraceOptions {
-    traceVerbosity = NormalVerbosity
-  , traceChainDB = True
-  , traceChainSyncClient = True
-  , traceChainSyncHeaderServer = True
-  , traceChainSyncBlockServer = True
-  , traceBlockFetchDecisions = True
-  , traceBlockFetchServer = True
-  , traceBlockFetchClient = True
-  , traceTxInbound = True
-  , traceTxOutbound = True
-  , traceLocalTxSubmissionServer = True
-  , traceMempool = True
-  , traceForge = True
-  , traceChainSyncProtocol = True
-  , traceBlockFetchProtocol = True
-  , traceBlockFetchProtocolSerialised = False
-  , traceTxSubmissionProtocol = True
-  , traceLocalChainSyncProtocol = True
-  , traceLocalTxSubmissionProtocol = True
-  , traceLocalStateQueryProtocol = True
-  , traceIpSubscription = False
-  , traceDnsSubscription = False
-  , traceDnsResolver = False
-  , traceErrorPolicy = False
-  , traceMux = False
-  , traceHandshake = True
-  , traceLedgerState = True
-  , tracePoWNodeRpc = True
-  , traceTimeTravelError = True
-  }
-
+exampleTraceOptions =
+  TraceOptions
+    { traceVerbosity = NormalVerbosity,
+      traceChainDB = True,
+      traceChainSyncClient = True,
+      traceChainSyncHeaderServer = True,
+      traceChainSyncBlockServer = True,
+      traceBlockFetchDecisions = True,
+      traceBlockFetchServer = True,
+      traceBlockFetchClient = True,
+      traceTxInbound = True,
+      traceTxOutbound = True,
+      traceLocalTxSubmissionServer = True,
+      traceMempool = True,
+      traceForge = True,
+      traceChainSyncProtocol = True,
+      traceBlockFetchProtocol = True,
+      traceBlockFetchProtocolSerialised = False,
+      traceTxSubmissionProtocol = True,
+      traceLocalChainSyncProtocol = True,
+      traceLocalTxSubmissionProtocol = True,
+      traceLocalStateQueryProtocol = True,
+      traceIpSubscription = False,
+      traceDnsSubscription = False,
+      traceDnsResolver = False,
+      traceErrorPolicy = False,
+      traceMux = False,
+      traceHandshake = True,
+      traceLedgerState = True,
+      tracePoWNodeRpc = True,
+      traceTimeTravelError = True
+    }
 
 exampleTopology :: NetworkTopology
 exampleTopology = NetworkTopology [t1]

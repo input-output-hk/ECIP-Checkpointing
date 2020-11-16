@@ -191,7 +191,7 @@ mkTracers traceOptions tracer = do
   pure
     Tracers
       { chainDBTracer =
-         tracerOnOff (traceChainDB traceOptions)
+          tracerOnOff (traceChainDB traceOptions)
             $ annotateSeverity
             $ toLogObject' tracingVerbosity
             $ appendName "ChainDB" tracer,
@@ -519,8 +519,10 @@ nodeToNodeTracers' traceOptions tracer =
               $ toLogObject' tVerb
               $ appendName "BlockFetchProtocol" tracer,
           NodeToNode.tBlockFetchSerialisedTracer =
-            showOnOff (traceBlockFetchProtocolSerialised traceOptions)
-              "BlockFetchProtocolSerialised" tracer,
+            showOnOff
+              (traceBlockFetchProtocolSerialised traceOptions)
+              "BlockFetchProtocolSerialised"
+              tracer,
           NodeToNode.tTxSubmissionTracer =
             tracerOnOff (traceTxSubmissionProtocol traceOptions)
               $ annotateSeverity
@@ -563,13 +565,17 @@ tracerOnOff :: Bool -> Tracer IO a -> Tracer IO a
 tracerOnOff False _ = nullTracer
 tracerOnOff True tracer = tracer
 
-showOnOff
-  :: (Show a, HasSeverityAnnotation a)
-  => Bool -> LoggerName -> Trace IO Text -> Tracer IO a
+showOnOff ::
+  (Show a, HasSeverityAnnotation a) =>
+  Bool ->
+  LoggerName ->
+  Trace IO Text ->
+  Tracer IO a
 showOnOff False _ _ = nullTracer
-showOnOff True name trcer = annotateSeverity
-                                $ showTracing
-                                $ withName name trcer
+showOnOff True name trcer =
+  annotateSeverity
+    $ showTracing
+    $ withName name trcer
 
 withName :: Text -> Trace IO Text -> Tracer IO String
 withName name tr = contramap Text.pack $ toLogObject $ appendName name tr

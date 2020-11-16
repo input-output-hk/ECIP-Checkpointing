@@ -31,7 +31,7 @@ newtype PowBlockNo = PowBlockNo {unPowBlockNo :: Int}
   deriving anyclass (Serialise)
   deriving anyclass (NoUnexpectedThunks)
 
-newtype PowBlockHash = PowBlockHash { unPowBlockHash :: Bytes}
+newtype PowBlockHash = PowBlockHash {unPowBlockHash :: Bytes}
   deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (Serialise)
   deriving anyclass (NoUnexpectedThunks)
@@ -56,10 +56,11 @@ data PowBlockRef
   deriving anyclass (NoUnexpectedThunks)
 
 instance ToJSON PowBlockRef where
-  toJSON PowBlockRef {..} = object
-    [ ("number", toJSON powBlockNo)
-    , ("hash", toJSON powBlockHash)
-    ]
+  toJSON PowBlockRef {..} =
+    object
+      [ ("number", toJSON powBlockNo),
+        ("hash", toJSON powBlockHash)
+      ]
 
 instance FromJSON PowBlockRef where
   parseJSON = withObject "PowBlockRef" $ \v ->

@@ -160,11 +160,12 @@ instance Condense MorphoBlockTx where
   Configuration Instances
 -------------------------------------------------------------------------------}
 
-data instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig {
-  systemStart :: SystemStart,
-  networkMagic :: NetworkMagic,
-  protocolMagicId :: ProtocolMagicId
-  }
+data instance BlockConfig (MorphoBlock h c)
+  = MorphoBlockConfig
+      { systemStart :: SystemStart,
+        networkMagic :: NetworkMagic,
+        protocolMagicId :: ProtocolMagicId
+      }
   deriving (Generic, NoUnexpectedThunks)
 
 newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()

@@ -46,13 +46,13 @@ instance ToJSON PoWBlockchainCheckpoint where
         ]
 
 instance FromJSON PoWBlockchainCheckpoint where
-  parseJSON = withArray "PoWBlockchainCheckpoint" $ \vector
-    -> case V.toList vector of
-          [h, Array vsigs] -> do
-            hash <- parseJSON h
-            sigs <- mapM parseSig (V.toList vsigs)
-            return $ PoWBlockchainCheckpoint hash sigs
-          _ -> fail "failed to parse PoWBlockchainCheckpoint"
+  parseJSON = withArray "PoWBlockchainCheckpoint" $ \vector ->
+    case V.toList vector of
+      [h, Array vsigs] -> do
+        hash <- parseJSON h
+        sigs <- mapM parseSig (V.toList vsigs)
+        return $ PoWBlockchainCheckpoint hash sigs
+      _ -> fail "failed to parse PoWBlockchainCheckpoint"
     where
       parseSig :: Value -> Parser ObftSignature
       parseSig = withText "ObftSignature" $ return . ObftSignature
@@ -90,11 +90,12 @@ type LatestPoWBlockResponse = PoWNodeRPCResponse PowBlockRef
 type PoWNodeCheckpointResponse = PoWNodeRPCResponse Bool
 
 instance ToJSON r => ToJSON (PoWNodeRPCResponse r) where
-  toJSON resp = object
-    [ ("jsonrpc", toJSON $ responseJsonrpc resp)
-    , ("result", toJSON $ responseResult resp)
-    , ("id", toJSON $ responseid resp)
-    ]
+  toJSON resp =
+    object
+      [ ("jsonrpc", toJSON $ responseJsonrpc resp),
+        ("result", toJSON $ responseResult resp),
+        ("id", toJSON $ responseid resp)
+      ]
 
 instance FromJSON r => FromJSON (PoWNodeRPCResponse r) where
   parseJSON = withObject "PoWNodeRPCResponse" $ \v ->

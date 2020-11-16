@@ -268,25 +268,25 @@ assert_singleVoteInvalidHash = case newStateResult of
     b2 = makeBlockRef (interval testConfig) powBlockHash2
 
 testConfig :: FullBlockConfig (LedgerState TestBlock) TestBlock
-testConfig = FullBlockConfig
-  {
-    blockConfigLedger = MorphoLedgerConfig
-      { checkpointingInterval = 4,
-        securityParam = SecurityParam 4,
-        requiredMajority = 3,
-        fedPubKeys = publicKeys,
-        nodeKeyPair = keyPairs !! 0,
-        slotLength = mkSlotLength 2000
-      },
-    blockConfigBlock =
-      MorphoBlockConfig
-        {
-          systemStart = SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
-          networkMagic = NetworkMagic 12345 ,
-          protocolMagicId = ProtocolMagicId 12345
-        },
-    blockConfigCodec = MorphoCodecConfig ()
-  }
+testConfig =
+  FullBlockConfig
+    { blockConfigLedger =
+        MorphoLedgerConfig
+          { checkpointingInterval = 4,
+            securityParam = SecurityParam 4,
+            requiredMajority = 3,
+            fedPubKeys = publicKeys,
+            nodeKeyPair = keyPairs !! 0,
+            slotLength = mkSlotLength 2000
+          },
+      blockConfigBlock =
+        MorphoBlockConfig
+          { systemStart = SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
+            networkMagic = NetworkMagic 12345,
+            protocolMagicId = ProtocolMagicId 12345
+          },
+      blockConfigCodec = MorphoCodecConfig ()
+    }
 
 interval :: FullBlockConfig (LedgerState TestBlock) TestBlock -> Int
 interval = checkpointingInterval . blockConfigLedger

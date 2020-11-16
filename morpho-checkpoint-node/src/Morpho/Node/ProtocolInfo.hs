@@ -36,8 +36,8 @@ protocolInfoMorpho nc = do
   privKeyStr <- liftIO . readFile $ ncNodePrivKeyFile nc
   start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
   privKey <- case importPrivateKey $ bytesFromHex privKeyStr of
-      Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
-      Just pk -> return pk
+    Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
+    Just pk -> return pk
   let ledgerConfig =
         MorphoLedgerConfig
           { checkpointingInterval = ncCheckpointInterval nc,
@@ -65,7 +65,7 @@ protocolInfoMorpho nc = do
               topLevelConfigBlock =
                 FullBlockConfig
                   { blockConfigLedger = ledgerConfig,
-                    blockConfigBlock = blockConfig ,
+                    blockConfigBlock = blockConfig,
                     blockConfigCodec = MorphoCodecConfig ()
                   }
             },

@@ -92,7 +92,7 @@ library
         vector -any,
         yaml -any,
         wai -any,
-        http-types,
+        http-types -any,
         warp -any
 
 executable morpho-checkpoint-node
@@ -167,7 +167,7 @@ test-suite test
         cardano-crypto-wrapper -any,
         containers -any,
         cryptonite -any,
-        directory,
+        directory -any,
         morpho-checkpoint-node -any,
         ouroboros-network -any,
         ouroboros-consensus -any,
@@ -175,6 +175,6 @@ test-suite test
         text -any,
         QuickCheck -any,
         quickcheck-instances -any,
-        quickcheck-state-machine >= 0.7,
+        quickcheck-state-machine >=0.7,
         iohk-monitoring -any,
         cborg -any
