@@ -39,7 +39,7 @@ LastKnownBlockVersion-Alt: 0
 
 #####         Tracing         #####
 
-minSeverity: Info
+minSeverity: Debug
 
 # MinimalVerbosity: Minimal level of the rendering of captured items
 # MaximalVerbosity: Maximal level of the rendering of captured items

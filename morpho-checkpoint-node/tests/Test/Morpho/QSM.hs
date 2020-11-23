@@ -17,7 +17,7 @@ module Test.Morpho.QSM (qsmTests) where
 
 import Prelude
 
-import Control.Monad (forM, forM_)
+import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class
 import Control.Concurrent.Async
 import Data.Kind (Type)
@@ -26,28 +26,29 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe
 import GHC.Generics (Generic, Generic1)
+import Morpho.Common.Bytes (Bytes)
+import Morpho.Config.Types
+import Morpho.Ledger.PowTypes hiding (Checkpoint (..))
+import Morpho.Node.Features.Node
+import Morpho.RPC.PoWMock
+import Morpho.RPC.Types
 import System.Directory
+import Test.Morpho.Generators ()
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.StateMachine
 import Test.StateMachine.Sequential ()
 import qualified Test.StateMachine.Types.Rank2 as Rank2
+import Test.StateMachine.Utils
 import Test.Tasty
 import Test.Tasty.QuickCheck
-import Test.StateMachine
-import qualified Test.StateMachine.Types.Rank2 as Rank2
-import Morpho.RPC.PoWMock
-import Morpho.RPC.Types
-import Morpho.Common.Bytes (Bytes)
-import Morpho.Config.Types
-import Morpho.Ledger.PowTypes
-import Morpho.Node.Features.Node
 
 qsmTests :: TestTree
 qsmTests = testGroup "qsm-tests"
   [ testProperty "1 node  majority = 1" prop_1,
     testProperty "2 nodes majority = 1" prop_2,
-    testProperty "2 nodes majority = 2" prop_3
+    testProperty "2 nodes majority = 2" prop_3,
+    testProperty "restart node" prop_4
   ]
 
 newtype Node = Node Int
@@ -107,25 +108,32 @@ initChain = Chain {
 shrinker :: Model Symbolic -> Command Symbolic -> [Command Symbolic]
 shrinker _ _ = []
 
-data Model (r :: Type -> Type) = Model {
-    nodes :: [Node]
-  , chain :: Chain
-  }
+data Model (r :: Type -> Type)
+  = Model
+      { nodes :: [Node],
+        chain :: Chain,
+        lastCheckpoint :: Maybe PowBlockRef
+      }
   deriving (Eq, Show, Generic)
 
 data Command (r :: Type -> Type) =
     SendPowBlock [Node] Block
     deriving (Eq, Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable, CommandNames)
 
-newtype Response (r :: Type -> Type) = Response
-  { getResponse :: Either Error [(Node, ValidationData)] }
+newtype Response (r :: Type -> Type)
+  = Response
+      {getResponse :: Either Error [(Node, CheckpointResult)]}
   deriving stock (Eq, Show, Generic1)
   deriving anyclass Rank2.Foldable
 
-data ValidationData
-  = ValidationData !PowBlockHash !Int
+data CheckpointResult
+  = Checkpoint !PowBlockHash !Int
   | NoCheckpoint
   deriving (Eq, Show)
+
+toBlockRef :: CheckpointResult -> Maybe PowBlockHash
+toBlockRef (Checkpoint ref _) = Just ref
+toBlockRef _ = Nothing
 
 instance ToExpr Bytes
 instance ToExpr PowBlockHash
@@ -142,12 +150,12 @@ extendBlockNo :: PowBlockNo -> PowBlockNo
 extendBlockNo = PowBlockNo . (+ checkpointInterval) . unPowBlockNo
 
 initModel :: [Node] -> Model r
-initModel mockMap = Model mockMap initChain
+initModel mockMap = Model mockMap initChain Nothing
 
 transition :: Config -> Model r -> Command r -> Response r -> Model r
 transition cfg Model {..} cmd _resp =
-  let (chain', _) = updateChain cfg chain cmd
-  in Model nodes chain'
+  let (chain', mElected) = updateChain cfg chain cmd
+  in Model nodes chain' mElected
 
 precondition :: Model Symbolic -> Command Symbolic -> Logic
 precondition Model {..} _ = Top
@@ -167,22 +175,26 @@ semantics cfg handles (SendPowBlock toNodes blockRef) = do
     return $ Response $ Right res
 
 -- | Wait and get the next nextpoint from all the nodes.
-waitAll :: Config -> [(Node, MockNodeHandle)] -> IO [(Node, ValidationData)]
-waitAll cfg = mapConcurrently $ \(node, mockHandle) -> do
+waitAll :: Config -> [(Node, MockNodeHandle)] -> IO [(Node, CheckpointResult)]
+waitAll cfg = mapConcurrently $ waitNode cfg
+
+waitNode :: Config -> (Node, MockNodeHandle) -> IO (Node, CheckpointResult)
+waitNode cfg (node, mockHandle) = do
   mCheckpoint <- waitCheckpoint 15 mockHandle
   let res = case mCheckpoint of
         Nothing -> NoCheckpoint
-        Just chkp -> ValidationData (parentHash chkp) (majority cfg)
+        Just chkp -> Checkpoint (parentHash chkp) (majority cfg)
   return (node, res)
 
 generator :: Model Symbolic -> Maybe (Gen (Command Symbolic))
 generator Model {..} = Just $ do
   -- TODO extend the generators
   (toNodes, block) <- frequency
-        [ (1,newBlockGen)
-        , (if M.null (unusedPowBlockRef chain) then 0 else 100, existingBlockGen)]
+        [ (if hasNotUnused then 1 else 0, newBlockGen)
+        , (if hasNotUnused then 0 else 1, existingBlockGen)]
   return $ SendPowBlock toNodes block
   where
+    hasNotUnused = M.null (unusedPowBlockRef chain)
     newBlockGen = do
         toNodes <- suchThat (sublistOf nodes) (not . null)
         let blockNo = nextBlockNo chain
@@ -199,7 +211,7 @@ toMock :: Config -> Model r -> Command r -> Response r
 toMock cfg Model {..} cmd = Response $ Right $
   case snd $ updateChain cfg chain cmd of
     Just elected ->
-      map (,ValidationData (powBlockHash elected) (majority cfg)) nodes
+      map (,Checkpoint (powBlockHash elected) (majority cfg)) nodes
     _ ->
       map (,NoCheckpoint) nodes
 
@@ -227,6 +239,8 @@ mkSM cfg@Config {..} handles =
 unusedSM :: Config -> StateMachine Model Command IO Response
 unusedSM cfg = mkSM cfg $ error "NodeHandle not used on generation or shrinking"
 
+
+-- | Run one node and send him block references. Test if it generates checkpoints
 prop_1 :: Property
 prop_1 = noShrinking $ withMaxSuccess 1 $
   forAllCommands (unusedSM config) (Just 2) $ \cmds -> monadicIO $ do
@@ -241,6 +255,8 @@ prop_1 = noShrinking $ withMaxSuccess 1 $
       , majority = 1
       }
 
+-- | Same as 'prop_1', but with two nodes. We select the node to send block refs
+-- randomly. Majority is one, so on node is enough to produce checkpoints.
 prop_2 :: Property
 prop_2 = noShrinking $ withMaxSuccess 1 $
   forAllCommands (unusedSM config) (Just 2) $ \cmds -> monadicIO $ do
@@ -255,12 +271,13 @@ prop_2 = noShrinking $ withMaxSuccess 1 $
       , majority = 1
       }
 
+-- | Same as 'prop_2', but with majority 2. Of we send a block ref to only one, no
+-- checkpoint should be created. If we later send to to the second we should get a checkpoint.
 prop_3 :: Property
-prop_3 = verbose $ noShrinking $ withMaxSuccess 3
+prop_3 = noShrinking $ withMaxSuccess 3
   $ forAllCommands (unusedSM config) (Just 1)
   $ \cmds -> monadicIO $ do
     nodeHandles <- liftIO $ setup 2 3
-    liftIO $ print cmds
     let sm = mkSM config nodeHandles
     (hist, _model, res) <- runCommands sm cmds
     liftIO $ mapM_ cleanup nodeHandles
@@ -271,48 +288,74 @@ prop_3 = verbose $ noShrinking $ withMaxSuccess 3
       , majority = 2
       }
 
+-- | Same as 'prop_3', but creates a bigger chain and then closes both nodes and
+-- reopens one of them. The target is to test if we can sync from an existing
+-- chain db
+prop_4 :: Property
+prop_4 = noShrinking $ withMaxSuccess 1
+  $ forAllCommands (unusedSM config) (Just 15)
+  $ \cmds -> monadicIO $ do
+    nodeHandles <- liftIO $ setup 2 4
+    let sm = mkSM config nodeHandles
+    (hist, model, res) <- runCommands sm cmds
+    liftIO $ mapM_ cleanup nodeHandles
+    h <- liftIO $ runDualNode False 4 0
+    (_, chkp) <- liftIO $ waitNode config (Node 0,mockNode h)
+    liftIO $ cleanup h
+    prettyCommands sm hist (res === Ok)
+    whenFailM (return ()) $ toBlockRef chkp === (powBlockHash <$> lastCheckpoint model)
+  where
+    config =
+      Config
+        { nodesNumber = 2,
+          majority = 2
+        }
+
 setup :: Int -> Int -> IO [NodeHandle]
 setup nodesNum testId = do
   let testDir = mkTestDir testId
   removePathForcibly testDir
   createDirectoryIfMissing True testDir
-  forM [0..(nodesNum - 1)] $ runDualNode testDir testId
+  forM [0 .. (nodesNum - 1)] $ runDualNode True testId
 
 cleanup :: NodeHandle -> IO ()
 cleanup NodeHandle {..} = do
   cancel mainNode
   killServer mockNode
 
-runDualNode :: String -> Int -> Int -> IO NodeHandle
-runDualNode testDir testId nodeId = do
-    let nodeDir = testDir ++ "/nodedir-" ++ show nodeId
-    let configDir = "tests/configuration/QSM/prop_" ++ show testId
-    createDirectory nodeDir
+runDualNode :: Bool -> Int -> Int -> IO NodeHandle
+runDualNode createDir testId nodeId = do
+  let testDir = mkTestDir testId
+  let nodeDir = testDir ++ "/nodedir-" ++ show nodeId
+  let configDir = "tests/configuration/QSM/prop_" ++ show testId
+  when createDir $ createDirectory nodeDir
+  let paths =
+        MiscellaneousFilepaths
+          { topFile = TopologyFile $ configDir ++ "/topology.json",
+            dBFile = DbFile $ nodeDir ++ "/db",
+            genesisFile = Nothing,
+            signKeyFile = Nothing,
+            socketFile = SocketFile $ nodeDir ++ "/.socket"
+          }
+  let nodeCli =
+        NodeCLI
+          { mscFp = paths,
+            genesisHash = Nothing,
+            nodeAddr = NodeAddress (NodeHostAddress Nothing) (fromIntegral $ 3000 + 2 * nodeId),
+            configFp = ConfigYamlFilePath $ configDir ++ "/config-" ++ show nodeId ++ ".yaml",
+            validateDB = True
+          }
+  mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
+  node <- async $ run nodeCli
+  link node
+  return $ NodeHandle nodeId mockNode node
 
-    let paths = MiscellaneousFilepaths {
-        topFile = TopologyFile $ configDir ++ "/topology.json"
-      , dBFile = DbFile $ nodeDir ++ "/db"
-      , genesisFile = Nothing
-      , signKeyFile = Nothing
-      , socketFile = SocketFile $ nodeDir ++ "/.socket"
-    }
-    let nodeCli = NodeCLI {
-        mscFp = paths
-      , genesisHash = Nothing
-      , nodeAddr = NodeAddress (NodeHostAddress Nothing) (fromIntegral $ 3000 + 2 * nodeId)
-      , configFp = ConfigYamlFilePath $ configDir ++ "/config-" ++ show nodeId ++ ".yaml"
-      , validateDB = False
+data NodeHandle
+  = NodeHandle
+      { _nodeId :: Int,
+        mockNode :: MockNodeHandle,
+        mainNode :: Async ()
       }
-    mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
-    node <- async $ run nodeCli
-    link node
-    return $ NodeHandle nodeId mockNode node
-
-data NodeHandle = NodeHandle {
-    _nodeId :: Int
-  , mockNode :: MockNodeHandle
-  , mainNode :: Async ()
-  }
 
 data Config = Config {
     nodesNumber :: Int

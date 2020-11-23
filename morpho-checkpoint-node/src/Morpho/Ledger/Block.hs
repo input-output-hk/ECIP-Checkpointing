@@ -118,9 +118,7 @@ instance
 
   getHeader = morphoHeader
 
-  -- Let's assume the header hash matches the actual block hash for now.
-  blockMatchesHeader _ _ = True
-
+  blockMatchesHeader = matchesMorphoHeader
   headerIsEBB = const Nothing
 
 data MorphoStdHeader h c

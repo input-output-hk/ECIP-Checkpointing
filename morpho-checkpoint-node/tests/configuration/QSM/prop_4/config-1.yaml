@@ -15,9 +15,9 @@ ViewMode: SimpleView
 TurnOnLogMetrics: False
 SlotDuration: 1
 SnapshotsOnDisk: 60
-SnapshotInterval: 60
+SnapshotInterval: 10
 PoWBlockFetchInterval: 5000000
-PoWNodeRpcUrl: http://127.0.0.1:8748
+PoWNodeRpcUrl: http://127.0.0.1:8848
 PrometheusPort: 13890
 
 # Checkpointing parameters
@@ -26,7 +26,7 @@ RequiredMajority: 2
 FedPubKeys:
   - ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167
   - 3ea6ebf308a16b45bbf3392d1cd226aa6858d2ea6a2402799eeffc576f0187af62ed11677c8d4d01ef03bbf638f49f2fd77e181924a52dd01b86a187af07b724
-NodePrivKeyFile: tests/configuration/QSM/prop_3/secret-key-1
+NodePrivKeyFile: tests/configuration/QSM/prop_4/secret-key-1
 
 
 #####    Update Parameters    #####
@@ -137,14 +137,14 @@ TraceTxSubmissionProtocol: True
 # be specified in the defaults below or overidden on a per-scribe basis here.
 setupScribes:
   - scKind: FileSK
-    scName: "db/qsm-tests-3/nodedir-1/node.log"
+    scName: "db/qsm-tests-4/nodedir-1/node.log"
     scFormat: ScText
 
 # For the Katip logging backend this specifies the default scribes that trace
 # output is sent to if it is not configured to be sent to other scribes.
 defaultScribes:
   - - FileSK
-    - "db/qsm-tests-3/nodedir-1/node.log"
+    - "db/qsm-tests-4/nodedir-1/node.log"
 
 setupBackends:
   - KatipBK

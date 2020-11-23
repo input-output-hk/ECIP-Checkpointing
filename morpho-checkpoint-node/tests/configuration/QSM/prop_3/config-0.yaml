@@ -8,7 +8,7 @@ Protocol: MockedBFT
 NumCoreNodes: 2
 RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
-SystemStart: "2020-11-12T04:07:09Z"
+SystemStart: "2020-11-22T04:45:09Z"
 SecurityParam : 3
 TurnOnLogging: True
 ViewMode: SimpleView
