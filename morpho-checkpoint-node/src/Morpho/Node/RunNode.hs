@@ -12,8 +12,6 @@ where
 
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Prelude
-import Codec.Serialise (serialise)
-import qualified Data.ByteString.Lazy as Lazy
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge ()
 import Morpho.Ledger.Serialise ()
@@ -26,7 +24,6 @@ import Ouroboros.Consensus.Ledger.SupportsProtocol
 import Ouroboros.Consensus.Node.Run
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Consensus.Protocol.Signed
-import Ouroboros.Consensus.Storage.Common
 import Ouroboros.Consensus.Storage.ImmutableDB.Chunks
 
 {-------------------------------------------------------------------------------
@@ -78,11 +75,5 @@ instance
       . bftSecurityParam
       . bftParams
       . configConsensus
-  nodeCheckIntegrity _ _ = True
-  nodeGetBinaryBlockInfo blk =
-    BinaryBlockInfo
-      { -- Drop the 'encodeListLen' that precedes the header and the body
-        headerOffset = 1, --
-          -- The decoders should use annotations, because this is expensive
-        headerSize = fromIntegral $ Lazy.length (serialise (getHeader blk))
-      }
+  nodeCheckIntegrity _ blk = blockMatchesHeader (getHeader blk) blk
+  nodeGetBinaryBlockInfo = morphoBlockBinaryInfo
