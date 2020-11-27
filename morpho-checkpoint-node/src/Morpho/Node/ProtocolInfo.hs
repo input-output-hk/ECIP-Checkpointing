@@ -4,9 +4,11 @@ module Morpho.Node.ProtocolInfo
 where
 
 import Cardano.Crypto.DSIGN
+import Cardano.Crypto.ProtocolMagic
 import Cardano.Prelude
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad (fail)
+import Control.Monad.Class.MonadTime
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as Seq
 import Morpho.Common.Conversions
@@ -17,31 +19,39 @@ import Morpho.Ledger.Forge ()
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block.Forge
+import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
 import Ouroboros.Consensus.Protocol.BFT
+import Ouroboros.Network.Magic
 
 protocolInfoMorpho ::
-  MonadIO m =>
+  (MonadIO m, MonadTime m) =>
   NodeConfiguration ->
-  SecurityParam ->
   m (ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto))
-protocolInfoMorpho nc securityParam = do
+protocolInfoMorpho nc = do
   privKeyStr <- liftIO . readFile $ ncNodePrivKeyFile nc
-  privKey <- do
-    case importPrivateKey $ bytesFromHex privKeyStr of
-      Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
-      Just pk -> return pk
+  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
+  privKey <- case importPrivateKey $ bytesFromHex privKeyStr of
+    Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
+    Just pk -> return pk
   let ledgerConfig =
         MorphoLedgerConfig
           { checkpointingInterval = ncCheckpointInterval nc,
+            securityParam = secParam,
             requiredMajority = ncRequiredMajority nc,
             fedPubKeys = ncFedPubKeys nc,
             slotLength = ncTimeslotLength nc,
             nodeKeyPair = keyPairFromPrivate privKey
+          }
+      blockConfig =
+        MorphoBlockConfig
+          { systemStart = start,
+            networkMagic = NetworkMagic (ncNetworkMagic nc),
+            protocolMagicId = ProtocolMagicId (ncNetworkMagic nc)
           }
   pure
     ProtocolInfo
@@ -55,8 +65,8 @@ protocolInfoMorpho nc securityParam = do
               topLevelConfigBlock =
                 FullBlockConfig
                   { blockConfigLedger = ledgerConfig,
-                    blockConfigBlock = MorphoBlockConfig securityParam,
-                    blockConfigCodec = MorphoCodecConfig securityParam
+                    blockConfigBlock = blockConfig,
+                    blockConfigCodec = MorphoCodecConfig ()
                   }
             },
         pInfoInitLedger =
@@ -67,11 +77,12 @@ protocolInfoMorpho nc securityParam = do
         pInfoLeaderCreds = Just (toCoreId (ncNodeId nc), defaultMaintainForgeState)
       }
   where
+    secParam = SecurityParam $ ncSecurityParameter nc
     bftConfig =
       BftConfig
         { bftParams =
             BftParams
-              { bftSecurityParam = securityParam,
+              { bftSecurityParam = secParam,
                 bftNumNodes = NumCoreNodes $ ncNumCoreNodes nc
               },
           bftSignKey = SignKeyMockDSIGN nId,

@@ -7,19 +7,13 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Morpho block to go with the mock ledger
---
--- None of the definitions in this module depend on, or even refer to, any
--- specific consensus protocols.
 module Morpho.Ledger.Block
   ( MorphoBlock (..),
     Header (..),
@@ -46,14 +40,11 @@ module Morpho.Ledger.Block
     encodeMorphoHeader,
     decodeMorphoHeader,
     morphoBlockBinaryInfo,
-
-    -- * Default parametrs
-    defaultSecurityParam,
-    defaultCodecConfig,
   )
 where
 
 import Cardano.Binary (ToCBOR (..))
+import Cardano.Crypto (ProtocolMagicId (..))
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.DSIGN.Ed25519
 import Cardano.Crypto.DSIGN.Mock (MockDSIGN)
@@ -67,6 +58,7 @@ import Data.FingerTree.Strict (Measured (..))
 import GHC.Generics (Generic)
 import Morpho.Ledger.Tx
 import Ouroboros.Consensus.Block
+import Ouroboros.Consensus.BlockchainTime (SystemStart (..))
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Node.NetworkProtocolVersion
 import Ouroboros.Consensus.Protocol.Abstract
@@ -74,6 +66,7 @@ import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Consensus.Storage.Common
 import Ouroboros.Consensus.Util.Condense
 import Ouroboros.Consensus.Util.Orphans ()
+import Ouroboros.Network.Magic
 import qualified Ouroboros.Network.NodeToClient as N
 import qualified Ouroboros.Network.NodeToNode as N
 
@@ -125,9 +118,7 @@ instance
 
   getHeader = morphoHeader
 
-  -- Let's assume the header hash matches the actual block hash for now.
-  blockMatchesHeader = \_ _ -> True
-
+  blockMatchesHeader = matchesMorphoHeader
   headerIsEBB = const Nothing
 
 data MorphoStdHeader h c
@@ -149,7 +140,7 @@ data MorphoBlockTx
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
-data MorphoBody
+newtype MorphoBody
   = MorphoBody
       { morphoTxs :: [MorphoBlockTx]
       }
@@ -169,10 +160,15 @@ instance Condense MorphoBlockTx where
   Configuration Instances
 -------------------------------------------------------------------------------}
 
-newtype instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig SecurityParam
-  deriving newtype (Generic, NoUnexpectedThunks)
+data instance BlockConfig (MorphoBlock h c)
+  = MorphoBlockConfig
+      { systemStart :: SystemStart,
+        networkMagic :: NetworkMagic,
+        protocolMagicId :: ProtocolMagicId
+      }
+  deriving (Generic, NoUnexpectedThunks)
 
-newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig SecurityParam
+newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()
   deriving newtype (Generic, NoUnexpectedThunks)
 
 {-------------------------------------------------------------------------------
@@ -346,13 +342,11 @@ decodeMorphoHeader = do
   mkMorphoHeader <$> decode <*> decode
 
 instance (HashAlgorithm h, BftCrypto c) => Serialise (BftFields c (MorphoStdHeader h c)) where
-  encode (BftFields {..}) =
+  encode BftFields {..} =
     mconcat
       [ encodeSignedDSIGN bftSignature
       ]
-  decode = do
-    bftSignature <- decodeSignedDSIGN
-    pure $ BftFields bftSignature
+  decode = BftFields <$> decodeSignedDSIGN
 
 -- | Custom 'Serialise' instance that doesn't serialise the hash
 instance
@@ -373,22 +367,10 @@ morphoBlockBinaryInfo b =
     }
 
 {-------------------------------------------------------------------------------
-  Codec Config
--------------------------------------------------------------------------------}
-
-defaultSecurityParam :: SecurityParam
-defaultSecurityParam = SecurityParam 5
-
-defaultCodecConfig :: CodecConfig (MorphoBlock h c)
-defaultCodecConfig = MorphoCodecConfig defaultSecurityParam
-
-{-------------------------------------------------------------------------------
   Consensus
 -------------------------------------------------------------------------------}
 
--- | The BlockProtocol type family is used to associate a Block with a
---   consensus algorithm.
---   Associating the MorphoBlock with the ouroboros BFT consensus algorithm.
+-- | Associating the MorphoBlock with the ouroboros BFT consensus algorithm.
 type instance BlockProtocol (MorphoBlock h c) = Bft c
 
 {-------------------------------------------------------------------------------

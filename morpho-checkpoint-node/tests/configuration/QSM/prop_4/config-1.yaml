@@ -3,28 +3,30 @@
 ##########################################################
 
 
-NodeId: 0
+NodeId: 1
 Protocol: MockedBFT
-NumCoreNodes: 1
+NumCoreNodes: 2
 RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
+SystemStart: "2020-11-22T04:45:09Z"
 SecurityParam : 3
 TurnOnLogging: True
 ViewMode: SimpleView
-TurnOnLogMetrics: True
-SlotDuration: 5
+TurnOnLogMetrics: False
+SlotDuration: 1
 SnapshotsOnDisk: 60
-SnapshotInterval: 60
+SnapshotInterval: 10
 PoWBlockFetchInterval: 5000000
-PoWNodeRpcUrl: http://127.0.0.1:8546
-PrometheusPort: 13788
+PoWNodeRpcUrl: http://127.0.0.1:8848
+PrometheusPort: 13890
 
 # Checkpointing parameters
 CheckpointInterval: 4
-RequiredMajority: 1
+RequiredMajority: 2
 FedPubKeys:
   - ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167
-NodePrivKeyFile: /path/to/secret/key
+  - 3ea6ebf308a16b45bbf3392d1cd226aa6858d2ea6a2402799eeffc576f0187af62ed11677c8d4d01ef03bbf638f49f2fd77e181924a52dd01b86a187af07b724
+NodePrivKeyFile: tests/configuration/QSM/prop_4/secret-key-1
 
 
 #####    Update Parameters    #####
@@ -36,6 +38,8 @@ LastKnownBlockVersion-Minor: 2
 LastKnownBlockVersion-Alt: 0
 
 #####         Tracing         #####
+
+minSeverity: Debug
 
 # MinimalVerbosity: Minimal level of the rendering of captured items
 # MaximalVerbosity: Maximal level of the rendering of captured items
@@ -52,7 +56,7 @@ TraceBlockFetchDecisions: True
 TraceBlockFetchProtocol: True
 
 # Serialised Trace BlockFetch protocol messages.
-TraceBlockFetchProtocolSerialised: False
+TraceBlockFetchProtocolSerialised: True
 
 # Trace BlockFetch server.
 TraceBlockFetchServer: True
@@ -73,19 +77,19 @@ TraceChainSyncHeaderServer: True
 TraceChainSyncProtocol: True
 
 # Trace DNS Resolver messages.
-TraceDNSResolver: False
+TraceDNSResolver: True
 
 # Trace DNS Subscription messages.
-TraceDNSSubscription: False
+TraceDNSSubscription: True
 
 # Trace error policy resolution.
-TraceErrorPolicy: False
+TraceErrorPolicy: True
 
 # Trace block forging.
 TraceForge: True
 
 # Trace IP Subscription messages.
-TraceIpSubscription: False
+TraceIpSubscription: True
 
 # Trace local ChainSync protocol messages.
 TraceLocalChainSyncProtocol: True
@@ -100,7 +104,7 @@ TraceLocalTxSubmissionServer: True
 TraceMempool: True
 
 # Trace Mux Events
-TraceMux: False
+TraceMux: True
 
 # Trace TxSubmission server (inbound transactions).
 TraceTxInbound: True
@@ -110,6 +114,7 @@ TraceTxOutbound: True
 
 # Trace TxSubmission protocol messages.
 TraceTxSubmissionProtocol: True
+
 
 ##### LoggingFeature Configuration #####
 
@@ -132,22 +137,14 @@ TraceTxSubmissionProtocol: True
 # be specified in the defaults below or overidden on a per-scribe basis here.
 setupScribes:
   - scKind: FileSK
-    scName: "logs/staging.log"
+    scName: "db/qsm-tests-4/nodedir-1/node.log"
     scFormat: ScText
-
-  - scKind: StdoutSK
-    scName: stdout
-    scFormat: ScText
-    scRotation: null
 
 # For the Katip logging backend this specifies the default scribes that trace
 # output is sent to if it is not configured to be sent to other scribes.
 defaultScribes:
   - - FileSK
-    - "logs/staging.log"
-
-  - - StdoutSK
-    - stdout
+    - "db/qsm-tests-4/nodedir-1/node.log"
 
 setupBackends:
   - KatipBK

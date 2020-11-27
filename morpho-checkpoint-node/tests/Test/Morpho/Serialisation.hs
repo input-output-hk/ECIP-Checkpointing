@@ -29,6 +29,6 @@ serialiseTests =
     ]
   where
     testCodecCfg :: CodecConfig TestBlock
-    testCodecCfg = defaultCodecConfig
+    testCodecCfg = MorphoCodecConfig ()
     dictNestedHdr :: forall a. NestedCtxt_ TestBlock Header a -> Dict (Eq a, Show a)
     dictNestedHdr CtxtMorpho = Dict

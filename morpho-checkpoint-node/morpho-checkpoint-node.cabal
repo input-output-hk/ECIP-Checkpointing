@@ -34,9 +34,10 @@ library
         Morpho.Node.Run
         Morpho.Node.RunNode
         Morpho.Node.Features.Node
+        Morpho.RPC.PoWMock
         Morpho.RPC.Request
         Morpho.RPC.Types
-        Morpho.Tracing.ToObjectOrphans
+        Morpho.Tracing.TracingOrphanInstances
         Morpho.Tracing.Types
         Morpho.Tracing.Tracers
         Morpho.Tracing.Metrics
@@ -66,6 +67,7 @@ library
         hexstring -any,
         hostname -any,
         http-client -any,
+        io-sim -any,
         io-sim-classes -any,
         iohk-monitoring -any,
         iproute -any,
@@ -88,7 +90,10 @@ library
         transformers -any,
         transformers-except -any,
         vector -any,
-        yaml -any
+        yaml -any,
+        wai -any,
+        http-types -any,
+        warp -any
 
 executable morpho-checkpoint-node
     main-is:            morpho-checkpoint-node.hs
@@ -140,17 +145,20 @@ test-suite test
         Test.Morpho.Examples
         Test.Morpho.Generators
         Test.Morpho.Golden
+        Test.Morpho.QSM
         Test.Morpho.Serialisation
 
     default-language:   Haskell2010
     default-extensions: NoImplicitPrelude
     build-depends:
         base >=4.12.0.0,
+        async -any,
         serialise -any,
         tasty >=0.7,
         tasty-hunit -any,
         tasty-quickcheck -any,
         tasty-hspec -any,
+        time -any,
         hspec-core -any,
         bytestring -any,
         cardano-prelude -any,
@@ -159,6 +167,7 @@ test-suite test
         cardano-crypto-wrapper -any,
         containers -any,
         cryptonite -any,
+        directory -any,
         morpho-checkpoint-node -any,
         ouroboros-network -any,
         ouroboros-consensus -any,
@@ -166,4 +175,6 @@ test-suite test
         text -any,
         QuickCheck -any,
         quickcheck-instances -any,
+        quickcheck-state-machine >=0.7,
+        iohk-monitoring -any,
         cborg -any

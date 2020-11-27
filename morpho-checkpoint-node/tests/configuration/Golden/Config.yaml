@@ -8,6 +8,7 @@ Protocol: MockedBFT
 NumCoreNodes: 1
 RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
+SystemStart: "2009-02-13T23:13:09Z"
 SecurityParam : 3
 TurnOnLogging: True
 ViewMode: SimpleView
@@ -24,7 +25,7 @@ CheckpointInterval: 4
 RequiredMajority: 1
 FedPubKeys:
   - ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167
-NodePrivKeyFile: /path/to/secret/key
+NodePrivKeyFile: abc
 
 
 #####    Update Parameters    #####
@@ -36,6 +37,8 @@ LastKnownBlockVersion-Minor: 2
 LastKnownBlockVersion-Alt: 0
 
 #####         Tracing         #####
+
+minSeverity: Notice
 
 # MinimalVerbosity: Minimal level of the rendering of captured items
 # MaximalVerbosity: Maximal level of the rendering of captured items
@@ -110,6 +113,7 @@ TraceTxOutbound: True
 
 # Trace TxSubmission protocol messages.
 TraceTxSubmissionProtocol: True
+
 
 ##### LoggingFeature Configuration #####
 

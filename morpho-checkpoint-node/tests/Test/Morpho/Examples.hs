@@ -2,6 +2,7 @@
 
 module Test.Morpho.Examples where
 
+import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
 import Cardano.Crypto.ProtocolMagic
@@ -10,6 +11,7 @@ import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Sequence.Strict as Seq
 import qualified Data.Text as T
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Morpho.Common.Bytes
 import Morpho.Common.Conversions
 import Morpho.Config.Topology
@@ -176,7 +178,11 @@ exampleNodeConfig =
       ncNodeId = CoreId $ CoreNodeId 0,
       ncNumCoreNodes = 1,
       ncReqNetworkMagic = RequiresMagic,
+      ncNetworkMagic = 12345,
+      ncSystemStart = Just $ SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
+      ncSecurityParameter = 3,
       ncLoggingSwitch = True,
+      ncTraceOpts = exampleTraceOptions,
       ncLogMetrics = True,
       ncViewMode = SimpleView,
       ncUpdate = Update $ LastKnownBlockVersion 0 2 0,
@@ -194,6 +200,40 @@ exampleNodeConfig =
   where
     hex = fromMaybe (error "publicKey") $ normalizeHex "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167"
     publicKey = fromMaybe (error "publicKey") $ importPublicKey $ bytesFromHex hex
+
+exampleTraceOptions :: TraceOptions
+exampleTraceOptions =
+  TraceOptions
+    { traceVerbosity = NormalVerbosity,
+      traceChainDB = True,
+      traceChainSyncClient = True,
+      traceChainSyncHeaderServer = True,
+      traceChainSyncBlockServer = True,
+      traceBlockFetchDecisions = True,
+      traceBlockFetchServer = True,
+      traceBlockFetchClient = True,
+      traceTxInbound = True,
+      traceTxOutbound = True,
+      traceLocalTxSubmissionServer = True,
+      traceMempool = True,
+      traceForge = True,
+      traceChainSyncProtocol = True,
+      traceBlockFetchProtocol = True,
+      traceBlockFetchProtocolSerialised = False,
+      traceTxSubmissionProtocol = True,
+      traceLocalChainSyncProtocol = True,
+      traceLocalTxSubmissionProtocol = True,
+      traceLocalStateQueryProtocol = True,
+      traceIpSubscription = False,
+      traceDnsSubscription = False,
+      traceDnsResolver = False,
+      traceErrorPolicy = False,
+      traceMux = False,
+      traceHandshake = True,
+      traceLedgerState = True,
+      tracePoWNodeRpc = True,
+      traceTimeTravelError = True
+    }
 
 exampleTopology :: NetworkTopology
 exampleTopology = NetworkTopology [t1]

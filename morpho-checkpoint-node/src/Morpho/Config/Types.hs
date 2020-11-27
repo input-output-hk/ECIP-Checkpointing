@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Morpho.Config.Types
   ( ConfigYamlFilePath (..),
@@ -29,11 +29,12 @@ import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Crypto.ProtocolMagic (RequiresNetworkMagic)
 import Cardano.Prelude
 import Data.Aeson
+import Data.Aeson.Types (Parser)
 import qualified Data.IP as IP
 import qualified Data.Text as T
+import Data.Time ()
 import Data.Yaml (decodeFileThrow)
 import Morpho.Config.Orphans ()
--- import Morpho.Config.Topology
 import Morpho.Crypto.ECDSASignature
 import Network.Socket
 import Ouroboros.Consensus.BlockchainTime
@@ -46,7 +47,11 @@ data NodeConfiguration
         ncNodeId :: NodeId,
         ncNumCoreNodes :: Word64,
         ncReqNetworkMagic :: RequiresNetworkMagic,
+        ncNetworkMagic :: Word32,
+        ncSystemStart :: Maybe SystemStart,
+        ncSecurityParameter :: Word64,
         ncLoggingSwitch :: Bool,
+        ncTraceOpts :: !TraceOptions,
         ncLogMetrics :: Bool,
         ncViewMode :: ViewMode,
         ncUpdate :: Update,
@@ -70,7 +75,11 @@ instance FromJSON NodeConfiguration where
     ptcl <- v .: "Protocol"
     numCoreNode <- v .: "NumCoreNodes"
     rNetworkMagic <- v .: "RequiresNetworkMagic"
+    networkMagic <- v .: "NetworkMagic"
+    systemStart <- v .:? "SystemStart"
+    securityParam <- v .: "SecurityParam"
     loggingSwitch <- v .: "TurnOnLogging"
+    traceOptions <- traceConfigParser v
     vMode <- v .: "ViewMode"
     logMetrics <- v .: "TurnOnLogMetrics"
     -- Update Parameters
@@ -94,7 +103,11 @@ instance FromJSON NodeConfiguration where
         (CoreId (CoreNodeId nId))
         numCoreNode
         rNetworkMagic
+        networkMagic
+        systemStart
+        securityParam
         loggingSwitch
+        traceOptions
         logMetrics
         vMode
         ( Update
@@ -114,6 +127,58 @@ instance FromJSON NodeConfiguration where
         requiredMajority
         fedPubKeys
         nodePrivKeyFile
+
+instance FromJSON SystemStart where
+  parseJSON v = SystemStart <$> parseJSON v
+
+traceConfigParser :: Object -> Parser TraceOptions
+traceConfigParser v =
+  TraceOptions
+    <$> v .:? "TracingVerbosity" .!= NormalVerbosity
+    <*> v .:? "TraceChainDb" .!= True
+    <*> v .:? "TraceChainSyncClient" .!= True
+    <*> v .:? "TraceChainSyncHeaderServer" .!= True
+    <*> v .:? "TraceChainSyncBlockServer" .!= True
+    <*> v .:? "TraceBlockFetchDecisions" .!= True
+    <*> v .:? "TraceBlockFetchServer" .!= True
+    <*> v .:? "TraceBlockFetchClient" .!= True
+    <*> v .:? "TraceTxInbound" .!= True
+    <*> v .:? "TraceTxOutbound" .!= True
+    <*> v .:? "TraceLocalTxSubmissionServer" .!= True
+    <*> v .:? "TraceMempool" .!= True
+    <*> v .:? "TraceForge" .!= True
+    <*> v .:? "TraceChainSyncProtocol" .!= True
+    <*> v .:? "TraceBlockFetchProtocol" .!= True
+    <*> v .:? "TraceBlockFetchProtocolSerialised" .!= True
+    <*> v .:? "TraceTxSubmissionProtocol" .!= True
+    <*> v .:? "TraceLocalChainSyncProtocol" .!= True
+    <*> v .:? "TraceLocalTxSubmissionProtocol" .!= True
+    <*> v .:? "traceLocalStateQueryProtocol" .!= True
+    <*> v .:? "TraceIpSubscription" .!= True
+    <*> v .:? "TraceDNSSubscription" .!= True
+    <*> v .:? "TraceDNSResolver" .!= True
+    <*> v .:? "TraceErrorPolicy" .!= True
+    <*> v .:? "TraceMux" .!= True
+    <*> v .:? "TraceHandshake" .!= True
+    <*> v .:? "TraceLedgerState" .!= True
+    <*> v .:? "TracePoWNodeRpc" .!= True
+    <*> v .:? "TraceTimeTravelError" .!= True
+
+instance FromJSON TracingVerbosity where
+  parseJSON (String str) = case str of
+    "MinimalVerbosity" -> pure MinimalVerbosity
+    "MaximalVerbosity" -> pure MaximalVerbosity
+    "NormalVerbosity" -> pure NormalVerbosity
+    err ->
+      panic $
+        "Parsing of TracingVerbosity failed, "
+          <> err
+          <> " is not a valid TracingVerbosity"
+  parseJSON invalid =
+    panic $
+      "Parsing of TracingVerbosity failed due to type mismatch. "
+        <> "Encountered: "
+        <> (T.pack $ Prelude.show invalid)
 
 instance FromJSON Protocol where
   parseJSON (String str) = case str of
@@ -158,7 +223,7 @@ data ViewMode
   deriving (Eq, Show)
 
 parseNodeConfiguration :: FilePath -> IO NodeConfiguration
-parseNodeConfiguration fp = decodeFileThrow fp
+parseNodeConfiguration = decodeFileThrow
 
 data NodeCLI
   = NodeCLI
@@ -167,7 +232,6 @@ data NodeCLI
         genesisHash :: !(Maybe Text),
         nodeAddr :: !NodeAddress,
         configFp :: !ConfigYamlFilePath,
-        traceOpts :: !TraceOptions,
         validateDB :: !Bool
       }
   deriving (Show)
@@ -214,10 +278,10 @@ newtype SigningKeyFile
   deriving (Eq, Ord, Show, IsString)
 
 -- TODO: migrate to Update.SoftwareVersion
-data Update
+newtype Update
   = Update
       { -- | Update last known block version.
-        upLastKnownBlockVersion :: !LastKnownBlockVersion
+        upLastKnownBlockVersion :: LastKnownBlockVersion
       }
   deriving (Eq, Show)
 
@@ -279,6 +343,7 @@ data TraceOptions
         traceDnsResolver :: !Bool,
         traceErrorPolicy :: !Bool,
         traceMux :: !Bool,
+        traceHandshake :: Bool,
         traceLedgerState :: !Bool,
         tracePoWNodeRpc :: !Bool,
         traceTimeTravelError :: !Bool

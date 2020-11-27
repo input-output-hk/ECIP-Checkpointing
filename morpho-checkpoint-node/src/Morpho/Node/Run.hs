@@ -23,7 +23,6 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
 import Data.Text (Text, breakOn, pack, take)
-import Morpho.Common.Conversions
 import Morpho.Common.Socket
 import Morpho.Config.Logging hiding (hostname)
 import Morpho.Config.Topology
@@ -40,8 +39,8 @@ import Morpho.Node.RunNode ()
 import Morpho.RPC.Request
 import Morpho.RPC.Types
 import Morpho.Tracing.Metrics
-import Morpho.Tracing.ToObjectOrphans
 import Morpho.Tracing.Tracers
+import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
 import Network.HostName (getHostName)
@@ -78,8 +77,8 @@ runNode loggingLayer nc nCli = do
   let trace =
         setHostname hn $
           llAppendName loggingLayer "node" (llBasicTrace loggingLayer :: Trace IO Text)
-  pInfo <- protocolInfoMorpho nc defaultSecurityParam
-  tracers <- mkTracers (traceOpts nCli) trace
+  pInfo <- protocolInfoMorpho nc
+  tracers <- mkTracers (ncTraceOpts nc) trace
   handleSimpleNode pInfo trace tracers nCli nc
   where
     hostname = do
@@ -117,7 +116,8 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
               <> " not found in topology"
   traceWith tracer $
     unlines
-      [ "**************************************",
+      [ "",
+        "**************************************",
         "I am Node " <> show (nodeAddr nCli) <> " Id: " <> show nid,
         "My producers are " <> show producers',
         "**************************************"
@@ -157,11 +157,11 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
             dtDnsResolverTracer = dnsResolverTracer nodeTracers,
             dtErrorPolicyTracer = errorPolicyTracer nodeTracers,
             dtMuxTracer = muxTracer nodeTracers,
-            dtMuxLocalTracer = nullTracer,
-            dtHandshakeTracer = nullTracer,
-            dtHandshakeLocalTracer = nullTracer,
-            dtLocalErrorPolicyTracer = nullTracer, -- TODO
-            dtAcceptPolicyTracer = nullTracer -- TODO
+            dtMuxLocalTracer = muxLocalTracer nodeTracers,
+            dtHandshakeTracer = handshakeTracer nodeTracers,
+            dtHandshakeLocalTracer = handshakeLocalTracer nodeTracers,
+            dtLocalErrorPolicyTracer = localErrorPolicyTracer nodeTracers,
+            dtAcceptPolicyTracer = acceptPolicyTracer nodeTracers
           }
       diffusionArguments :: DiffusionArguments
       diffusionArguments =
@@ -196,7 +196,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         -- it in trace messages.
         let chainDB = getChainDB nodeKernel
         void $ onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip ->
-          traceWith (chainTipTracer nodeTracers) (pack $ showTip NormalVerbosity tip)
+          traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
         --  Check if we need to push a checkpoint to the PoW node
         void $ onEachChange registry "PublishStableCheckpoint" id Nothing (ledgerState <$> ChainDB.getCurrentLedger chainDB) $
           publishStableCheckpoint nc nodeTracers metrics chainDB
@@ -211,7 +211,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
             rnTraceDiffusion = diffusionTracers,
             rnDiffusionArguments = diffusionArguments,
             rnNetworkMagic = getNetworkMagic $ blockConfigBlock $ topLevelConfigBlock cfg,
-            rnDatabasePath = dbPath <> "-" <> show nid,
+            rnDatabasePath = dbPath,
             rnProtocolInfo = pInfo,
             rnCustomiseChainDbArgs = customiseChainDbArgs,
             rnCustomiseNodeArgs = id,
@@ -238,7 +238,6 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
           ChainDB.cdbDiskPolicy =
             DiskPolicy
               { onDiskNumSnapshots = fromIntegral $ ncSnapshotsOnDisk nc,
-                -- TODO are these 2 snapshots refer to the same thing?
                 onDiskShouldTakeSnapshot = const (== ncSnapshotInterval nc)
               }
         }
@@ -252,27 +251,26 @@ requestCurrentBlock ::
   MorphoMetrics ->
   IO ()
 requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
-  threadDelay (fromMaybe 1000 $ ncPoWBlockFetchInterval nc)
-  catch
-    go
-    (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers)
+  threadDelay (fromMaybe (1000 * 1000) $ ncPoWBlockFetchInterval nc)
+  handle (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers) $ do
+    er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc)
+    either
+      (traceWith tr . RpcResponseParseError FetchLatestPoWBlock)
+      processResponse
+      er
   where
-    go = do
-      er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc)
-      either
-        (traceWith tr . RpcResponseParseError FetchLatestPoWBlock)
-        processResponse
-        er
-    processResponse :: PoWNodeRPCResponse LatestPoWBlockResult -> IO ()
+    processResponse :: PoWNodeRPCResponse PowBlockRef -> IO ()
     processResponse resp = do
-      set (fromIntegral . powBlockNo $ blockRef resp) $ mLatestPowBlock metrics
-      st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
-      let maybeVote = considerCandidate (blockConfigLedger $ topLevelConfigBlock $ getTopLevelConfig kernel) st (blockRef resp)
-      case maybeVote of
-        Nothing -> pure ()
-        Just vote -> tryAddTxs [voteToTx vote] >> pure ()
+      let blockRef = responseResult resp
+      set (fromIntegral . powBlockNo $ blockRef) $ mLatestPowBlock metrics
       (traceWith tr . RpcLatestPoWBlock) resp
-    blockRef (PoWNodeRPCResponse _ (LatestPoWBlockResult n h) _) = PowBlockRef n h
+      st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
+      let maybeVote = voteBlockRef (blockConfigLedger $ topLevelConfigBlock $ getTopLevelConfig kernel) st blockRef
+      case maybeVote of
+        Left err ->
+          traceWith (extractStateTracer nodeTracers) $ ExtractTxErrorTrace err
+        Right vote ->
+          tryAddTxs [voteToTx vote] >> pure ()
     voteToTx = mkMorphoGenTx . Tx
     chainDB = getChainDB kernel
     Mempool {tryAddTxs} = getMempool kernel
@@ -287,7 +285,7 @@ publishStableCheckpoint ::
   LedgerState blk ->
   IO ()
 publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
-  traceWith (morphoStateTracer nodeTracers) (MorphoStateTrace $ morphoLedgerState ledgerState)
+  traceWith (extractStateTracer nodeTracers) (MorphoStateTrace $ morphoLedgerState ledgerState)
   set (ledgerStateToBlockNum ledgerState) $ mMorphoStateUnstableCheckpoint metrics
   mst <- getLatestStableLedgerState chainDB
   case mst of
@@ -296,22 +294,22 @@ publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
       let morphoState = morphoLedgerState stableLedgerState
       set (ledgerStateToBlockNum stableLedgerState) $ mMorphoStateStableCheckpoint metrics
       case checkpointToPush morphoState of
-        Nothing -> pure ()
-        Just chkp -> do
-          traceWith (morphoStateTracer nodeTracers) (MorphoStateTrace $ morphoLedgerState ledgerState)
+        Left err -> traceWith (extractStateTracer nodeTracers) $ WontPushCheckpointTrace err
+        Right chkp -> do
+          traceWith (extractStateTracer nodeTracers) (PushingCheckpoint chkp) -- (MorphoStateTrace $ morphoLedgerState ledgerState)
           catch
             (pushCheckpointToPoWNode (powNodeRpcTracer nodeTracers) chkp >> updatePushedCheckpointMetrics stableLedgerState)
             (httpExceptionHandler PushCheckpoint $ powNodeRpcTracer nodeTracers)
   where
     checkpointToPush st =
       if checkpointAt st == morphoTip st && morphoTip st /= genesisPoint
-        then Just $ lastCheckpoint st
-        else Nothing
+        then Right $ lastCheckpoint st
+        else Left $ WontPushCheckpoint (checkpointAt st) (morphoTip st)
     pushCheckpointToPoWNode tr chkp = do
       let (PowBlockHash hashBytes) = powBlockHash $ checkpointedBlock chkp
           chkpt =
             PoWBlockchainCheckpoint
-              (PoWBlockHash $ bytesToHex hashBytes)
+              (PowBlockHash hashBytes)
               (ObftSignature . sigToHex <$> chkpSignatures chkp)
       er <- pushPoWNodeCheckpoint (ncPoWNodeRpcUrl nc) chkpt
       either
@@ -325,6 +323,6 @@ publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
     ledgerStateToNbVotes = fromIntegral . length . chkpSignatures . lastCheckpoint . morphoLedgerState
 
 httpExceptionHandler :: PoWNodeRpcOperation -> Tracer IO PoWNodeRpcTrace -> HttpException -> IO ()
-httpExceptionHandler op t he = traceWith t . RpcNetworkError op . pack $ displayException he
+httpExceptionHandler op t he = traceWith t . RpcNetworkError op $ displayException he
 
 instance MorphoStateDefaultConstraints ShortHash ConsensusMockCrypto
