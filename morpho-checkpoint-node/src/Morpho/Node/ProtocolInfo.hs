@@ -9,9 +9,7 @@ import Cardano.Prelude
 import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad (fail)
 import Control.Monad.Class.MonadTime
--- import Control.Monad.IOSim
 import qualified Data.Map as Map
--- import Data.Time.Clock (getCurrentTime)
 import qualified Data.Sequence.Strict as Seq
 import Morpho.Common.Conversions
 import Morpho.Config.Types

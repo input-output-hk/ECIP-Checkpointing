@@ -272,7 +272,7 @@ updateMorphoStateByTxs cfg txs st@(MorphoState _ _ _ tip) = do
 
 updateMorphoStateByVote ::
   (blk ~ MorphoBlock h c) =>
-  MorphoLedgerConfig -> -- FullBlockConfig (LedgerState blk) blk ->
+  MorphoLedgerConfig ->
   MorphoState blk ->
   Vote ->
   Except (MorphoError blk) (MorphoState blk)
