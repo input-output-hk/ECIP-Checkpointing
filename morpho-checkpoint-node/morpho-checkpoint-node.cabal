@@ -146,6 +146,7 @@ test-suite test
         Test.Morpho.Generators
         Test.Morpho.Golden
         Test.Morpho.QSM
+        Test.Morpho.MantisIntegration
         Test.Morpho.Serialisation
 
     default-language:   Haskell2010
@@ -171,6 +172,7 @@ test-suite test
         morpho-checkpoint-node -any,
         ouroboros-network -any,
         ouroboros-consensus -any,
+        process -any,
         ouroboros-consensus-test-infra -any,
         text -any,
         QuickCheck -any,

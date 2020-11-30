@@ -12,6 +12,7 @@ module Morpho.Crypto.ECDSASignature
   ( Signature (..),
     sign,
     recoverPublicKey,
+    pubToHex,
     sigToHex,
     importPublicKey,
     importPrivateKey,
@@ -150,3 +151,6 @@ toPublicKey = PublicKey . B.Bytes . BS.tail . EC.exportPubKey False
 
 sigToHex :: Signature -> Text
 sigToHex (Signature r s v) = bytesToHex r <> bytesToHex s <> integerToHex 1 v
+
+pubToHex :: PublicKey -> Text
+pubToHex (PublicKey b) = bytesToHex b
