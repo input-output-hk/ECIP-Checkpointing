@@ -50,6 +50,48 @@ To build =morpho-checkpoint-node=, run
 » nix build -f . morpho-checkpoint-node.components.exes.morpho-checkpoint-node
 #+end_src
 
+* Test the Project
+
+We currently have three test suites. All these suites are ran by hydra
+on each PR.
+
+** Unit Tests
+   These tests are mostly meant to be run interactively when working
+   on the checkpoint node. They are pretty fast to complete (>5s).
+
+   You can run those using:
+
+   #+BEGIN_SRC
+   cabal test morpho-checkpoint-node:test
+   #+END_SRC
+
+** State Machine Tests
+   These tests are acting as integration tests. They'll require to
+   spin up several morpho nodes and mocked mantis nodes. They are
+   pretty long to run (~4 minutes), hence not really meant to be run
+   very frequently.
+
+   You can run those using:
+
+   #+BEGIN_SRC
+    cabal test morpho-checkpoint-node:state-machine-tests
+   #+END_SRC
+
+** Mantis Integration Tests
+   Here, we are testing some Morpho node features directly against the
+   Mantis node itself. These test require to have Mantis and its
+   associated CLIs (incl. =signatureValidator=) in your =$PATH= when
+   running them.
+
+   The easiest way to add these to your =$PATH= is to enter the nix
+   shell using the =nix-shell= command.
+
+   You can run those using:
+
+   #+BEGIN_SRC
+    cabal test morpho-checkpoint-node:mantis-integration-tests
+   #+END_SRC
+
 * Code Formatting
 
 We are using the =ormolu= formatter for the Haskell files, =cabal

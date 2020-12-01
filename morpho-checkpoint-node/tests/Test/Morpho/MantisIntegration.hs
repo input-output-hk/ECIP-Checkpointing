@@ -18,6 +18,14 @@ import Test.QuickCheck.Property
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
+{-
+   Mantis Integration Tests:
+
+   We are running this whole test suite against the actual Mantis
+   implementation. We always consider that Mantis and its associated
+   CLIs are in $PATH when running this test suite.
+-}
+
 mantisIntegrationTests :: TestTree
 mantisIntegrationTests =
   testGroup
@@ -40,6 +48,12 @@ prop_mantisValidSig =
       let hexs = T.unpack $ sigToHex s
           hexh = T.unpack $ bytesToHex h
           hexpk = T.unpack $ pubToHex pk
+      -- Note: signatureValidator is a CLI tool provided by Mantis. It expects as input
+      --       as public key, a signature and the message we just signed.
+      --       If Mantis manages to validate this signature provided
+      --       the pubkey, it'll exit with a 0 code.
+      --       Some useful debugging information is provided to stderr
+      --       in case of validation failure.
       (ec, _, err) <- readProcessWithExitCode "signatureValidator" [hexpk, hexs, hexh] ""
       pure $ case ec of
         ExitSuccess -> Nothing

@@ -43,4 +43,4 @@ let
   };
   # Instantiate a package set using the generated file.
 in
-morphoPkgs // { inherit shell pkgs; }
+morphoPkgs // { inherit shell pkgs mantis; }

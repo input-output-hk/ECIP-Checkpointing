@@ -60,7 +60,6 @@ library
         cborg -any,
         containers -any,
         contra-tracer -any,
-        cryptonite -any,
         directory -any,
         filepath -any,
         hashable -any,
@@ -113,7 +112,6 @@ executable morpho-checkpoint-node
         cborg >=0.2.2 && <0.3,
         containers -any,
         contra-tracer -any,
-        cryptonite -any,
         directory -any,
         ekg-prometheus-adapter -any,
         formatting -any,
@@ -145,38 +143,76 @@ test-suite test
         Test.Morpho.Examples
         Test.Morpho.Generators
         Test.Morpho.Golden
-        Test.Morpho.QSM
-        Test.Morpho.MantisIntegration
         Test.Morpho.Serialisation
 
     default-language:   Haskell2010
     default-extensions: NoImplicitPrelude
     build-depends:
         base >=4.12.0.0,
-        async -any,
+        QuickCheck -any,
+        bytestring -any,
+        cardano-crypto-class -any,
+        cardano-crypto-wrapper -any,
+        cardano-prelude -any,
+        cborg -any,
+        containers -any,
+        hspec-core -any,
+        iohk-monitoring -any,
+        morpho-checkpoint-node -any,
+        ouroboros-consensus -any,
+        ouroboros-consensus-test-infra -any,
+        ouroboros-network -any,
+        quickcheck-instances -any,
         serialise -any,
-        tasty >=0.7,
+        tasty -any,
+        tasty-hspec -any,
         tasty-hunit -any,
         tasty-quickcheck -any,
-        tasty-hspec -any,
-        time -any,
-        hspec-core -any,
+        text -any,
+        time -any
+
+test-suite mantis-integration-tests
+    type:               exitcode-stdio-1.0
+    main-is:            mantis-integration-tests.hs
+    hs-source-dirs:     tests
+    other-modules:      Test.Morpho.MantisIntegration
+    default-language:   Haskell2010
+    default-extensions: NoImplicitPrelude
+    build-depends:
+        base >=4.12.0.0,
+        QuickCheck -any,
         bytestring -any,
         cardano-prelude -any,
+        morpho-checkpoint-node -any,
+        process -any,
+        tasty -any,
+        tasty-quickcheck -any,
+        text -any
+
+test-suite state-machine-tests
+    type:               exitcode-stdio-1.0
+    main-is:            state-machine-tests.hs
+    hs-source-dirs:     tests
+    other-modules:
+        Test.Morpho.QSM
+        Test.Morpho.Generators
+
+    default-language:   Haskell2010
+    default-extensions: NoImplicitPrelude
+    build-depends:
+        base >=4.12.0.0,
+        QuickCheck -any,
+        async -any,
+        bytestring -any,
         cardano-crypto-class -any,
-        cardano-crypto-tests -any,
-        cardano-crypto-wrapper -any,
         containers -any,
-        cryptonite -any,
         directory -any,
         morpho-checkpoint-node -any,
-        ouroboros-network -any,
         ouroboros-consensus -any,
-        process -any,
         ouroboros-consensus-test-infra -any,
-        text -any,
-        QuickCheck -any,
+        ouroboros-consensus-test-infra -any,
         quickcheck-instances -any,
         quickcheck-state-machine >=0.7,
-        iohk-monitoring -any,
-        cborg -any
+        tasty -any,
+        tasty-quickcheck -any,
+        text -any
