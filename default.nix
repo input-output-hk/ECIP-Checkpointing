@@ -12,8 +12,8 @@ let
       fetchSubmodules = true;
       owner = "input-output-hk";
       repo = "mantis";
-      rev = "f4fa32b7589e0bf6044f95ccb6db202cbe039a6c";
-      sha256 = "sha256-h/oVh+xnCzIPOUS+5onGuGmOIOIl4tjVu3wcAWPZcYA=";
+      rev = "6e76301275659f7c096d4ed4ebdc4de36b3c7e4a";
+      sha256 = "sha256-kFLfYQ+8ogz4uycvriAszwP3Af7yqRGrxH6l6HmnKuc=";
     })
     { inherit system; };
   morphoPkgs = import ./nix/morpho-node.nix { inherit pkgs src haskellCompiler profile; };
