@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 -- | This module implements an ECDSA signature scheme based on SEC_p256k1 curve.
 -- The point is to match the same signature scheme used in the PoW blockchain, which enables public key recovery
@@ -12,6 +11,7 @@ module Morpho.Crypto.ECDSASignature
   ( Signature (..),
     sign,
     recoverPublicKey,
+    pubToHex,
     sigToHex,
     importPublicKey,
     importPrivateKey,
@@ -38,12 +38,12 @@ import qualified Morpho.Common.Bytes as B
 import Morpho.Common.Conversions
 import Prelude hiding (fail)
 
-data PublicKey = PublicKey B.Bytes
+newtype PublicKey = PublicKey B.Bytes
   deriving stock (Show, Eq, Generic, Ord)
   deriving anyclass (Serialise)
   deriving (NoUnexpectedThunks)
 
-data PrivateKey = PrivateKey B.Bytes
+newtype PrivateKey = PrivateKey B.Bytes
   deriving stock (Show, Eq, Generic, Ord)
   deriving anyclass (Serialise)
   deriving (NoUnexpectedThunks)
@@ -120,21 +120,21 @@ recSigToSignature :: RecSig -> Signature
 recSigToSignature rs =
   Signature (B.Bytes $ BS.fromShort r) (B.Bytes $ BS.fromShort s) (v + morphoRecIdOffset)
   where
-    CompactRecSig s r v = EC.exportCompactRecSig rs
+    CompactRecSig r s v = EC.exportCompactRecSig rs
 
 recSigFromSignature :: Signature -> Maybe RecSig
 recSigFromSignature sig =
   EC.importCompactRecSig compactRS
   where
     Signature (B.Bytes r) (B.Bytes s) v = sig
-    compactRS = CompactRecSig (BS.toShort s) (BS.toShort r) (v - morphoRecIdOffset)
+    compactRS = CompactRecSig (BS.toShort r) (BS.toShort s) (v - morphoRecIdOffset)
 
 -- | import a 32 or 33 byte long (that is with leading 0) private key
 importPrivateKey :: B.Bytes -> Maybe PrivateKey
 importPrivateKey (B.Bytes bytestr) =
   PrivateKey . B.Bytes . EC.getSecKey <$> EC.secKey adjustedBytestr
   where
-    adjustedBytestr = if (BS.length bytestr > 32) then BS.drop 1 bytestr else bytestr
+    adjustedBytestr = if BS.length bytestr > 32 then BS.drop 1 bytestr else bytestr
 
 -- | import an uncompressed 64 byte long public key (that is without compression indicator byte)
 importPublicKey :: B.Bytes -> Maybe PublicKey
@@ -150,3 +150,6 @@ toPublicKey = PublicKey . B.Bytes . BS.tail . EC.exportPubKey False
 
 sigToHex :: Signature -> Text
 sigToHex (Signature r s v) = bytesToHex r <> bytesToHex s <> integerToHex 1 v
+
+pubToHex :: PublicKey -> Text
+pubToHex (PublicKey b) = bytesToHex b

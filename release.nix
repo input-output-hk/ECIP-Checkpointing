@@ -8,14 +8,31 @@ let
   default = (import src { inherit src; });
   pkgs = default.pkgs;
 in {
-  checkpointing-node-exe = default.morpho-checkpoint-node.components.exes;
-  checkpointing-node-shell = default.shell;
-  checkpointing-node-run-tests = default.pkgs.stdenvNoCC.mkDerivation {
+  checkpoint-node-exe = default.morpho-checkpoint-node.components.exes;
+  checkpoint-node-shell = default.shell;
+  checkpoint-node-run-unit-tests = default.pkgs.stdenvNoCC.mkDerivation {
     inherit src;
     name = "checkpointing-node-run-tests";
     installPhase = ''
       cd morpho-checkpoint-node
       ${default.morpho-checkpoint-node.components.tests.test}/bin/test
+      touch $out'';
+  };
+  checkpoint-node-run-mantis-integration-tests = default.pkgs.stdenvNoCC.mkDerivation {
+    inherit src;
+    name = "checkpointing-node-mantis-integration-tests";
+    buildInputs = [ default.mantis ];
+    installPhase = ''
+      cd morpho-checkpoint-node
+      ${default.morpho-checkpoint-node.components.tests.mantis-integration-tests}/bin/mantis-integration-tests
+      touch $out'';
+  };
+  checkpoint-node-run-statemachine-tests = default.pkgs.stdenvNoCC.mkDerivation {
+    inherit src;
+    name = "checkpointing-node-statemachine-tests";
+    installPhase = ''
+      cd morpho-checkpoint-node
+      ${default.morpho-checkpoint-node.components.tests.state-machine-tests}/bin/state-machine-tests
       touch $out'';
   };
   check-code-formatting = pkgs.stdenvNoCC.mkDerivation {
