@@ -15,7 +15,8 @@ data MorphoMetrics
         mMorphoStateUnstableCheckpoint :: Gauge,
         mMorphoStateStableCheckpoint :: Gauge,
         mPushedCheckpoint :: Gauge,
-        mNbVotesLastCheckpoint :: Gauge
+        mNbVotesLastCheckpoint :: Gauge,
+        mNbPeers :: Gauge
       }
 
 setupPrometheus :: IO (MorphoMetrics, IO RegistrySample)
@@ -24,6 +25,7 @@ setupPrometheus = runRegistryT $ do
   mStableStateCheckpoint <- registerGauge "morpho_checkpoint_stable_state_pow_block_number" mempty
   mUnstableStateCheckpoint <- registerGauge "morpho_checkpoint_unstable_state_pow_block_number" mempty
   mpushedCheckpoint <- registerGauge "morpho_checkpoint_pushed_pow_block_number" mempty
-  mnbVotes <- registerGauge "morpho_checkpoint_nb_votes_latest" mempty
+  mNbVotes <- registerGauge "morpho_checkpoint_nb_votes_latest" mempty
+  mnbp <- registerGauge "morpho_checkpoint_nb_peers" mempty
   rs <- sample
-  pure (MorphoMetrics currentPowNumber mUnstableStateCheckpoint mStableStateCheckpoint mpushedCheckpoint mnbVotes, rs)
+  pure (MorphoMetrics currentPowNumber mUnstableStateCheckpoint mStableStateCheckpoint mpushedCheckpoint mNbVotes mnbp, rs)
