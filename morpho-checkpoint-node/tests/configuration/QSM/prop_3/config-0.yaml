@@ -9,7 +9,8 @@ NumCoreNodes: 2
 RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
 SystemStart: "2020-11-22T04:45:09Z"
-SecurityParam : 3
+SecurityParam : 5
+StableLedgerDepth : 3
 TurnOnLogging: True
 ViewMode: SimpleView
 TurnOnLogMetrics: False

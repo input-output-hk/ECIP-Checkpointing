@@ -181,6 +181,7 @@ exampleNodeConfig =
       ncNetworkMagic = 12345,
       ncSystemStart = Just $ SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
       ncSecurityParameter = 3,
+      ncStableLedgerDepth = 2,
       ncLoggingSwitch = True,
       ncTraceOpts = exampleTraceOptions,
       ncLogMetrics = True,

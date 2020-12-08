@@ -249,6 +249,13 @@ instance (HashAlgorithm h, BftCrypto c) => ToObject (TimeTravelError (MorphoBloc
         "error" .= String "LedgerStateNotFoundAt",
         "point" .= showPoint verb point
       ]
+  toObject _verb (ChainNotLongEnough offset len) =
+    mkObject
+      [ "kind" .= String "TimeTravelError",
+        "error" .= String "ChainNotLongEnough",
+        "offset" .= show offset,
+        "length" .= show len
+      ]
 
 instance (BftCrypto c, HashAlgorithm h) => ToObject (GenTx (MorphoBlock h c)) where
   toObject _verb (MorphoGenTx tx txid) =
