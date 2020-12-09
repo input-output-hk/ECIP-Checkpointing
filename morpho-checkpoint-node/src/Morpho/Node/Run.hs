@@ -19,9 +19,11 @@ import Cardano.BM.Data.Transformers (setHostname)
 import Cardano.BM.Tracing
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (take, trace, traceId, unlines)
+import Control.Monad.Class.MonadSTM.Strict (readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
+import Data.Map.Strict (size)
 import Data.Text (Text, breakOn, pack, take)
 import Morpho.Common.Socket
 import Morpho.Config.Logging hiding (hostname)
@@ -202,6 +204,9 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
           publishStableCheckpoint nc nodeTracers metrics chainDB
         -- Fetch the current stable PoW block
         void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel nc nodeTracers metrics
+        -- Track the nb of connected peers
+        void $ onEachChange registry "TrackNbPeersMetric" id Nothing (size <$> readTVar (getNodeCandidates nodeKernel)) $
+          \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers metrics
   let args =
         RunNodeArgs
           { rnTraceConsensus = consensusTracers nodeTracers,
