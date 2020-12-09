@@ -50,6 +50,7 @@ data NodeConfiguration
         ncNetworkMagic :: Word32,
         ncSystemStart :: Maybe SystemStart,
         ncSecurityParameter :: Word64,
+        ncStableLedgerDepth :: Int,
         ncLoggingSwitch :: Bool,
         ncTraceOpts :: !TraceOptions,
         ncLogMetrics :: Bool,
@@ -78,6 +79,7 @@ instance FromJSON NodeConfiguration where
     networkMagic <- v .: "NetworkMagic"
     systemStart <- v .:? "SystemStart"
     securityParam <- v .: "SecurityParam"
+    stableLedgerDepth <- v .: "StableLedgerDepth"
     loggingSwitch <- v .: "TurnOnLogging"
     traceOptions <- traceConfigParser v
     vMode <- v .: "ViewMode"
@@ -106,6 +108,7 @@ instance FromJSON NodeConfiguration where
         networkMagic
         systemStart
         securityParam
+        stableLedgerDepth
         loggingSwitch
         traceOptions
         logMetrics

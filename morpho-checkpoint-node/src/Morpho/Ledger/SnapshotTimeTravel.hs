@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -9,32 +10,40 @@ module Morpho.Ledger.SnapshotTimeTravel
 where
 
 import Cardano.Prelude hiding (Handle, ReadMode, atomically, to, withFile)
+import qualified Data.FingerTree.Strict as FT
+import Morpho.Ledger.Block
 import Ouroboros.Consensus.Ledger.Basics
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Storage.ChainDB.API
 import Ouroboros.Consensus.Util.IOLike
-import Ouroboros.Network.AnchoredFragment (anchorPoint)
+import Ouroboros.Network.AnchoredFragment (unanchorFragment)
 import Ouroboros.Network.Block hiding (Tip)
+import qualified Ouroboros.Network.ChainFragment as CF
 
-newtype TimeTravelError blk = LedgerStateNotFoundAt (Point blk)
+data TimeTravelError blk
+  = LedgerStateNotFoundAt (Point blk)
+  | ChainNotLongEnough Int Int
   deriving (Show)
 
 getLatestStableLedgerState ::
-  (MonadIO m, MonadSTM m) =>
+  (MonadIO m, MonadSTM m, HasHeader (Header blk)) =>
   ChainDB m blk ->
+  Int ->
   m (Either (TimeTravelError blk) (LedgerState blk))
-getLatestStableLedgerState chainDB = go (5 :: Int)
+getLatestStableLedgerState chainDB offset = do
+  chainFragment <- unanchorFragment <$> atomically (getCurrentChain chainDB)
+  let result = CF.lookupByIndexFromEnd chainFragment offset
+  case result of
+    FT.Position _ h _ -> getLedger h
+    _ -> return $ Left $ ChainNotLongEnough offset (CF.length chainFragment)
   where
-    go n = do
-      immDbTip <- atomically $ castPoint . anchorPoint <$> getCurrentChain chainDB
-      -- There is a race condition here. If the ledger db advances between the two
-      -- calls, the ledger state will not be found and 'Nothing' will return.
-      -- In this case we try again to get a stable ledger state and
-      -- hopefully succeed this time.
-      -- Newer ouroboros-consensus make past ledgerState available in STM
-      -- transactions and can eliminate this race condition.
-      mstate <- getPastLedger chainDB immDbTip
-      case (ledgerState <$> mstate, n) of
-        (Nothing, 0) -> return $ Left $ LedgerStateNotFoundAt immDbTip
-        (Nothing, _) -> go $ n - 1
-        (Just st, _) -> return $ Right st
+    getLedger hdr = do
+      let pnt = blockPoint hdr
+      -- There is a race condition here. If the ledger db advances a lot between
+      -- the two chainDB api calls, the ledger state will not be found and 'Nothing'
+      -- will return. Newer ouroboros-consensus make past ledgerState available
+      -- in STM transactions and can eliminate this race condition.
+      mstate <- getPastLedger chainDB (castPoint pnt)
+      case ledgerState <$> mstate of
+        Nothing -> return $ Left $ LedgerStateNotFoundAt (castPoint pnt)
+        Just st -> return $ Right st

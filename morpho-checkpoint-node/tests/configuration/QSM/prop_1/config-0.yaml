@@ -8,7 +8,8 @@ Protocol: MockedBFT
 NumCoreNodes: 1
 RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
-SecurityParam : 3
+SecurityParam : 5
+StableLedgerDepth : 3
 TurnOnLogging: True
 ViewMode: SimpleView
 TurnOnLogMetrics: False

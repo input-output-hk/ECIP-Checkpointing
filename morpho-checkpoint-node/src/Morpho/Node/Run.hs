@@ -292,7 +292,7 @@ publishStableCheckpoint ::
 publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
   traceWith (extractStateTracer nodeTracers) (MorphoStateTrace $ morphoLedgerState ledgerState)
   set (ledgerStateToBlockNum ledgerState) $ mMorphoStateUnstableCheckpoint metrics
-  mst <- getLatestStableLedgerState chainDB
+  mst <- getLatestStableLedgerState chainDB (ncStableLedgerDepth nc)
   case mst of
     Left err -> traceWith (timeTravelErrorTracer nodeTracers) err
     Right stableLedgerState -> do

@@ -10,6 +10,7 @@ RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
 SystemStart: "2009-02-13T23:13:09Z"
 SecurityParam : 3
+StableLedgerDepth : 2
 TurnOnLogging: True
 ViewMode: SimpleView
 TurnOnLogMetrics: True
