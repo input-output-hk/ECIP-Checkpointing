@@ -72,6 +72,12 @@ constraints: secp256k1-haskell +recovery
 
 tests: True
 
+-- =============================================================
+-- WARNING:
+-- Do not add any directive other than source-repository-package
+-- past that point.
+-- =============================================================
+
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
