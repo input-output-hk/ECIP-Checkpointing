@@ -16,8 +16,8 @@ let
       sha256 = "sha256-kFLfYQ+8ogz4uycvriAszwP3Af7yqRGrxH6l6HmnKuc=";
     })
     { inherit system; };
-  morphoPkgs = import ./nix/morpho-node.nix { inherit pkgs src haskellCompiler profile; };
-  shell = morphoPkgs.shellFor {
+  morphoPkgs = nixShell: import ./nix/morpho-node.nix { inherit pkgs src haskellCompiler nixShell profile; };
+  shell = (morphoPkgs true).shellFor {
     packages = ps: with ps; [
       morpho-checkpoint-node
     ];
@@ -39,8 +39,9 @@ let
       # Systemd won't build on darwin, checking first we're not on a
       # Darwin env.
       (pkgs.stdenv.lib.optional (!pkgs.stdenv.isDarwin) pkgs.systemd);
-    #exactDeps = false;
+    exactDeps = true;
   };
   # Instantiate a package set using the generated file.
-in
-morphoPkgs // { inherit shell pkgs mantis; }
+in morphoPkgs false // {
+  inherit shell pkgs mantis;
+}

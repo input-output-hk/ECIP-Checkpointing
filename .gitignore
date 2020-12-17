@@ -8,6 +8,7 @@ dist-newstyle
 .ghc.environment.*
 cabal.project.local*
 cabal.project.local~
+cabal.project.srcs
 dist/
 
 stack.yaml.local.lock
