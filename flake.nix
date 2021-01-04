@@ -13,6 +13,7 @@
         pkgs = (import haskell-nix.sources.nixpkgs (haskell-nix.nixpkgsArgs // { inherit system; })).pkgs;
         src = ./.;
         profile = false;
+        nixShell = false;
         haskellCompiler = "ghc865";
       };
       morpho-node = morpho-pkgs.morpho-checkpoint-node.components.exes.morpho-checkpoint-node;
