@@ -18,8 +18,8 @@ import Cardano.BM.Data.Tracer
 import Cardano.BM.Data.Transformers (setHostname)
 import Cardano.BM.Tracing
 import Cardano.Crypto.Hash
-import Cardano.Prelude hiding (take, trace, traceId, unlines)
-import Control.Monad.Class.MonadSTM.Strict (readTVar)
+import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
+import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
@@ -197,8 +197,10 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         -- Watch the tip of the chain and store it in @varTip@ so we can include
         -- it in trace messages.
         let chainDB = getChainDB nodeKernel
-        void $ onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip ->
+        lastBlockTsVar <- atomically (newTVar Nothing)
+        void $ onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip -> do
           traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
+          setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
         --  Check if we need to push a checkpoint to the PoW node
         void $ onEachChange registry "PublishStableCheckpoint" id Nothing (ledgerState <$> ChainDB.getCurrentLedger chainDB) $
           publishStableCheckpoint nc nodeTracers metrics chainDB
