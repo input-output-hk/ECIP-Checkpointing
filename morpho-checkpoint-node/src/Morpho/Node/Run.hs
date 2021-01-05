@@ -68,6 +68,7 @@ import System.Directory
 import System.Metrics.Prometheus.Http.Scrape (serveHttpTextMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
+import Data.Time (getCurrentTime)
 
 runNode ::
   LoggingLayer ->
@@ -200,8 +201,9 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         void $ onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip ->
           traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
         --  Check if we need to push a checkpoint to the PoW node
+        unstableBlockTimes <- atomically newUnstableBlockTimes
         void $ onEachChange registry "PublishStableCheckpoint" id Nothing (ledgerState <$> ChainDB.getCurrentLedger chainDB) $
-          publishStableCheckpoint nc nodeTracers metrics chainDB
+          publishStableCheckpoint nc nodeTracers metrics chainDB unstableBlockTimes
         -- Fetch the current stable PoW block
         void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel nc nodeTracers metrics
         -- Track the nb of connected peers
@@ -287,17 +289,30 @@ publishStableCheckpoint ::
   Tracers peer localpeer h c ->
   MorphoMetrics ->
   ChainDB.ChainDB IO blk ->
+  UnstableBlockTimes ->
   LedgerState blk ->
   IO ()
-publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
+publishStableCheckpoint nc nodeTracers metrics chainDB unstableBlockTimes ledgerState = do
+  now <- getCurrentTime
+
   traceWith (extractStateTracer nodeTracers) (MorphoStateTrace $ morphoLedgerState ledgerState)
-  set (ledgerStateToBlockNum ledgerState) $ mMorphoStateUnstableCheckpoint metrics
+  let unstableBlockNum = ledgerStateToBlockNum ledgerState
+  set (fromIntegral unstableBlockNum) $ mMorphoStateUnstableCheckpoint metrics
+  atomically $ putUnstableTime unstableBlockTimes unstableBlockNum now
+
   mst <- getLatestStableLedgerState chainDB (ncStableLedgerDepth nc)
   case mst of
     Left err -> traceWith (timeTravelErrorTracer nodeTracers) err
     Right stableLedgerState -> do
       let morphoState = morphoLedgerState stableLedgerState
-      set (ledgerStateToBlockNum stableLedgerState) $ mMorphoStateStableCheckpoint metrics
+      let stableBlockNum = ledgerStateToBlockNum stableLedgerState
+      set (fromIntegral stableBlockNum) $ mMorphoStateStableCheckpoint metrics
+
+      mTimeToStable <- atomically $ getTimeToStable unstableBlockTimes stableBlockNum now
+      case mTimeToStable of
+        Nothing -> return ()
+        Just timeToStable -> set (realToFrac timeToStable) (mMorphoTimeToStable metrics)
+
       case checkpointToPush morphoState of
         Left err -> traceWith (extractStateTracer nodeTracers) $ WontPushCheckpointTrace err
         Right chkp -> do
@@ -322,10 +337,10 @@ publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
         (traceWith tr . RpcPushedCheckpoint)
         er
     updatePushedCheckpointMetrics st = do
-      set (ledgerStateToBlockNum st) $ mPushedCheckpoint metrics
-      set (ledgerStateToNbVotes st) $ mNbVotesLastCheckpoint metrics
-    ledgerStateToBlockNum = fromIntegral . powBlockNo . checkpointedBlock . lastCheckpoint . morphoLedgerState
-    ledgerStateToNbVotes = fromIntegral . length . chkpSignatures . lastCheckpoint . morphoLedgerState
+      set (fromIntegral $ ledgerStateToBlockNum st) $ mPushedCheckpoint metrics
+      set (fromIntegral $ ledgerStateToNbVotes st) $ mNbVotesLastCheckpoint metrics
+    ledgerStateToBlockNum = powBlockNo . checkpointedBlock . lastCheckpoint . morphoLedgerState
+    ledgerStateToNbVotes = length . chkpSignatures . lastCheckpoint . morphoLedgerState
 
 httpExceptionHandler :: PoWNodeRpcOperation -> Tracer IO PoWNodeRpcTrace -> HttpException -> IO ()
 httpExceptionHandler op t he = traceWith t . RpcNetworkError op $ displayException he
