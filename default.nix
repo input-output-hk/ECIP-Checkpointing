@@ -24,6 +24,7 @@ let
     withHoogle = true;
     tools = {
       cabal = "3.2.0.0";
+      haskell-language-server = "0.8.0";
     };
     buildInputs = with pkgs.haskellPackages;
       [
