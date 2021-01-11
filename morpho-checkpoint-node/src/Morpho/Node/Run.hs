@@ -46,6 +46,7 @@ import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
 import Network.HostName (getHostName)
+import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.Config.SupportsNode
 import Ouroboros.Consensus.Fragment.InFuture (defaultClockSkew)
@@ -201,6 +202,11 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         void $ onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip -> do
           traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
           setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
+        --  Track current block number
+        void $ onEachChange registry "TrackBlockNumberMetric" id Nothing (ChainDB.getTipBlockNo chainDB) $
+          \ob -> do
+            let mb = withOriginToMaybe ob
+            set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
         --  Check if we need to push a checkpoint to the PoW node
         void $ onEachChange registry "PublishStableCheckpoint" id Nothing (ledgerState <$> ChainDB.getCurrentLedger chainDB) $
           publishStableCheckpoint nc nodeTracers metrics chainDB
@@ -229,6 +235,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
           }
   Node.run args
   where
+    blockNoToDouble = realToFrac . unBlockNo
     nid = case ncNodeId nc of
       (CoreId n) -> n
       (RelayId _) -> error "Non-core nodes currently not supported"
