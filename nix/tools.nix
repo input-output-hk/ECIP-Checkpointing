@@ -5,8 +5,7 @@ let
   nixpkgs = haskell-nix.sources.nixpkgs-2003;
   pkgs = (import nixpkgs haskell-nix.nixpkgsArgs).pkgs;
 in {
-  inherit haskell-nix pkgs;
-  nixpkgs = nixpkgs { inherit system; };
+  inherit haskell-nix pkgs nixpkgs;
   niv = (import sources.niv {}).niv;
   nix-tools = pkgs.haskell-nix.nix-tools;
 }

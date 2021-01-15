@@ -5,6 +5,7 @@
 , tools ? import ./nix/tools.nix { inherit system; }
 }:
 let
+  sources = import ./nix/sources.nix;
   pkgs = tools.pkgs;
   lib = tools.pkgs.lib;
   mantis = import
@@ -43,5 +44,5 @@ let
   };
   # Instantiate a package set using the generated file.
 in morphoPkgs false // {
-  inherit shell pkgs mantis;
+  inherit shell pkgs mantis sources;
 }

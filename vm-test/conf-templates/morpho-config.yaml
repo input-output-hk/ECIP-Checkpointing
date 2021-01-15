@@ -1,0 +1,43 @@
+ApplicationName: morpho-checkpoint
+ApplicationVersion: 1
+CheckpointInterval: 4
+FedPubKeys: [
+%pubKeys%
+  ]
+LastKnownBlockVersion-Major: 0
+LastKnownBlockVersion-Minor: 2
+LastKnownBlockVersion-Alt: 0
+NetworkMagic: 12345
+NodeId: %nodeId%
+NodePrivKeyFile: %pk%
+NumCoreNodes: %numCoreNode%
+PoWBlockFetchInterval: 5000000
+PoWNodeRpcUrl: http://127.0.0.1:6200
+PrometheusPort: 6500
+Protocol: MockedBFT
+RequiredMajority: %majority%
+RequiresNetworkMagic: RequiresMagic
+SecurityParam: 2200
+StableLedgerDepth: 6
+SlotDuration: 5
+SnapshotsOnDisk: 60
+SnapshotInterval: 60
+SystemStart: "2020-11-17T00:00:00Z"
+TurnOnLogMetrics: True
+TurnOnLogging: True
+ViewMode: SimpleView
+minSeverity: Debug
+TracingVerbosity: NormalVerbosity
+setupScribes:
+  - scKind: StdoutSK
+    scFormat: ScText
+    scName: stdout
+defaultScribes:
+  - - StdoutSK
+    - stdout
+setupBackends:
+  - KatipBK
+defaultBackends:
+  - KatipBK
+options:
+  mapBackends:
