@@ -1,0 +1,20 @@
+cradle:
+  cabal:
+    - path: "morpho-checkpoint-node/src"
+      component: "lib:morpho-checkpoint-node"
+
+    - path: "morpho-checkpoint-node/app"
+      component: "morpho-checkpoint-node:exe:morpho-checkpoint-node"
+
+    - path: "morpho-checkpoint-node/tests/mantis-integration-tests.hs"
+      component: "morpho-checkpoint-node:test:mantis-integration-tests"
+    - path: "morpho-checkpoint-node/tests/Test/Morpho/MantisIntegration.hs"
+      component: "morpho-checkpoint-node:test:mantis-integration-tests"
+
+    - path: "morpho-checkpoint-node/tests/state-machine-tests.hs"
+      component: "morpho-checkpoint-node:test:state-machine-tests"
+    - path: "morpho-checkpoint-node/tests/Test/Morpho/QSM.hs"
+      component: "morpho-checkpoint-node:test:state-machine-tests"
+
+    - path: "morpho-checkpoint-node/tests"
+      component: "morpho-checkpoint-node:test:test"
