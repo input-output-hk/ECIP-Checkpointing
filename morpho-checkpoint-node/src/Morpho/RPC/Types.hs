@@ -30,11 +30,10 @@ instance ToJSON ObftSignature
 
 instance FromJSON ObftSignature
 
-data PoWBlockchainCheckpoint
-  = PoWBlockchainCheckpoint
-      { parentHash :: !PowBlockHash,
-        signatures :: [ObftSignature]
-      }
+data PoWBlockchainCheckpoint = PoWBlockchainCheckpoint
+  { parentHash :: !PowBlockHash,
+    signatures :: [ObftSignature]
+  }
   deriving (Generic, Eq, Show)
 
 instance ToJSON PoWBlockchainCheckpoint where
@@ -57,13 +56,12 @@ instance FromJSON PoWBlockchainCheckpoint where
       parseSig :: Value -> Parser ObftSignature
       parseSig = withText "ObftSignature" $ return . ObftSignature
 
-data PoWNodeJSONRequest p
-  = PoWNodeJSONRequest
-      { jsonrpc :: !Text,
-        method :: !Text,
-        params :: p,
-        id :: Int
-      }
+data PoWNodeJSONRequest p = PoWNodeJSONRequest
+  { jsonrpc :: !Text,
+    method :: !Text,
+    params :: p,
+    id :: Int
+  }
   deriving (Show, Eq, Generic)
 
 getParams :: PoWNodeJSONRequest p -> p
@@ -77,12 +75,11 @@ instance ToJSON (PoWNodeJSONRequest [Int])
 
 instance FromJSON (PoWNodeJSONRequest [Int])
 
-data PoWNodeRPCResponse r
-  = PoWNodeRPCResponse
-      { responseJsonrpc :: !Text,
-        responseResult :: r,
-        responseid :: Int
-      }
+data PoWNodeRPCResponse r = PoWNodeRPCResponse
+  { responseJsonrpc :: !Text,
+    responseResult :: r,
+    responseid :: Int
+  }
   deriving (Generic, Eq, Show)
 
 type LatestPoWBlockResponse = PoWNodeRPCResponse PowBlockRef

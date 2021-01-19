@@ -20,8 +20,8 @@ where
 
 import Cardano.Prelude
 import Codec.Serialise (Serialise)
-import qualified Data.Map as M
 import Data.Map (Map)
+import qualified Data.Map as M
 import GHC.Generics (Generic)
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.PowTypes
@@ -39,13 +39,12 @@ import Ouroboros.Network.Block
   State of the ledger
 -------------------------------------------------------------------------------}
 
-data MorphoState blk
-  = MorphoState
-      { lastCheckpoint :: !Checkpoint,
-        checkpointAt :: !(Point blk), -- when the checkpoint was created, used to determine if the checkpoint should be pushed to PoW Node
-        currentVotes :: !(Map PublicKey Vote),
-        morphoTip :: !(Point blk)
-      }
+data MorphoState blk = MorphoState
+  { lastCheckpoint :: !Checkpoint,
+    checkpointAt :: !(Point blk), -- when the checkpoint was created, used to determine if the checkpoint should be pushed to PoW Node
+    currentVotes :: !(Map PublicKey Vote),
+    morphoTip :: !(Point blk)
+  }
   deriving (Show, Eq, Generic, NoUnexpectedThunks)
 
 deriving instance Serialise (HeaderHash l) => Serialise (MorphoState l)
@@ -58,18 +57,17 @@ data MorphoError blk
   | MorphoInvalidHash (ChainHash blk) (ChainHash blk)
   deriving (Generic, NoUnexpectedThunks)
 
-data MorphoLedgerConfig
-  = MorphoLedgerConfig
-      { checkpointingInterval :: Int,
-        securityParam :: SecurityParam,
-        requiredMajority :: Int,
-        fedPubKeys :: [PublicKey],
-        -- Used to reconstruct `EraParams`
-        slotLength :: !SlotLength,
-        -- TODO: Should we move this to the block config ?
-        --       See MorphoBlockConfig for more informations.
-        nodeKeyPair :: !KeyPair
-      }
+data MorphoLedgerConfig = MorphoLedgerConfig
+  { checkpointingInterval :: Int,
+    securityParam :: SecurityParam,
+    requiredMajority :: Int,
+    fedPubKeys :: [PublicKey],
+    -- Used to reconstruct `EraParams`
+    slotLength :: !SlotLength,
+    -- TODO: Should we move this to the block config ?
+    --       See MorphoBlockConfig for more informations.
+    nodeKeyPair :: !KeyPair
+  }
   deriving stock (Show, Eq, Generic)
   deriving (NoUnexpectedThunks)
 

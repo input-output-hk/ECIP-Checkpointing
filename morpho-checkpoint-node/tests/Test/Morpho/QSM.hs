@@ -22,7 +22,7 @@ import Control.Concurrent.Async
 import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class
 import Data.Kind (Type)
-import Data.List ((\\), union)
+import Data.List (union, (\\))
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe
@@ -60,11 +60,10 @@ newtype Node = Node Int
   deriving newtype (ToExpr)
 
 -- TODO extend the tests: test more properties of the chain.
-data Chain
-  = Chain
-      { nextBlockNo :: PowBlockNo,
-        unusedPowBlockRef :: Map PowBlockRef [Node]
-      }
+data Chain = Chain
+  { nextBlockNo :: PowBlockNo,
+    unusedPowBlockRef :: Map PowBlockRef [Node]
+  }
   deriving (Eq, Show, Generic)
   deriving anyclass (ToExpr)
 
@@ -92,10 +91,9 @@ updateChain Config {..} Chain {..} (SendPowBlock toNodes block) =
 data MapResult a = Appened a | Deleted a
   deriving (Functor)
 
-newtype MockedChain
-  = MockedChain
-      { nextMockedBlockNo :: PowBlockNo
-      }
+newtype MockedChain = MockedChain
+  { nextMockedBlockNo :: PowBlockNo
+  }
   deriving (Eq, Show, Generic)
   deriving newtype (ToExpr)
 
@@ -114,21 +112,19 @@ initChain =
 shrinker :: Model Symbolic -> Command Symbolic -> [Command Symbolic]
 shrinker _ _ = []
 
-data Model (r :: Type -> Type)
-  = Model
-      { nodes :: [Node],
-        chain :: Chain,
-        lastCheckpoint :: Maybe PowBlockRef
-      }
+data Model (r :: Type -> Type) = Model
+  { nodes :: [Node],
+    chain :: Chain,
+    lastCheckpoint :: Maybe PowBlockRef
+  }
   deriving (Eq, Show, Generic)
 
 data Command (r :: Type -> Type)
   = SendPowBlock [Node] Block
   deriving (Eq, Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable, CommandNames)
 
-newtype Response (r :: Type -> Type)
-  = Response
-      {getResponse :: Either Error [(Node, CheckpointResult)]}
+newtype Response (r :: Type -> Type) = Response
+  {getResponse :: Either Error [(Node, CheckpointResult)]}
   deriving stock (Eq, Show, Generic1)
   deriving anyclass (Rank2.Foldable)
 
@@ -222,12 +218,13 @@ generator Model {..} = Just $ do
       PowBlockRef blockNo <$> arbitrary
 
 toMock :: Config -> Model r -> Command r -> Response r
-toMock cfg Model {..} cmd = Response $ Right $
-  case snd $ updateChain cfg chain cmd of
-    Just elected ->
-      map (,Checkpoint (powBlockHash elected) (majority cfg)) nodes
-    _ ->
-      map (,NoCheckpoint) nodes
+toMock cfg Model {..} cmd = Response $
+  Right $
+    case snd $ updateChain cfg chain cmd of
+      Just elected ->
+        map (,Checkpoint (powBlockHash elected) (majority cfg)) nodes
+      _ ->
+        map (,NoCheckpoint) nodes
 
 mock :: Config -> Model Symbolic -> Command Symbolic -> GenSym (Response Symbolic)
 mock cfg m cmd = return $ toMock cfg m cmd
@@ -255,14 +252,15 @@ unusedSM cfg = mkSM cfg $ error "NodeHandle not used on generation or shrinking"
 
 -- | Run one node and send him block references. Test if it generates checkpoints
 prop_1 :: Property
-prop_1 = noShrinking $ withMaxSuccess 1
-  $ forAllCommands (unusedSM config) (Just 2)
-  $ \cmds -> monadicIO $ do
-    nodeHandles <- liftIO $ setup 1 1
-    let sm = mkSM config nodeHandles
-    (hist, _model, res) <- runCommands sm cmds
-    liftIO $ mapM_ cleanup nodeHandles
-    prettyCommands sm hist (res === Ok)
+prop_1 = noShrinking $
+  withMaxSuccess 1 $
+    forAllCommands (unusedSM config) (Just 2) $
+      \cmds -> monadicIO $ do
+        nodeHandles <- liftIO $ setup 1 1
+        let sm = mkSM config nodeHandles
+        (hist, _model, res) <- runCommands sm cmds
+        liftIO $ mapM_ cleanup nodeHandles
+        prettyCommands sm hist (res === Ok)
   where
     config =
       Config
@@ -273,14 +271,15 @@ prop_1 = noShrinking $ withMaxSuccess 1
 -- | Same as 'prop_1', but with two nodes. We select the node to send block refs
 -- randomly. Majority is one, so on node is enough to produce checkpoints.
 prop_2 :: Property
-prop_2 = noShrinking $ withMaxSuccess 1
-  $ forAllCommands (unusedSM config) (Just 2)
-  $ \cmds -> monadicIO $ do
-    nodeHandles <- liftIO $ setup 2 2
-    let sm = mkSM config nodeHandles
-    (hist, _model, res) <- runCommands sm cmds
-    liftIO $ mapM_ cleanup nodeHandles
-    prettyCommands sm hist (res === Ok)
+prop_2 = noShrinking $
+  withMaxSuccess 1 $
+    forAllCommands (unusedSM config) (Just 2) $
+      \cmds -> monadicIO $ do
+        nodeHandles <- liftIO $ setup 2 2
+        let sm = mkSM config nodeHandles
+        (hist, _model, res) <- runCommands sm cmds
+        liftIO $ mapM_ cleanup nodeHandles
+        prettyCommands sm hist (res === Ok)
   where
     config =
       Config
@@ -291,14 +290,15 @@ prop_2 = noShrinking $ withMaxSuccess 1
 -- | Same as 'prop_2', but with majority 2. Of we send a block ref to only one, no
 -- checkpoint should be created. If we later send to to the second we should get a checkpoint.
 prop_3 :: Property
-prop_3 = noShrinking $ withMaxSuccess 3
-  $ forAllCommands (unusedSM config) (Just 1)
-  $ \cmds -> monadicIO $ do
-    nodeHandles <- liftIO $ setup 2 3
-    let sm = mkSM config nodeHandles
-    (hist, _model, res) <- runCommands sm cmds
-    liftIO $ mapM_ cleanup nodeHandles
-    prettyCommands sm hist (res === Ok)
+prop_3 = noShrinking $
+  withMaxSuccess 3 $
+    forAllCommands (unusedSM config) (Just 1) $
+      \cmds -> monadicIO $ do
+        nodeHandles <- liftIO $ setup 2 3
+        let sm = mkSM config nodeHandles
+        (hist, _model, res) <- runCommands sm cmds
+        liftIO $ mapM_ cleanup nodeHandles
+        prettyCommands sm hist (res === Ok)
   where
     config =
       Config
@@ -310,18 +310,19 @@ prop_3 = noShrinking $ withMaxSuccess 3
 -- reopens one of them. The target is to test if we can sync from an existing
 -- chain db
 prop_4 :: Property
-prop_4 = noShrinking $ withMaxSuccess 1
-  $ forAllCommands (unusedSM config) (Just 15)
-  $ \cmds -> monadicIO $ do
-    nodeHandles <- liftIO $ setup 2 4
-    let sm = mkSM config nodeHandles
-    (hist, model, res) <- runCommands sm cmds
-    liftIO $ mapM_ cleanup nodeHandles
-    h <- liftIO $ runDualNode False 4 0
-    (_, chkp) <- liftIO $ waitNode config (Node 0, mockNode h)
-    liftIO $ cleanup h
-    prettyCommands sm hist (res === Ok)
-    whenFailM (return ()) $ toBlockRef chkp === (powBlockHash <$> lastCheckpoint model)
+prop_4 = noShrinking $
+  withMaxSuccess 1 $
+    forAllCommands (unusedSM config) (Just 15) $
+      \cmds -> monadicIO $ do
+        nodeHandles <- liftIO $ setup 2 4
+        let sm = mkSM config nodeHandles
+        (hist, model, res) <- runCommands sm cmds
+        liftIO $ mapM_ cleanup nodeHandles
+        h <- liftIO $ runDualNode False 4 0
+        (_, chkp) <- liftIO $ waitNode config (Node 0, mockNode h)
+        liftIO $ cleanup h
+        prettyCommands sm hist (res === Ok)
+        whenFailM (return ()) $ toBlockRef chkp === (powBlockHash <$> lastCheckpoint model)
   where
     config =
       Config
@@ -368,18 +369,16 @@ runDualNode createDir testId nodeId = do
   link node
   return $ NodeHandle nodeId mockNode node
 
-data NodeHandle
-  = NodeHandle
-      { _nodeId :: Int,
-        mockNode :: MockNodeHandle,
-        mainNode :: Async ()
-      }
+data NodeHandle = NodeHandle
+  { _nodeId :: Int,
+    mockNode :: MockNodeHandle,
+    mainNode :: Async ()
+  }
 
-data Config
-  = Config
-      { nodesNumber :: Int,
-        majority :: Int
-      }
+data Config = Config
+  { nodesNumber :: Int,
+    majority :: Int
+  }
 
 mkTestDir :: Int -> String
 mkTestDir testId = "db/qsm-tests-" ++ show testId

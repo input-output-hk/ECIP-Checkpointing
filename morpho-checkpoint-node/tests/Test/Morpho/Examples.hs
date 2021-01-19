@@ -133,7 +133,8 @@ examplePowBlockRef =
 exampleBftConfig :: ConsensusConfig (Bft ConsensusMockCrypto)
 exampleBftConfig =
   BftConfig
-    { bftParams = -- not used to forge blocks
+    { bftParams -- not used to forge blocks
+      =
         BftParams
           { bftSecurityParam = SecurityParam 4,
             bftNumNodes = NumCoreNodes 5

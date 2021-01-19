@@ -17,8 +17,8 @@ import Cardano.Prelude
 import qualified Data.ByteString as BS
 import qualified Data.HexString as Hex
 import qualified Data.Set as Set
-import qualified Data.Text as T
 import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Morpho.Common.Bytes as B
 
