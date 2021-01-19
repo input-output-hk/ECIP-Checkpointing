@@ -2,26 +2,40 @@
   "nodes": {
     "haskell-nix": {
       "locked": {
-        "lastModified": 1604670513,
-        "narHash": "sha256-ir7WUoKjN/RUm7xk73K1GKUREui7pXWWgIHYTrqSxPs=",
+        "lastModified": 1611086456,
+        "narHash": "sha256-3zB7FcXlSOzuFJylxzBd/B7VFyD7zW/WlKI+9lKVnYQ=",
         "owner": "input-output-hk",
         "repo": "haskell.nix",
-        "rev": "ddc4d650fe668c84090ccc9e3ad6a5b82c6654f7",
+        "rev": "d597b21152fef372c4867ee50c2b1bf8e581f996",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
-        "ref": "update-flake",
+        "ref": "flake-sources",
         "repo": "haskell.nix",
+        "type": "github"
+      }
+    },
+    "mantis-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1611066829,
+        "narHash": "sha256-RqblkhjXTsF1RDiNdYy2bfCWn3fjagord/zUNFIUqd0=",
+        "owner": "input-output-hk",
+        "repo": "mantis",
+        "rev": "3c9842a26b06d4c43c51cfbd668e46f4a862e88f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "input-output-hk",
+        "repo": "mantis",
         "type": "github"
       }
     },
     "root": {
       "inputs": {
         "haskell-nix": "haskell-nix",
-        "nixpkgs": [
-          "haskell-nix"
-        ],
+        "mantis-src": "mantis-src",
         "utils": "utils"
       }
     },
