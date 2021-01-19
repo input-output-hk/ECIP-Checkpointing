@@ -44,31 +44,33 @@ server checkpoint lock block request respond = do
       mBlockRef <- readMVar block
       case mBlockRef of
         Nothing ->
-          respond $ responseBuilder status404 [("content-type", "application/json")] $
-            fromLazyByteString "Try again soon"
+          respond $
+            responseBuilder status404 [("content-type", "application/json")] $
+              fromLazyByteString "Try again soon"
         Just blockRef -> do
           let body = PoWNodeRPCResponse "" blockRef 1
-          respond $ responseBuilder status200 [("content-type", "application/json")]
-            $ fromLazyByteString
-            $ encode body
+          respond $
+            responseBuilder status200 [("content-type", "application/json")] $
+              fromLazyByteString $
+                encode body
     Right (PutCheckpoint req) -> do
       replaceMVar checkpoint (getParams req)
       -- wake up the thread waiting for the checkpoint
       putMVar lock ()
       let body = PoWNodeRPCResponse "" True 1
-      respond $ responseBuilder status200 [("content-type", "application/json")]
-        $ fromLazyByteString
-        $ encode body
+      respond $
+        responseBuilder status200 [("content-type", "application/json")] $
+          fromLazyByteString $
+            encode body
     Left msg -> error $ "Unknown request " ++ msg
 
-data MockNodeHandle
-  = MockNodeHandle
-      { port :: Int,
-        threadHandle :: Async (),
-        currentPowBlockRef :: MVar (Maybe PowBlockRef),
-        currentCheckPoint :: MVar (Maybe PoWBlockchainCheckpoint),
-        checkPointLock :: MVar ()
-      }
+data MockNodeHandle = MockNodeHandle
+  { port :: Int,
+    threadHandle :: Async (),
+    currentPowBlockRef :: MVar (Maybe PowBlockRef),
+    currentCheckPoint :: MVar (Maybe PoWBlockchainCheckpoint),
+    checkPointLock :: MVar ()
+  }
 
 instance Show MockNodeHandle where
   show handle = "MockNode@" ++ show (port handle)

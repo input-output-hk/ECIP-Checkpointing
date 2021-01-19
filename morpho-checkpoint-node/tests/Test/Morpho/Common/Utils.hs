@@ -18,12 +18,12 @@ import Prelude
 utilsTestsIO :: IO TestTree
 utilsTestsIO = do
   specs <- specTree
-  return
-    $ testGroup "Utils tests"
-    $ specs
-      <> [ testProperty "Round trip Int/Bytes/hex conversions (from Int)" prop_roundTripConversionsInt,
-           testProperty "Round trip Int/Bytes/hex conversions (from Hex)" prop_roundTripConversionsHex
-         ]
+  return $
+    testGroup "Utils tests" $
+      specs
+        <> [ testProperty "Round trip Int/Bytes/hex conversions (from Int)" prop_roundTripConversionsInt,
+             testProperty "Round trip Int/Bytes/hex conversions (from Hex)" prop_roundTripConversionsHex
+           ]
   where
     specTree =
       foldl (<>) (pure []) $

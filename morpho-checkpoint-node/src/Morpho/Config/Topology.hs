@@ -27,19 +27,18 @@ import Ouroboros.Consensus.Util.Condense (Condense (..))
 import Prelude (String, read)
 
 -- | Domain name with port number
-data RemoteAddress
-  = RemoteAddress
-      { -- | either a dns address or ip address
-        raAddress :: !String,
-        -- | port number of the destination
-        raPort :: !PortNumber,
-        -- | if a dns address is given valency governs
-        -- to how many resolved ip addresses
-        -- should we maintain acctive (hot) connection;
-        -- if an ip address is given valency is used as
-        -- a boolean value, @0@ means to ignore the address;
-        raValency :: !Int
-      }
+data RemoteAddress = RemoteAddress
+  { -- | either a dns address or ip address
+    raAddress :: !String,
+    -- | port number of the destination
+    raPort :: !PortNumber,
+    -- | if a dns address is given valency governs
+    -- to how many resolved ip addresses
+    -- should we maintain acctive (hot) connection;
+    -- if an ip address is given valency is used as
+    -- a boolean value, @0@ means to ignore the address;
+    raValency :: !Int
+  }
   deriving (Eq, Ord, Show)
 
 instance FromJSON NodeHostAddress where
@@ -61,12 +60,11 @@ instance FromJSON NodeAddress where
       <$> (NodeHostAddress . Just <$> read <$> v .: "addr")
       <*> ((fromIntegral :: Int -> PortNumber) <$> v .: "port")
 
-data NodeSetup
-  = NodeSetup
-      { nodeId :: !Word64,
-        nodeAddress :: !NodeAddress,
-        producers :: ![RemoteAddress]
-      }
+data NodeSetup = NodeSetup
+  { nodeId :: !Word64,
+    nodeAddress :: !NodeAddress,
+    producers :: ![RemoteAddress]
+  }
   deriving (Show, Eq)
 
 data NetworkTopology = NetworkTopology [NodeSetup]

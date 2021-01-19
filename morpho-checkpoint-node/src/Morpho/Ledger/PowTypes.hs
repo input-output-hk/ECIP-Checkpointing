@@ -15,8 +15,8 @@ module Morpho.Ledger.PowTypes
   )
 where
 
-import Cardano.Prelude hiding (empty)
 import Cardano.Prelude (NoUnexpectedThunks)
+import Cardano.Prelude hiding (empty)
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
 import Data.Aeson
@@ -46,11 +46,10 @@ instance FromJSON PowBlockHash where
 instance ToJSON PowBlockHash where
   toJSON (PowBlockHash bytes) = String $ bytesToHex bytes
 
-data PowBlockRef
-  = PowBlockRef
-      { powBlockNo :: PowBlockNo,
-        powBlockHash :: PowBlockHash
-      }
+data PowBlockRef = PowBlockRef
+  { powBlockNo :: PowBlockNo,
+    powBlockHash :: PowBlockHash
+  }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (Serialise)
   deriving anyclass (NoUnexpectedThunks)
@@ -68,22 +67,20 @@ instance FromJSON PowBlockRef where
       <$> v .: "number"
       <*> v .: "hash"
 
-data Vote
-  = Vote
-      { votedPowBlock :: PowBlockRef,
-        voteSignature :: Signature
-      }
+data Vote = Vote
+  { votedPowBlock :: PowBlockRef,
+    voteSignature :: Signature
+  }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (Serialise)
   deriving (NoUnexpectedThunks)
 
 instance ToJSON Vote
 
-data Checkpoint
-  = Checkpoint
-      { checkpointedBlock :: PowBlockRef,
-        chkpSignatures :: [Signature]
-      }
+data Checkpoint = Checkpoint
+  { checkpointedBlock :: PowBlockRef,
+    chkpSignatures :: [Signature]
+  }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Serialise)
   deriving (NoUnexpectedThunks)

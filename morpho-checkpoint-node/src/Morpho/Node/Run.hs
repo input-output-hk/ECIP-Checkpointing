@@ -191,30 +191,35 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         IO ()
       kernelHook registry nodeKernel = do
         -- Start the prometheus HTTP server
-        void $ forkLinkedThread registry "PrometheusMetrics" $
-          catch
-            (serveHttpTextMetrics (ncPrometheusPort nc) ["metrics"] irs)
-            (\e -> traceWith tracer $ show (e :: IOException))
+        void $
+          forkLinkedThread registry "PrometheusMetrics" $
+            catch
+              (serveHttpTextMetrics (ncPrometheusPort nc) ["metrics"] irs)
+              (\e -> traceWith tracer $ show (e :: IOException))
         -- Watch the tip of the chain and store it in @varTip@ so we can include
         -- it in trace messages.
         let chainDB = getChainDB nodeKernel
         lastBlockTsVar <- atomically (newTVar Nothing)
-        void $ onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip -> do
-          traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
-          setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
+        void $
+          onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip -> do
+            traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
+            setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
         --  Track current block number
-        void $ onEachChange registry "TrackBlockNumberMetric" id Nothing (ChainDB.getTipBlockNo chainDB) $
-          \ob -> do
-            let mb = withOriginToMaybe ob
-            set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
+        void $
+          onEachChange registry "TrackBlockNumberMetric" id Nothing (ChainDB.getTipBlockNo chainDB) $
+            \ob -> do
+              let mb = withOriginToMaybe ob
+              set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
         --  Check if we need to push a checkpoint to the PoW node
-        void $ onEachChange registry "PublishStableCheckpoint" id Nothing (ledgerState <$> ChainDB.getCurrentLedger chainDB) $
-          publishStableCheckpoint nc nodeTracers metrics chainDB
+        void $
+          onEachChange registry "PublishStableCheckpoint" id Nothing (ledgerState <$> ChainDB.getCurrentLedger chainDB) $
+            publishStableCheckpoint nc nodeTracers metrics chainDB
         -- Fetch the current stable PoW block
         void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel nc nodeTracers metrics
         -- Track the nb of connected peers
-        void $ onEachChange registry "TrackNbPeersMetric" id Nothing (size <$> readTVar (getNodeCandidates nodeKernel)) $
-          \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers metrics
+        void $
+          onEachChange registry "TrackNbPeersMetric" id Nothing (size <$> readTVar (getNodeCandidates nodeKernel)) $
+            \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers metrics
   let args =
         RunNodeArgs
           { rnTraceConsensus = consensusTracers nodeTracers,

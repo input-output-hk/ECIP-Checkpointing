@@ -363,7 +363,8 @@ makeBlock point votes =
 testBftConfig :: ConsensusConfig (Bft ConsensusMockCrypto)
 testBftConfig =
   BftConfig
-    { bftParams = -- not used to forge blocks
+    { bftParams -- not used to forge blocks
+      =
         BftParams
           { bftSecurityParam = SecurityParam 4,
             bftNumNodes = NumCoreNodes 5

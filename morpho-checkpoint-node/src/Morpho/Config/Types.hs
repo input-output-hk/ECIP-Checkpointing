@@ -41,33 +41,32 @@ import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
 import qualified Prelude
 
-data NodeConfiguration
-  = NodeConfiguration
-      { ncProtocol :: Protocol,
-        ncNodeId :: NodeId,
-        ncNumCoreNodes :: Word64,
-        ncReqNetworkMagic :: RequiresNetworkMagic,
-        ncNetworkMagic :: Word32,
-        ncSystemStart :: Maybe SystemStart,
-        ncSecurityParameter :: Word64,
-        ncStableLedgerDepth :: Int,
-        ncLoggingSwitch :: Bool,
-        ncTraceOpts :: !TraceOptions,
-        ncLogMetrics :: Bool,
-        ncViewMode :: ViewMode,
-        ncUpdate :: Update,
-        ncTimeslotLength :: SlotLength,
-        ncSnapshotsOnDisk :: Int,
-        ncSnapshotInterval :: Word64,
-        ncPoWBlockFetchInterval :: Maybe Int,
-        ncPoWNodeRpcUrl :: Text,
-        ncPrometheusPort :: Int,
-        -- FIXME: separate data type: CheckpointingConfiguration
-        ncCheckpointInterval :: Int,
-        ncRequiredMajority :: Int,
-        ncFedPubKeys :: [PublicKey],
-        ncNodePrivKeyFile :: FilePath
-      }
+data NodeConfiguration = NodeConfiguration
+  { ncProtocol :: Protocol,
+    ncNodeId :: NodeId,
+    ncNumCoreNodes :: Word64,
+    ncReqNetworkMagic :: RequiresNetworkMagic,
+    ncNetworkMagic :: Word32,
+    ncSystemStart :: Maybe SystemStart,
+    ncSecurityParameter :: Word64,
+    ncStableLedgerDepth :: Int,
+    ncLoggingSwitch :: Bool,
+    ncTraceOpts :: !TraceOptions,
+    ncLogMetrics :: Bool,
+    ncViewMode :: ViewMode,
+    ncUpdate :: Update,
+    ncTimeslotLength :: SlotLength,
+    ncSnapshotsOnDisk :: Int,
+    ncSnapshotInterval :: Word64,
+    ncPoWBlockFetchInterval :: Maybe Int,
+    ncPoWNodeRpcUrl :: Text,
+    ncPrometheusPort :: Int,
+    -- FIXME: separate data type: CheckpointingConfiguration
+    ncCheckpointInterval :: Int,
+    ncRequiredMajority :: Int,
+    ncFedPubKeys :: [PublicKey],
+    ncNodePrivKeyFile :: FilePath
+  }
   deriving (Show, Eq)
 
 instance FromJSON NodeConfiguration where
@@ -228,76 +227,66 @@ data ViewMode
 parseNodeConfiguration :: FilePath -> IO NodeConfiguration
 parseNodeConfiguration = decodeFileThrow
 
-data NodeCLI
-  = NodeCLI
-      { mscFp :: !MiscellaneousFilepaths,
-        -- TODO Use genesis file.
-        genesisHash :: !(Maybe Text),
-        nodeAddr :: !NodeAddress,
-        configFp :: !ConfigYamlFilePath,
-        validateDB :: !Bool
-      }
+data NodeCLI = NodeCLI
+  { mscFp :: !MiscellaneousFilepaths,
+    -- TODO Use genesis file.
+    genesisHash :: !(Maybe Text),
+    nodeAddr :: !NodeAddress,
+    configFp :: !ConfigYamlFilePath,
+    validateDB :: !Bool
+  }
   deriving (Show)
 
-data MiscellaneousFilepaths
-  = MiscellaneousFilepaths
-      { topFile :: !TopologyFile,
-        dBFile :: !DbFile,
-        -- TODO Use genesis file.
-        genesisFile :: !(Maybe GenesisFile),
-        signKeyFile :: !(Maybe SigningKeyFile),
-        socketFile :: !SocketFile
-      }
+data MiscellaneousFilepaths = MiscellaneousFilepaths
+  { topFile :: !TopologyFile,
+    dBFile :: !DbFile,
+    -- TODO Use genesis file.
+    genesisFile :: !(Maybe GenesisFile),
+    signKeyFile :: !(Maybe SigningKeyFile),
+    socketFile :: !SocketFile
+  }
   deriving (Show)
 
-newtype TopologyFile
-  = TopologyFile
-      {unTopology :: FilePath}
+newtype TopologyFile = TopologyFile
+  {unTopology :: FilePath}
   deriving (Show)
 
-newtype DbFile
-  = DbFile
-      {unDB :: FilePath}
+newtype DbFile = DbFile
+  {unDB :: FilePath}
   deriving (Show)
 
-newtype GenesisFile
-  = GenesisFile
-      {unGenesisFile :: FilePath}
+newtype GenesisFile = GenesisFile
+  {unGenesisFile :: FilePath}
   deriving (Eq, Ord, Show, IsString)
 
-newtype DelegationCertFile
-  = DelegationCertFile
-      {unDelegationCert :: FilePath}
+newtype DelegationCertFile = DelegationCertFile
+  {unDelegationCert :: FilePath}
   deriving (Show)
 
-newtype SocketFile
-  = SocketFile
-      {unSocket :: FilePath}
+newtype SocketFile = SocketFile
+  {unSocket :: FilePath}
   deriving (Show)
 
-newtype SigningKeyFile
-  = SigningKeyFile
-      {unSigningKey :: FilePath}
+newtype SigningKeyFile = SigningKeyFile
+  {unSigningKey :: FilePath}
   deriving (Eq, Ord, Show, IsString)
 
 -- TODO: migrate to Update.SoftwareVersion
-newtype Update
-  = Update
-      { -- | Update last known block version.
-        upLastKnownBlockVersion :: LastKnownBlockVersion
-      }
+newtype Update = Update
+  { -- | Update last known block version.
+    upLastKnownBlockVersion :: LastKnownBlockVersion
+  }
   deriving (Eq, Show)
 
 -- TODO: migrate to Update.ProtocolVersion
-data LastKnownBlockVersion
-  = LastKnownBlockVersion
-      { -- | Last known block version major.
-        lkbvMajor :: !Word16,
-        -- | Last known block version minor.
-        lkbvMinor :: !Word16,
-        -- | Last known block version alternative.
-        lkbvAlt :: !Word8
-      }
+data LastKnownBlockVersion = LastKnownBlockVersion
+  { -- | Last known block version major.
+    lkbvMajor :: !Word16,
+    -- | Last known block version minor.
+    lkbvMinor :: !Word16,
+    -- | Last known block version alternative.
+    lkbvAlt :: !Word8
+  }
   deriving (Eq, Show)
 
 nodeAddressToSockAddr :: NodeAddress -> SockAddr
@@ -309,61 +298,58 @@ nodeAddressToSockAddr (NodeAddress addr port) =
 
 -- | Detailed tracing options. Each option enables a tracer
 --   which verbosity to the log output.
-data TraceOptions
-  = TraceOptions
-      { traceVerbosity :: !TracingVerbosity,
-        -- | By default we use 'readableChainDB' tracer, if on this it will use
-        -- more verbose tracer
-        traceChainDB :: !Bool,
-        -- Consensus Tracers --
-        traceChainSyncClient :: !Bool,
-        traceChainSyncHeaderServer :: !Bool,
-        traceChainSyncBlockServer :: !Bool,
-        traceBlockFetchDecisions :: !Bool,
-        traceBlockFetchClient :: !Bool,
-        traceBlockFetchServer :: !Bool,
-        traceTxInbound :: !Bool,
-        traceTxOutbound :: !Bool,
-        traceLocalTxSubmissionServer :: !Bool,
-        traceMempool :: !Bool,
-        traceForge :: !Bool,
-        -----------------------
+data TraceOptions = TraceOptions
+  { traceVerbosity :: !TracingVerbosity,
+    -- | By default we use 'readableChainDB' tracer, if on this it will use
+    -- more verbose tracer
+    traceChainDB :: !Bool,
+    -- Consensus Tracers --
+    traceChainSyncClient :: !Bool,
+    traceChainSyncHeaderServer :: !Bool,
+    traceChainSyncBlockServer :: !Bool,
+    traceBlockFetchDecisions :: !Bool,
+    traceBlockFetchClient :: !Bool,
+    traceBlockFetchServer :: !Bool,
+    traceTxInbound :: !Bool,
+    traceTxOutbound :: !Bool,
+    traceLocalTxSubmissionServer :: !Bool,
+    traceMempool :: !Bool,
+    traceForge :: !Bool,
+    -----------------------
 
-        -- Protocol Tracers --
-        traceChainSyncProtocol :: !Bool,
-        -- There's two variants of the block fetch tracer and for now
-        -- at least we'll set them both together from the same flags.
-        traceBlockFetchProtocol :: !Bool,
-        traceBlockFetchProtocolSerialised :: !Bool,
-        traceTxSubmissionProtocol :: !Bool,
-        traceLocalChainSyncProtocol :: !Bool,
-        traceLocalTxSubmissionProtocol :: !Bool,
-        traceLocalStateQueryProtocol :: !Bool,
-        traceIpSubscription :: !Bool,
-        -----------------------
+    -- Protocol Tracers --
+    traceChainSyncProtocol :: !Bool,
+    -- There's two variants of the block fetch tracer and for now
+    -- at least we'll set them both together from the same flags.
+    traceBlockFetchProtocol :: !Bool,
+    traceBlockFetchProtocolSerialised :: !Bool,
+    traceTxSubmissionProtocol :: !Bool,
+    traceLocalChainSyncProtocol :: !Bool,
+    traceLocalTxSubmissionProtocol :: !Bool,
+    traceLocalStateQueryProtocol :: !Bool,
+    traceIpSubscription :: !Bool,
+    -----------------------
 
-        traceDnsSubscription :: !Bool,
-        traceDnsResolver :: !Bool,
-        traceErrorPolicy :: !Bool,
-        traceMux :: !Bool,
-        traceHandshake :: Bool,
-        traceLedgerState :: !Bool,
-        tracePoWNodeRpc :: !Bool,
-        traceTimeTravelError :: !Bool
-      }
+    traceDnsSubscription :: !Bool,
+    traceDnsResolver :: !Bool,
+    traceErrorPolicy :: !Bool,
+    traceMux :: !Bool,
+    traceHandshake :: Bool,
+    traceLedgerState :: !Bool,
+    tracePoWNodeRpc :: !Bool,
+    traceTimeTravelError :: !Bool
+  }
   deriving (Eq, Show)
 
-newtype ConfigYamlFilePath
-  = ConfigYamlFilePath
-      {unConfigPath :: FilePath}
+newtype ConfigYamlFilePath = ConfigYamlFilePath
+  {unConfigPath :: FilePath}
   deriving (Show)
 
 -- | IPv4 address with a port number.
-data NodeAddress
-  = NodeAddress
-      { naHostAddress :: !NodeHostAddress,
-        naPort :: !PortNumber
-      }
+data NodeAddress = NodeAddress
+  { naHostAddress :: !NodeHostAddress,
+    naPort :: !PortNumber
+  }
   deriving (Eq, Ord, Show)
 
 newtype NodeHostAddress = NodeHostAddress {unNodeHostAddress :: Maybe IP.IP}

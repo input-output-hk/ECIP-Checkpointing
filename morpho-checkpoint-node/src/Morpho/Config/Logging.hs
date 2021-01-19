@@ -61,11 +61,10 @@ import Morpho.Config.Types
 -- Configuration
 --------------------------------
 
-data LoggingConfiguration
-  = LoggingConfiguration
-      { lpConfiguration :: !Configuration,
-        recordMetrics :: !Bool
-      }
+data LoggingConfiguration = LoggingConfiguration
+  { lpConfiguration :: !Configuration,
+    recordMetrics :: !Bool
+  }
 
 --------------------------------
 -- Layer
@@ -78,55 +77,53 @@ data LoggingConfiguration
 -- and that is ideal for tracking the functions effects and constraining
 -- the user (programmer) of those function to use specific effects in them.
 -- https://github.com/input-output-hk/cardano-sl/blob/develop/util/src/Pos/Util/Log/LogSafe.hs
-data LoggingLayer
-  = LoggingLayer
-      { llBasicTrace :: forall m. (MonadIO m) => Trace m Text,
-        llLogDebug :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
-        llLogInfo :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
-        llLogNotice :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
-        llLogWarning :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
-        llLogError :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
-        llAppendName :: forall m a. (Show a) => LoggerName -> Trace m a -> Trace m a,
-        llBracketMonadIO :: forall a t. (Show a) => Trace IO a -> Severity -> Text -> IO t -> IO t,
-        llBracketMonadM ::
-          forall m a t.
-          (MonadCatch m, MonadIO m, Show a) =>
-          Trace m a ->
-          Severity ->
-          Text ->
-          m t ->
-          m t,
-        llBracketMonadX ::
-          forall m a t.
-          (MonadIO m, Show a) =>
-          Trace m a ->
-          Severity ->
-          Text ->
-          m t ->
-          m t,
-        llBracketStmIO :: forall a t. (Show a) => Trace IO a -> Severity -> Text -> STM t -> IO t,
-        llBracketStmLogIO ::
-          forall a t.
-          (Show a) =>
-          Trace IO a ->
-          Severity ->
-          Text ->
-          STM (t, [(LOMeta, LOContent a)]) ->
-          IO t,
-        llConfiguration :: Configuration,
-        llAddBackend :: Backend Text -> BackendKind -> IO ()
-      }
+data LoggingLayer = LoggingLayer
+  { llBasicTrace :: forall m. (MonadIO m) => Trace m Text,
+    llLogDebug :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
+    llLogInfo :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
+    llLogNotice :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
+    llLogWarning :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
+    llLogError :: forall m a. (MonadIO m, Show a) => Trace m a -> a -> m (),
+    llAppendName :: forall m a. (Show a) => LoggerName -> Trace m a -> Trace m a,
+    llBracketMonadIO :: forall a t. (Show a) => Trace IO a -> Severity -> Text -> IO t -> IO t,
+    llBracketMonadM ::
+      forall m a t.
+      (MonadCatch m, MonadIO m, Show a) =>
+      Trace m a ->
+      Severity ->
+      Text ->
+      m t ->
+      m t,
+    llBracketMonadX ::
+      forall m a t.
+      (MonadIO m, Show a) =>
+      Trace m a ->
+      Severity ->
+      Text ->
+      m t ->
+      m t,
+    llBracketStmIO :: forall a t. (Show a) => Trace IO a -> Severity -> Text -> STM t -> IO t,
+    llBracketStmLogIO ::
+      forall a t.
+      (Show a) =>
+      Trace IO a ->
+      Severity ->
+      Text ->
+      STM (t, [(LOMeta, LOContent a)]) ->
+      IO t,
+    llConfiguration :: Configuration,
+    llAddBackend :: Backend Text -> BackendKind -> IO ()
+  }
 
 --------------------------------
 -- Feature
 --------------------------------
 
 -- | CLI specific data structure.
-data LoggingCLIArguments
-  = LoggingCLIArguments
-      { logConfigFile :: !(Maybe FilePath),
-        captureMetrics :: !Bool
-      }
+data LoggingCLIArguments = LoggingCLIArguments
+  { logConfigFile :: !(Maybe FilePath),
+    captureMetrics :: !Bool
+  }
 
 data LoggingFlag = LoggingEnabled | LoggingDisabled
   deriving (Eq, Show)
@@ -218,10 +215,11 @@ startCapturingMetrics :: Trace IO Text -> IO ()
 startCapturingMetrics trace0 = do
   let trace = appendName "node-metrics" trace0
       counters = [MemoryStats, ProcessStats, NetStats, IOStats]
-  _ <- Async.async $ forever $ do
-    cts <- readCounters (ObservableTraceSelf counters)
-    traceCounters trace cts
-    threadDelay 30000000 -- 30 seconds
+  _ <- Async.async $
+    forever $ do
+      cts <- readCounters (ObservableTraceSelf counters)
+      traceCounters trace cts
+      threadDelay 30000000 -- 30 seconds
   pure ()
   where
     traceCounters :: forall m a. MonadIO m => Trace m a -> [Counter] -> m ()

@@ -82,11 +82,10 @@ import qualified Ouroboros.Network.NodeToNode as N
 --
 --   The 'c' type parameter being the crypto algorithm used for the
 --   BFT layer
-data MorphoBlock h c
-  = MorphoBlock
-      { morphoHeader :: Header (MorphoBlock h c),
-        morphoBody :: !MorphoBody
-      }
+data MorphoBlock h c = MorphoBlock
+  { morphoHeader :: Header (MorphoBlock h c),
+    morphoBody :: !MorphoBody
+  }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
@@ -94,26 +93,25 @@ instance
   (HashAlgorithm h, BftCrypto c) =>
   GetHeader (MorphoBlock h c)
   where
-  data Header (MorphoBlock h c)
-    = MorphoHeader
-        { -- | The header hash
-          --
-          -- This is the hash of the header itself. This is a bit unpleasant,
-          -- because it makes the hash look self-referential (when computing the
-          -- hash we must ignore the 'morphoHeaderHash' field). However, the benefit
-          -- is that we can give a 'HasHeader' instance that does not require
-          -- a (static) 'Serialise' instance.
-          morphoHeaderHash :: HeaderHash (MorphoBlock h c),
-          -- | Fields required for the 'HasHeader' instance
-          morphoHeaderStd :: MorphoStdHeader h c,
-          -- | Bft fields
-          --
-          -- These fields are required by the underlying BFT consensus
-          -- algorithm.
-          --
-          -- Contains all the BFT-related parameters.
-          morphoBftFields :: BftFields c (MorphoStdHeader h c)
-        }
+  data Header (MorphoBlock h c) = MorphoHeader
+    { -- | The header hash
+      --
+      -- This is the hash of the header itself. This is a bit unpleasant,
+      -- because it makes the hash look self-referential (when computing the
+      -- hash we must ignore the 'morphoHeaderHash' field). However, the benefit
+      -- is that we can give a 'HasHeader' instance that does not require
+      -- a (static) 'Serialise' instance.
+      morphoHeaderHash :: HeaderHash (MorphoBlock h c),
+      -- | Fields required for the 'HasHeader' instance
+      morphoHeaderStd :: MorphoStdHeader h c,
+      -- | Bft fields
+      --
+      -- These fields are required by the underlying BFT consensus
+      -- algorithm.
+      --
+      -- Contains all the BFT-related parameters.
+      morphoBftFields :: BftFields c (MorphoStdHeader h c)
+    }
     deriving (Generic, Show, Eq, NoUnexpectedThunks)
 
   getHeader = morphoHeader
@@ -121,29 +119,26 @@ instance
   blockMatchesHeader = matchesMorphoHeader
   headerIsEBB = const Nothing
 
-data MorphoStdHeader h c
-  = MorphoStdHeader
-      { morphoPrev :: ChainHash (MorphoBlock h c),
-        morphoSlotNo :: SlotNo,
-        morphoBlockNo :: BlockNo,
-        morphoBodyHash :: Hash h MorphoBody,
-        morphoBlockSize :: Word64
-      }
+data MorphoStdHeader h c = MorphoStdHeader
+  { morphoPrev :: ChainHash (MorphoBlock h c),
+    morphoSlotNo :: SlotNo,
+    morphoBlockNo :: BlockNo,
+    morphoBodyHash :: Hash h MorphoBody,
+    morphoBlockSize :: Word64
+  }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise, NoUnexpectedThunks)
 
-data MorphoBlockTx
-  = MorphoBlockTx
-      { morphoBlockGenTx :: !Tx,
-        morphoBlockGenTxId :: !MorphoTxId
-      }
+data MorphoBlockTx = MorphoBlockTx
+  { morphoBlockGenTx :: !Tx,
+    morphoBlockGenTxId :: !MorphoTxId
+  }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
-newtype MorphoBody
-  = MorphoBody
-      { morphoTxs :: [MorphoBlockTx]
-      }
+newtype MorphoBody = MorphoBody
+  { morphoTxs :: [MorphoBlockTx]
+  }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
@@ -160,12 +155,11 @@ instance Condense MorphoBlockTx where
   Configuration Instances
 -------------------------------------------------------------------------------}
 
-data instance BlockConfig (MorphoBlock h c)
-  = MorphoBlockConfig
-      { systemStart :: SystemStart,
-        networkMagic :: NetworkMagic,
-        protocolMagicId :: ProtocolMagicId
-      }
+data instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig
+  { systemStart :: SystemStart,
+    networkMagic :: NetworkMagic,
+    protocolMagicId :: ProtocolMagicId
+  }
   deriving (Generic, NoUnexpectedThunks)
 
 newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()

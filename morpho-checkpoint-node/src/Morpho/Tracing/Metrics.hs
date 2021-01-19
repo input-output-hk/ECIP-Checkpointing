@@ -19,17 +19,16 @@ import System.Metrics.Prometheus.Concurrent.RegistryT
 import System.Metrics.Prometheus.Metric.Gauge hiding (sample)
 import System.Metrics.Prometheus.Registry (RegistrySample)
 
-data MorphoMetrics
-  = MorphoMetrics
-      { mLatestPowBlock :: Gauge,
-        mMorphoStateUnstableCheckpoint :: Gauge,
-        mMorphoStateStableCheckpoint :: Gauge,
-        mMorphoBlockTime :: Gauge,
-        mMorphoBlockNumber :: Gauge,
-        mPushedCheckpoint :: Gauge,
-        mNbVotesLastCheckpoint :: Gauge,
-        mNbPeers :: Gauge
-      }
+data MorphoMetrics = MorphoMetrics
+  { mLatestPowBlock :: Gauge,
+    mMorphoStateUnstableCheckpoint :: Gauge,
+    mMorphoStateStableCheckpoint :: Gauge,
+    mMorphoBlockTime :: Gauge,
+    mMorphoBlockNumber :: Gauge,
+    mPushedCheckpoint :: Gauge,
+    mNbVotesLastCheckpoint :: Gauge,
+    mNbPeers :: Gauge
+  }
 
 setupPrometheus :: IO (MorphoMetrics, IO RegistrySample)
 setupPrometheus = runRegistryT $ do
@@ -59,12 +58,13 @@ setupPrometheus = runRegistryT $ do
     )
 
 startMemoryCapturing :: Gauge -> IO ()
-startMemoryCapturing gauge = void $ Async.async
-  $ forever
-  $ do
-    threadDelay 1000000 -- 1 second
-    cts <- readRTSStats
-    traceMemory cts
+startMemoryCapturing gauge = void $
+  Async.async $
+    forever $
+      do
+        threadDelay 1000000 -- 1 second
+        cts <- readRTSStats
+        traceMemory cts
   where
     traceMemory :: [Counter] -> IO ()
     traceMemory [] = pure ()
