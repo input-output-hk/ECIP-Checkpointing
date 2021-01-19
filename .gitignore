@@ -3,6 +3,7 @@
 *.swo
 *~
 \#*
+result*
 
 dist-newstyle
 .ghc.environment.*

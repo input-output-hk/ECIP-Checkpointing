@@ -2,16 +2,15 @@
   "nodes": {
     "haskell-nix": {
       "locked": {
-        "lastModified": 1604670513,
-        "narHash": "sha256-ir7WUoKjN/RUm7xk73K1GKUREui7pXWWgIHYTrqSxPs=",
+        "lastModified": 1612789116,
+        "narHash": "sha256-l12sDNsvsu9otmUzL6TIvFzx3n4zIjtWkfoqCDW/xTw=",
         "owner": "input-output-hk",
         "repo": "haskell.nix",
-        "rev": "ddc4d650fe668c84090ccc9e3ad6a5b82c6654f7",
+        "rev": "43513e406c0348f703be6f73a7a56c1c57c8ad41",
         "type": "github"
       },
       "original": {
         "owner": "input-output-hk",
-        "ref": "update-flake",
         "repo": "haskell.nix",
         "type": "github"
       }
@@ -19,9 +18,6 @@
     "root": {
       "inputs": {
         "haskell-nix": "haskell-nix",
-        "nixpkgs": [
-          "haskell-nix"
-        ],
         "utils": "utils"
       }
     },
