@@ -16,26 +16,9 @@
         "type": "github"
       }
     },
-    "mantis-src": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1611066829,
-        "narHash": "sha256-RqblkhjXTsF1RDiNdYy2bfCWn3fjagord/zUNFIUqd0=",
-        "owner": "input-output-hk",
-        "repo": "mantis",
-        "rev": "3c9842a26b06d4c43c51cfbd668e46f4a862e88f",
-        "type": "github"
-      },
-      "original": {
-        "owner": "input-output-hk",
-        "repo": "mantis",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "haskell-nix": "haskell-nix",
-        "mantis-src": "mantis-src",
         "utils": "utils"
       }
     },
