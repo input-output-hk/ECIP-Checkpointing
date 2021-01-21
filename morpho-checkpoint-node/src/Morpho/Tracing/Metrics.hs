@@ -11,8 +11,6 @@ where
 import Cardano.BM.Counters.Common
 import Cardano.BM.Data.Aggregated
 import Cardano.BM.Data.Counter
-import Cardano.BM.Data.Observable
-import Cardano.BM.Data.SubTrace
 import Cardano.Prelude hiding (atomically)
 import qualified Control.Concurrent.Async as Async
 import Control.Monad.Class.MonadSTM.Strict
