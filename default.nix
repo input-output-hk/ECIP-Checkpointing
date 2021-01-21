@@ -34,6 +34,7 @@ let
         stylish-haskell
         tools.niv
         mantis
+        pkgs.bubblewrap
       ];
     exactDeps = true;
   };
