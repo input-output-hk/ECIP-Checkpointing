@@ -24,21 +24,18 @@ let
     withHoogle = true;
     tools = {
       cabal = "3.2.0.0";
+      haskell-language-server = "0.8.0";
     };
     buildInputs = with pkgs.haskellPackages;
       [
         ghcid
         hlint
         ormolu
-        pkgs.pkgconfig
         stylish-haskell
         tools.niv
         mantis
-      ] ++
-      # lobemo is depending on libsystemd for the journald bindings.
-      # Systemd won't build on darwin, checking first we're not on a
-      # Darwin env.
-      (pkgs.stdenv.lib.optional (!pkgs.stdenv.isDarwin) pkgs.systemd);
+        pkgs.bubblewrap
+      ];
     exactDeps = true;
   };
   # Instantiate a package set using the generated file.
