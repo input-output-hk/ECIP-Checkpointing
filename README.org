@@ -14,19 +14,8 @@ machine description:
 
 #+begin_src
 nix = {
-  binaryCachePublicKeys = [
-    "hydra.project42.iohkdev.io-1:RgWYMSuGbLEc2x7lXFhywxb+s61bZSiigIHG3PTcRos="
-    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-    "hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ="
-  ];
-  binaryCaches = [
-    "https://hydra.project42.iohkdev.io/"
-    "https://hydra.iohk.io"
-    "https://cache.nixos.org/"
-  ];
-  extraOptions = ''
-    builders-use-substitutes = true
-  '';
+  binaryCachePublicKeys = [ "hydra.mantis.ist-1:4LTe7Q+5pm8+HawKxvmn2Hx0E3NbkYjtf1oWv+eAmTo=" ];
+  binaryCaches = [ "https://hydra.mantis.ist" ];
 };
 #+end_src
 
@@ -36,10 +25,9 @@ You need to setup the following substituers in your
 =/etc/nix/nix.conf= nix configuration.
 
 #+begin_src
-substituters = https://hydra.project42.iohkdev.io/ https://hydra.iohk.io https://cache.nixos.org/
-trusted-substituters = https://hydra.project42.iohkdev.io/ https://hydra.iohk.io https://cache.nixos.org
-trusted-public-keys = hydra.project42.iohkdev.io-1:RgWYMSuGbLEc2x7lXFhywxb+s61bZSiigIHG3PTcRos= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-builders-use-substitutes = true
+substituters = https://hydra.mantis.ist https://cache.nixos.org/
+trusted-substituters = https://hydra.mantis.ist https://cache.nixos.org/
+trusted-public-keys = hydra.mantis.ist-1:4LTe7Q+5pm8+HawKxvmn2Hx0E3NbkYjtf1oWv+eAmTo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
 #+end_src
 
 * Build the Project
@@ -116,7 +104,7 @@ incrementally build the project, run:
 
 #+begin_src sh
 » nix-shell
-» cabal new-build morpho-checkpoint-node
+» cabal build morpho-checkpoint-node
 #+end_src
 
 You can use =ghcid= (included in the shell) to check for errors on
@@ -132,6 +120,9 @@ dependencies. You can query it using the =hoogle= CLI:
 #+begin_src sh
 » hoogle Protocol
 #+end_src
+
+A [Haskell Language Server](https://github.com/haskell/haskell-language-server)
+configuration and executable is also available, which can be integrated with most editors.
 
 * Update Niv Dependencies
 
