@@ -1,6 +1,9 @@
 {
   description = "Morpho checkpointing node";
 
+  # Needed by hydra, apparently?
+  edition = 201909;
+
   inputs = {
     haskell-nix.url = "github:input-output-hk/haskell.nix/flake-sources";
     utils.url = "github:numtide/flake-utils";
