@@ -17,7 +17,7 @@ main = toplevelExceptionHandler $ do
     opts =
       Opt.info
         ( nodeCliParser
-            <**> helperBrief "help" "Show this help text" nodeCliHelpMain
+            <**> helperBrief "help2" "Show this help text" nodeCliHelpMain
         )
         ( Opt.fullDesc
             <> Opt.progDesc "Start a OBFT-Checkpoint node."
