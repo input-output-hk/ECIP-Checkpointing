@@ -32,7 +32,7 @@ data RemoteAddress
       { -- | either a dns address or ip address
         raAddress :: !String,
         -- | port number of the destination
-        raPort :: !PortNumber,
+        raPort :: !(Maybe PortNumber),
         -- | if a dns address is given valency governs
         -- to how many resolved ip addresses
         -- should we maintain acctive (hot) connection;
@@ -78,7 +78,8 @@ deriveFromJSON defaultOptions ''NetworkTopology
 -- | Parse 'raAddress' field as an IP address; if it parses and the valency is
 -- non zero return corresponding NodeAddress.
 remoteAddressToNodeAddress :: RemoteAddress -> Maybe NodeAddress
-remoteAddressToNodeAddress (RemoteAddress addrStr port val) =
+remoteAddressToNodeAddress (RemoteAddress _ Nothing _) = Nothing
+remoteAddressToNodeAddress (RemoteAddress addrStr (Just port) val) =
   case readMaybe addrStr of
     Nothing -> Nothing
     Just addr ->
@@ -87,14 +88,16 @@ remoteAddressToNodeAddress (RemoteAddress addrStr port val) =
         else Nothing
 
 instance Condense RemoteAddress where
-  condense (RemoteAddress addr port val) =
-    addr ++ ":" ++ show port ++ " (" ++ show val ++ ")"
+  condense (RemoteAddress addr Nothing val) =
+    addr ++ " (" ++ show val ++ ")"
+  condense (RemoteAddress addr (Just port) val) =
+    addr ++ show port ++ " (" ++ show val ++ ")"
 
 instance FromJSON RemoteAddress where
   parseJSON = withObject "RemoteAddress" $ \v ->
     RemoteAddress
       <$> v .: "addr"
-      <*> ((fromIntegral :: Int -> PortNumber) <$> v .: "port")
+      <*> (fmap (fromIntegral :: Int -> PortNumber) <$> v .:? "port")
       <*> (v .: "valency")
 
 readTopologyFile :: FilePath -> IO (Either String NetworkTopology)
