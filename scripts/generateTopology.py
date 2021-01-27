@@ -22,11 +22,6 @@ Usage example:
 # cat topology.json
 [
   {
-    "nodeAddress": {
-      "addr": "127.0.0.1",
-      "port": 3001,
-      "valency": 1
-    },
     "nodeId": 0,
     "producers": [
       {
@@ -49,14 +44,9 @@ Usage example:
 
 defaultPort = 3000
 
-def genPeer(nodeId, nodeAddr):
+def genPeer(nodeId):
     return {
         'nodeId' : int(nodeId),
-        'nodeAddress' : {
-            'addr': nodeAddr,
-            'port': defaultPort,
-            'valency': 1
-        },
         'producers': [
             {
                 'addr':peer[1],
@@ -68,6 +58,6 @@ def genPeer(nodeId, nodeAddr):
 
 if __name__ == '__main__':
     addresses = json.loads(''.join(sys.stdin.readlines()))
-    t = [ genPeer(node[0], node[1]) for node in addresses.items() ]
+    t = [ genPeer(node[0]) for node in addresses.items() ]
     print(json.dumps(t, sort_keys=True, indent=2))
     exit(0)

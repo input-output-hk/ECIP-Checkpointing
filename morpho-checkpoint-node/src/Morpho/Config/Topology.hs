@@ -64,7 +64,6 @@ instance FromJSON NodeAddress where
 data NodeSetup
   = NodeSetup
       { nodeId :: !Word64,
-        nodeAddress :: !NodeAddress,
         producers :: ![RemoteAddress]
       }
   deriving (Show, Eq)
