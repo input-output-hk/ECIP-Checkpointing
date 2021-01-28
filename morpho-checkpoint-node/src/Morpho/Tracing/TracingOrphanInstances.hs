@@ -1330,10 +1330,12 @@ instance HasSeverityAnnotation (WithDomainName DnsTrace) where
     DnsTraceLookupException {} -> Error
     DnsTraceLookupAError {} -> Error
     DnsTraceLookupAAAAError {} -> Error
+    DnsTraceLookupSRVError {} -> Error
     DnsTraceLookupIPv6First -> Debug
     DnsTraceLookupIPv4First -> Debug
     DnsTraceLookupAResult {} -> Debug
     DnsTraceLookupAAAAResult {} -> Debug
+    DnsTraceLookupSRVResult {} -> Debug
 
 instance HasPrivacyAnnotation (WithDomainName (SubscriptionTrace Socket.SockAddr))
 

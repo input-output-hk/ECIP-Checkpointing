@@ -242,6 +242,5 @@ exampleTopology = NetworkTopology [t1]
     t1 =
       NodeSetup
         { nodeId = 0,
-          nodeAddress = (NodeAddress (NodeHostAddress (Just "18.130.216.242")) 3000),
-          producers = [RemoteAddress "3.10.235.25" 3000 1]
+          producers = [RemoteAddress "3.10.235.25" (Just 3000) 1]
         }
