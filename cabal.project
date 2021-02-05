@@ -3,7 +3,7 @@ packages:
     morpho-checkpoint-node
 
 package morpho-checkpoint-node
-  ghc-options: -Wall -Werror -fwarn-redundant-constraints
+  ghc-options: -Wall -Werror -fwarn-redundant-constraints -Wwarn=missing-home-modules
 
 package ouroboros-consensus
   tests: False
