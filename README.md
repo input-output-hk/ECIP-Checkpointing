@@ -1,3 +1,5 @@
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fhydra.mantis.ist%2Fjob%2Fecip-checkpointing%2Fmaster%2Fpackages.checks%2Fshield)](https://hydra.mantis.ist/job/ecip-checkpointing/master/packages.checks)
+
 # Morpho Checkpointing Node
 
 This is the codebase of the checkpointing nodes for [Mantis](https://mantisclient.io/).
