@@ -25,8 +25,8 @@ where
 import Cardano.Prelude (NoUnexpectedThunks)
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
-import qualified Crypto.Secp256k1 as EC
 import Crypto.Secp256k1 (CompactRecSig (..), PubKey, RecSig, SecKey)
+import qualified Crypto.Secp256k1 as EC
 import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Short as BS (fromShort, toShort)
@@ -74,25 +74,23 @@ instance FromJSON PrivateKey where
         <> "Encountered: "
         <> show invalid
 
-data Signature
-  = Signature
-      { -- | ECDSA r
-        sign_r :: B.Bytes,
-        -- | ECDSA s
-        sign_s :: B.Bytes,
-        sign_v :: Word8 -- recoveryId for PoW BlockChain
-      }
+data Signature = Signature
+  { -- | ECDSA r
+    sign_r :: B.Bytes,
+    -- | ECDSA s
+    sign_s :: B.Bytes,
+    sign_v :: Word8 -- recoveryId for PoW BlockChain
+  }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (Serialise)
   deriving (NoUnexpectedThunks)
 
 instance ToJSON Signature
 
-data KeyPair
-  = KeyPair
-      { pKey :: PublicKey,
-        sKey :: PrivateKey
-      }
+data KeyPair = KeyPair
+  { pKey :: PublicKey,
+    sKey :: PrivateKey
+  }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (Serialise)
   deriving (NoUnexpectedThunks)

@@ -28,9 +28,9 @@ import Cardano.BM.Tracing
     Transformable (..),
   )
 import Cardano.Prelude hiding (show)
-import Data.Aeson ((.=), ToJSON (..), Value (..))
-import qualified Data.Text as Text
+import Data.Aeson (ToJSON (..), Value (..), (.=))
 import Data.Text (pack)
+import qualified Data.Text as Text
 -- We do need some consensus imports to provide useful trace messages for some
 -- network protocols
 
@@ -55,15 +55,7 @@ import Ouroboros.Consensus.Block
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Abstract
 import Ouroboros.Consensus.Ledger.Extended
-import Ouroboros.Consensus.Ledger.SupportsMempool
-  ( ApplyTxErr,
-    GenTx,
-    GenTxId,
-    HasTxId,
-    TxId,
-    txId,
-  )
-import Ouroboros.Consensus.Ledger.SupportsMempool (HasTxs (..))
+import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr, GenTx, GenTxId, HasTxId, HasTxs (..), TxId, txId)
 import Ouroboros.Consensus.Ledger.SupportsProtocol
   ( LedgerSupportsProtocol,
   )
@@ -81,7 +73,6 @@ import Ouroboros.Consensus.MiniProtocol.LocalTxSubmission.Server
   ( TraceLocalTxSubmissionServerEvent (..),
   )
 import Ouroboros.Consensus.Node.Run (RunNode (..))
-import Ouroboros.Consensus.Node.Run ()
 import Ouroboros.Consensus.Node.Tracers (TraceForgeEvent (..))
 import Ouroboros.Consensus.Protocol.Abstract
 import Ouroboros.Consensus.Protocol.BFT
@@ -91,6 +82,7 @@ import Ouroboros.Consensus.Util.Condense (Condense, condense)
 import Ouroboros.Consensus.Util.Orphans ()
 import qualified Ouroboros.Network.AnchoredFragment as AF
 import Ouroboros.Network.Block
+import Ouroboros.Network.Block
   ( BlockNo (..),
     ChainUpdate (..),
     HeaderHash,
@@ -99,7 +91,6 @@ import Ouroboros.Network.Block
     blockHash,
     pointSlot,
   )
-import Ouroboros.Network.Block
 import Ouroboros.Network.BlockFetch.ClientState
   ( TraceFetchClientState (..),
     TraceLabelPeer (..),
@@ -110,12 +101,12 @@ import Ouroboros.Network.BlockFetch.Decision
   )
 import Ouroboros.Network.Codec (AnyMessage (..))
 import qualified Ouroboros.Network.NodeToClient as NtC
-import qualified Ouroboros.Network.NodeToNode as NtN
 import Ouroboros.Network.NodeToNode
   ( ErrorPolicyTrace (..),
     TraceSendRecv (..),
     WithAddr (..),
   )
+import qualified Ouroboros.Network.NodeToNode as NtN
 import Ouroboros.Network.Point (withOrigin)
 import Ouroboros.Network.Protocol.BlockFetch.Type
   ( BlockFetch,
@@ -146,8 +137,7 @@ import Ouroboros.Network.TxSubmission.Inbound
 import Ouroboros.Network.TxSubmission.Outbound
   ( TraceTxSubmissionOutbound (..),
   )
-import Prelude (show)
-import Prelude (String, id)
+import Prelude (String, id, show)
 
 instance (HashAlgorithm h, BftCrypto c) => Transformable Text IO (ExtractStateTrace h c) where
   trTransformer = trStructuredText
@@ -296,6 +286,7 @@ instance StandardHash blk => ToObject (MorphoError blk) where
 --
 
 -- * instances of @HasPrivacyAnnotation@ and @HasSeverityAnnotation@
+
 --
 -- NOTE: this list is sorted by the unqualified name of the outermost type.
 
@@ -1242,6 +1233,7 @@ showPoint verb pt =
 --
 
 -- * instances of @HasPrivacyAnnotation@ and @HasSeverityAnnotation@
+
 --
 -- NOTE: this list is sorted by the unqualified name of the outermost type.
 

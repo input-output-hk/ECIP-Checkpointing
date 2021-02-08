@@ -16,10 +16,9 @@ import Morpho.Config.Logging (createLoggingFeature)
 import Morpho.Config.Types
 import Morpho.Node.Run (runNode)
 
-data NodeLayer
-  = NodeLayer
-      { nlRunNode :: forall m. MonadIO m => m ()
-      }
+data NodeLayer = NodeLayer
+  { nlRunNode :: forall m. MonadIO m => m ()
+  }
 
 createNodeFeature ::
   LoggingLayer ->

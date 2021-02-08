@@ -61,10 +61,9 @@ import Ouroboros.Consensus.Ticked
 import Ouroboros.Consensus.Util
 import Ouroboros.Consensus.Util.Condense
 
-newtype instance LedgerState (MorphoBlock h c)
-  = MorphoLedgerState
-      { morphoLedgerState :: MorphoState (MorphoBlock h c)
-      }
+newtype instance LedgerState (MorphoBlock h c) = MorphoLedgerState
+  { morphoLedgerState :: MorphoState (MorphoBlock h c)
+  }
   deriving stock (Eq, Show, Generic)
   deriving newtype (NoUnexpectedThunks, Serialise)
 
@@ -110,7 +109,8 @@ updateMorphoLedgerState ::
   FullBlockConfig (LedgerState blk) blk ->
   MorphoBlock h c ->
   Ticked (LedgerState (MorphoBlock h c)) ->
-  Except (MorphoError (MorphoBlock h c))
+  Except
+    (MorphoError (MorphoBlock h c))
     (LedgerState (MorphoBlock h c))
 updateMorphoLedgerState cfg b (Ticked _ (MorphoLedgerState st)) =
   MorphoLedgerState <$> updateMorphoState cfg b st
@@ -133,9 +133,8 @@ instance HasTxs (MorphoBlock h c) where
 -------------------------------------------------------------------------------}
 
 instance HasTxId (GenTx (MorphoBlock h c)) where
-  data TxId (GenTx (MorphoBlock h c))
-    = MorphoGenTxId
-        {unMorphoGenTxId :: !MorphoTxId}
+  data TxId (GenTx (MorphoBlock h c)) = MorphoGenTxId
+    {unMorphoGenTxId :: !MorphoTxId}
     deriving (Show, Eq, Ord, Generic, Serialise, NoUnexpectedThunks)
 
   txId = MorphoGenTxId . morphoGenTxId
@@ -150,11 +149,10 @@ instance
   ) =>
   LedgerSupportsMempool (MorphoBlock h c)
   where
-  data GenTx (MorphoBlock h c)
-    = MorphoGenTx
-        { morphoGenTx :: !Tx,
-          morphoGenTxId :: !MorphoTxId
-        }
+  data GenTx (MorphoBlock h c) = MorphoGenTx
+    { morphoGenTx :: !Tx,
+      morphoGenTxId :: !MorphoTxId
+    }
     deriving stock (Generic, Show, Eq)
     deriving anyclass (Serialise)
 

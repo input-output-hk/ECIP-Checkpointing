@@ -16,8 +16,8 @@ where
 import Cardano.Prelude (NoUnexpectedThunks)
 import Codec.Serialise (Serialise)
 import Data.Aeson
-import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import qualified Data.HexString as Hex
 import qualified Data.Text as T
 import Data.Word
