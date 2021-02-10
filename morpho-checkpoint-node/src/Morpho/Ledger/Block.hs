@@ -43,6 +43,7 @@ module Morpho.Ledger.Block
   )
 where
 
+import NoThunks.Class
 import Cardano.Binary (ToCBOR (..))
 import Cardano.Crypto (ProtocolMagicId (..))
 import Cardano.Crypto.DSIGN.Class
@@ -112,7 +113,7 @@ instance
       -- Contains all the BFT-related parameters.
       morphoBftFields :: BftFields c (MorphoStdHeader h c)
     }
-    deriving (Generic, Show, Eq, NoUnexpectedThunks)
+    deriving (Generic, Show, Eq, NoThunks)
 
   getHeader = morphoHeader
 
@@ -127,7 +128,7 @@ data MorphoStdHeader h c = MorphoStdHeader
     morphoBlockSize :: Word64
   }
   deriving stock (Generic, Show, Eq)
-  deriving anyclass (Serialise, NoUnexpectedThunks)
+  deriving anyclass (Serialise, NoThunks)
 
 data MorphoBlockTx = MorphoBlockTx
   { morphoBlockGenTx :: !Tx,
@@ -160,10 +161,10 @@ data instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig
     networkMagic :: NetworkMagic,
     protocolMagicId :: ProtocolMagicId
   }
-  deriving (Generic, NoUnexpectedThunks)
+  deriving (Generic, NoThunks)
 
 newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()
-  deriving newtype (Generic, NoUnexpectedThunks)
+  deriving newtype (Generic, NoThunks)
 
 {-------------------------------------------------------------------------------
   Working with 'MorphoBlock'
@@ -252,7 +253,7 @@ instance (HashAlgorithm h, BftCrypto c) => GetPrevHash (MorphoBlock h c) where
 -------------------------------------------------------------------------------}
 
 data ConsensusMockCrypto
-  deriving (Generic, NoUnexpectedThunks)
+  deriving (Generic, NoThunks)
 
 data ConsensusStandardCrypto
 

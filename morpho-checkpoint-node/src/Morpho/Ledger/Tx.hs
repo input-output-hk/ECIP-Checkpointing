@@ -14,6 +14,7 @@ module Morpho.Ledger.Tx
   )
 where
 
+import NoThunks.Class
 import Cardano.Binary (ToCBOR (..))
 import Cardano.Crypto.Hash
 import Cardano.Prelude
@@ -27,7 +28,7 @@ import qualified Prelude as Prelude
 data Tx = Tx Vote
   deriving stock (Show, Eq, Generic)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 instance ToJSON Tx
 
@@ -38,7 +39,7 @@ type MorphoTxId = Hash Blake2b_256 Tx
 data InvalidTx = InvalidTx Prelude.String
   deriving stock (Show, Eq, Generic)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 instance ToCBOR Tx where
   toCBOR = encode

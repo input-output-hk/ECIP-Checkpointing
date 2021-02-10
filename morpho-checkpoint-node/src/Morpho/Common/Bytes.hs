@@ -13,7 +13,7 @@ module Morpho.Common.Bytes
   )
 where
 
-import Cardano.Prelude (NoUnexpectedThunks)
+import NoThunks.Class
 import Codec.Serialise (Serialise)
 import Data.Aeson
 import Data.ByteString (ByteString)
@@ -27,7 +27,7 @@ import Prelude hiding (length)
 newtype Bytes = Bytes {unBytes :: ByteString}
   deriving newtype (Eq, Ord)
   deriving stock (Generic)
-  deriving anyclass (Serialise, NoUnexpectedThunks)
+  deriving anyclass (Serialise, NoThunks)
 
 instance Show Bytes where
   show (Bytes bs) = T.unpack $ Hex.toText $ Hex.fromBytes bs

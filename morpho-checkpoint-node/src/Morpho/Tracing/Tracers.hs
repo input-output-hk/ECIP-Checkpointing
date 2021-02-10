@@ -159,7 +159,7 @@ mkTracers ::
   ( Show peer,
     Show localPeer,
     MorphoStateDefaultConstraints h c,
-    NoUnexpectedThunks c,
+    NoThunks c,
     blk ~ (MorphoBlock h c),
     Signable (BftDSIGN c) (MorphoStdHeader h c),
     LedgerSupportsProtocol blk
@@ -492,7 +492,7 @@ nodeToNodeTracers' ::
   ( Show peer,
     Signable (BftDSIGN c) (MorphoStdHeader h c),
     MorphoStateDefaultConstraints h c,
-    NoUnexpectedThunks c,
+    NoThunks c,
     blk ~ (MorphoBlock h c)
   ) =>
   TraceOptions ->

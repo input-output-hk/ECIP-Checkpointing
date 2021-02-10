@@ -60,7 +60,7 @@ instance
 
 instance
   ( MorphoStateDefaultConstraints h c,
-    NoUnexpectedThunks c,
+    NoThunks c,
     HashAlgorithm h,
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>

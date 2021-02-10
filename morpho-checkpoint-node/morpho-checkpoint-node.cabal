@@ -74,6 +74,7 @@ library
         mtl,
         network,
         network-mux,
+        nothunks,
         optparse-applicative,
         ouroboros-consensus,
         ouroboros-network,

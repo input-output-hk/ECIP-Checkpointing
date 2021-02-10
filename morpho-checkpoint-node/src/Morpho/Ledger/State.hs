@@ -18,6 +18,7 @@ module Morpho.Ledger.State
   )
 where
 
+import NoThunks.Class
 import Cardano.Prelude
 import Codec.Serialise (Serialise)
 import Data.Map (Map)
@@ -45,7 +46,7 @@ data MorphoState blk = MorphoState
     currentVotes :: !(Map PublicKey Vote),
     morphoTip :: !(Point blk)
   }
-  deriving (Show, Eq, Generic, NoUnexpectedThunks)
+  deriving (Show, Eq, Generic, NoThunks)
 
 deriving instance Serialise (HeaderHash l) => Serialise (MorphoState l)
 
@@ -55,7 +56,7 @@ data MorphoError blk
   | MorphoDuplicateVote Vote
   | MorphoUnknownPublicKey Vote
   | MorphoInvalidHash (ChainHash blk) (ChainHash blk)
-  deriving (Generic, NoUnexpectedThunks)
+  deriving (Generic, NoThunks)
 
 data MorphoLedgerConfig = MorphoLedgerConfig
   { checkpointingInterval :: Int,
@@ -69,7 +70,7 @@ data MorphoLedgerConfig = MorphoLedgerConfig
     nodeKeyPair :: !KeyPair
   }
   deriving stock (Show, Eq, Generic)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 deriving instance StandardHash blk => Show (MorphoError blk)
 

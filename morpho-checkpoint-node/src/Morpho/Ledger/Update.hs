@@ -65,7 +65,7 @@ newtype instance LedgerState (MorphoBlock h c) = MorphoLedgerState
   { morphoLedgerState :: MorphoState (MorphoBlock h c)
   }
   deriving stock (Eq, Show, Generic)
-  deriving newtype (NoUnexpectedThunks, Serialise)
+  deriving newtype (NoThunks, Serialise)
 
 type instance LedgerCfg (LedgerState (MorphoBlock h c)) = MorphoLedgerConfig
 
@@ -74,8 +74,8 @@ type instance LedgerCfg (LedgerState (MorphoBlock h c)) = MorphoLedgerConfig
 class
   ( Show (LedgerState (MorphoBlock h c)),
     Eq (LedgerState (MorphoBlock h c)),
-    NoUnexpectedThunks (LedgerState (MorphoBlock h c)),
-    NoUnexpectedThunks (LedgerCfg (LedgerState (MorphoBlock h c))),
+    NoThunks (LedgerState (MorphoBlock h c)),
+    NoThunks (LedgerCfg (LedgerState (MorphoBlock h c))),
     HashAlgorithm h,
     BftCrypto c
   ) =>
@@ -135,7 +135,7 @@ instance HasTxs (MorphoBlock h c) where
 instance HasTxId (GenTx (MorphoBlock h c)) where
   data TxId (GenTx (MorphoBlock h c)) = MorphoGenTxId
     {unMorphoGenTxId :: !MorphoTxId}
-    deriving (Show, Eq, Ord, Generic, Serialise, NoUnexpectedThunks)
+    deriving (Show, Eq, Ord, Generic, Serialise, NoThunks)
 
   txId = MorphoGenTxId . morphoGenTxId
 
@@ -188,7 +188,7 @@ applyTxMorpho cfg tx (Ticked slotNo (MorphoLedgerState st)) =
     stateAfterUpdate :: Except (MorphoError blk) (MorphoState (MorphoBlock h c))
     stateAfterUpdate = updateMorphoStateByVote cfg st v
 
-instance (Typeable h, Typeable c) => NoUnexpectedThunks (GenTx (MorphoBlock h c)) where
+instance (Typeable h, Typeable c) => NoThunks (GenTx (MorphoBlock h c)) where
   showTypeOf _ = show $ typeRep (Proxy @(GenTx (MorphoBlock h c)))
 
 instance Condense (GenTx (MorphoBlock h c)) where
