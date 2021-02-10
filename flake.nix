@@ -9,7 +9,18 @@
   outputs = { self, utils, haskell-nix, ... }:
     utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
     let
-      pkgs = haskell-nix.legacyPackages.${system};
+      pkgs = haskell-nix.legacyPackages.${system}.extend (final: prev: prev.lib.recursiveUpdate prev {
+        haskell-nix.custom-tools.haskell-language-server.latest = args: (final.haskell-nix.cabalProject (args // {
+          name = "haskell-language-server";
+          src = final.fetchFromGitHub {
+            owner = "haskell";
+            repo = "haskell-language-server";
+            rev = "1.0.0";
+            sha256 = "0p0rhhc6pldzan85qp3nhc54zwabah8r3dvxdzw49i32dvy4xxgs";
+            fetchSubmodules = true;
+          };
+        })).haskell-language-server.components.exes.haskell-language-server;
+      });
 
       inherit (pkgs) lib;
 
@@ -31,7 +42,7 @@
 
         name = "morpho-checkpoint-node";
         src = src;
-        compiler-nix-name = "ghc865";
+        compiler-nix-name = "ghc8104";
 
         modules = [
           # {
@@ -58,7 +69,7 @@
           ghcid = {};
           ormolu = {};
           hlint = {};
-          haskell-language-server = "0.9.0.0";
+          haskell-language-server = "latest";
         };
         nativeBuildInputs = [
           mantis

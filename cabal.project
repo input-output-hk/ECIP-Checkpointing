@@ -1,4 +1,4 @@
-index-state: 2020-05-15T00:00:00Z
+index-state: 2021-02-09T00:00:00Z
 packages:
     morpho-checkpoint-node
 
@@ -59,6 +59,9 @@ package cardano-crypto-tests
 package ouroboros-network-framework
   tests: False
 
+package ouroboros-consensus-test
+  tests: False
+
 package small-steps
   tests: False
 
@@ -72,59 +75,30 @@ constraints: secp256k1-haskell +recovery
 
 tests: True
 
--- =============================================================
--- WARNING:
--- Do not add any directive other than source-repository-package
--- past that point.
--- =============================================================
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/haskell-hexstring
+  tag: 1227783fc834819887a8e696dbece8411552806c
+  --sha256: 1ji81zbflw07fjp4zazxc2h55b47laji24m0xnmxvmwyic8zlq8k
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
-  tag: 5e0b8bc8c7862be12da6989440f8644ba7c1e1cf
-  --sha256: 06i2wpla5hp4vz873zqy1f2p0pmbhnkmabw3ibhcf476qh3vfa3p
-  subdir: binary
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-base
-  tag: 5e0b8bc8c7862be12da6989440f8644ba7c1e1cf
-  --sha256: 06i2wpla5hp4vz873zqy1f2p0pmbhnkmabw3ibhcf476qh3vfa3p
-  subdir: binary/test
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-base
-  tag: 5e0b8bc8c7862be12da6989440f8644ba7c1e1cf
-  --sha256: 06i2wpla5hp4vz873zqy1f2p0pmbhnkmabw3ibhcf476qh3vfa3p
-  subdir: cardano-crypto-class
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-base
-  tag: 5e0b8bc8c7862be12da6989440f8644ba7c1e1cf
-  --sha256: 06i2wpla5hp4vz873zqy1f2p0pmbhnkmabw3ibhcf476qh3vfa3p
-  subdir: cardano-crypto-tests
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-base
-  tag: 5e0b8bc8c7862be12da6989440f8644ba7c1e1cf
-  --sha256: 06i2wpla5hp4vz873zqy1f2p0pmbhnkmabw3ibhcf476qh3vfa3p
-  subdir: cardano-crypto-praos
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-base
-  tag: 5e0b8bc8c7862be12da6989440f8644ba7c1e1cf
-  --sha256: 06i2wpla5hp4vz873zqy1f2p0pmbhnkmabw3ibhcf476qh3vfa3p
-  subdir: slotting
+  tag: b364d925e0a72689ecba40dd1f4899f76170b894
+  --sha256: 0igb4gnzlwxy1h40vy5s1aysmaa04wypxn7sn67qy6din7ysmad3
+  subdir:
+    binary
+    binary/test
+    cardano-crypto-class
+    cardano-crypto-tests
+    cardano-crypto-praos
+    slotting
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-crypto
-  tag: 2547ad1e80aeabca2899951601079408becbc92c
-  --sha256: 1p2kg2w02q5w1cvqzhfhqmxviy4xrzada3mmb096j2n6hfr20kri
+  tag: 9435a76f2c405f6d20ca5a3b6fb3367024c3c33d
+  --sha256: 16fg2py43j3vqj4icgax2hqj5qd4rvx1mjhirqdqmlq6zc31ip7n
 
 -- TODO: dependency in byron namespace here is justified because ProtocolMagic
 -- is defined there and ouroboros-consensus depends on it. This could
@@ -132,172 +106,54 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-ledger-specs
-  tag: 12b13f390d64df6af6054b0d33bb3767756da041
-  --sha256: 0v9zj73sz984xpg0azckfpibkllribbzksg18isx2m7w58bya77m
+  tag: 9f9ba7da08edc142baee887f9f5c673dcec73d2b
+  --sha256: 056yvc1kyh177npcc4d7cw1ndbksw2y8g99sn2gy8yssgl0sy1g0
   subdir: byron/crypto
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-prelude
-  tag: 316c854d1d3089f480708ad5cd5ecf8a74423ddd
-  --sha256: 1srbl3jrkmpwypdz0yrx4nmah3qcsr93dp48zx2bamg51c4hcsyj
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/cardano-prelude
-  tag: 316c854d1d3089f480708ad5cd5ecf8a74423ddd
-  --sha256: 1srbl3jrkmpwypdz0yrx4nmah3qcsr93dp48zx2bamg51c4hcsyj
-  subdir: test
+  tag: 4c21b97d8e16b872bf8eea79f05795b35b5df772
+  --sha256: 10819fhbn31dyvwhh2ynk7ngi1s3lk4hpv9anhjvngkgfybxfzrb
+  subdir:
+    cardano-prelude
+    cardano-prelude-test
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-shell
-  tag: 5257fc818ef7df60986834310432e197aac90711
-  --sha256: 1si7jb084m2z9h773b1v4mgdkcjbbfpsyys3d6iz6gn0pzkijvc8
+  tag: 9392c75087cb9a3d453998f4230930dea3a95725
+  --sha256: 0gk1i8nkyp7c4jis2phcsr83dnd6g3nds8hpkjah4cp2cza5is9y
   subdir: cardano-shell
 
 source-repository-package
   type: git
-  location: https://github.com/input-output-hk/goblins
-  tag: 26d35ad52fe9ade3391532dbfeb2f416f07650bc
-  --sha256: 17p5x0hj6c67jkdqx0cysqlwq2zs2l87azihn1alzajy9ak6ii0b
-
-source-repository-package
-  type: git
   location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir: iohk-monitoring
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir:   contra-tracer
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir:   plugins/scribe-systemd
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir:   plugins/backend-aggregation
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir:   plugins/backend-ekg
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir:   plugins/backend-monitoring
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir:   plugins/backend-trace-forwarder
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/iohk-monitoring-framework
-  tag: efa4b5ecd7f0a13124616b12679cd42517cd905a
-  --sha256: 0h1h5ifl5d7dl3y6fym9pjd6rfrbh5rbyxs0xw5las503pibv2bf
-  subdir:   tracer-transformers
+  tag: bb456a74466bbe7b07316e76511cd81d14a23adc
+  --sha256: 16kzd589c47dcp0h4h89xhv7n9m3n7lk0r3v1j52wbxjy11lnb06
+  subdir:
+    iohk-monitoring
+    contra-tracer
+    plugins/scribe-systemd
+    plugins/backend-aggregation
+    plugins/backend-ekg
+    plugins/backend-monitoring
+    plugins/backend-trace-forwarder
+    tracer-transformers
 
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: ouroboros-network
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: io-sim
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: ouroboros-consensus
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: typed-protocols
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: typed-protocols-examples
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: ouroboros-network-framework
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: ouroboros-consensus/ouroboros-consensus-test-infra
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: network-mux
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: io-sim-classes
-
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/ouroboros-network
-  tag: ed48cb22027f66f8f7437e24667085605f26052b
-  --sha256: 01qar94v8gc16padyz0psrj7is8y7q0631rvw2anmj9qviiwnw15
-  subdir: Win32-network
-
-source-repository-package
-  type: git
-  location: https://github.com/well-typed/cborg.git
-  tag: 42a83192749774268337258f4f94c97584b80ca6
-  --sha256: 1smjni26p14p41d1zjpk59jn28zfnpblin5rq6ipp4cjpjiril04
-  subdir: cborg
-
-source-repository-package
-  type: git
-  location: https://github.com/snoyberg/http-client.git
-  tag: 1a75bdfca014723dd5d40760fad854b3f0f37156
-  --sha256: 0537bjhk9bzhvl76haswsv7xkkyzrmv5xfph3fydcd953q08hqdb
-  subdir: http-client
+  tag: 016feff5a34a090ee4c3f01c077b728314aa06d1
+  --sha256: 0kbhk4mbxash2c7jwf7cv79fchdm2ix8kxww5xdrqcrzvk5z1b4h
+  subdir:
+    ouroboros-network
+    io-sim
+    ouroboros-consensus
+    ouroboros-consensus-test
+    typed-protocols
+    typed-protocols-examples
+    ouroboros-network-framework
+    network-mux
+    io-sim-classes
+    Win32-network
