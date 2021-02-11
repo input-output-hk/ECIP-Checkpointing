@@ -81,6 +81,16 @@ source-repository-package
   tag: 1227783fc834819887a8e696dbece8411552806c
   --sha256: 1ji81zbflw07fjp4zazxc2h55b47laji24m0xnmxvmwyic8zlq8k
 
+-- secp256k1 doesn't support signature recovery anymore from 0.3.0, so we use
+-- a version before that. However 0.2.5 itself doesn't seem to compile properly
+-- So we use 0.2.4 instead. However, 0.2.4 doesn't work with base16-bytestring
+-- version 1.x, so we patch that
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/secp256k1-haskell
+  tag: 1897c966589874775661f4d97189ae03bbb95820
+  --sha256: sha256-D211CbXC96iZ5THU3GVa7D8ZcUsfuwkOBO08FbtEiLc=
+
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/cardano-base
