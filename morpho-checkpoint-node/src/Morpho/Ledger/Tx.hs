@@ -20,7 +20,6 @@ import Cardano.Crypto.Hash
 import Cardano.Prelude
 import Codec.Serialise (Serialise (..))
 import Data.Aeson hiding (encode)
-import GHC.Generics (Generic)
 import Morpho.Ledger.PowTypes
 import Ouroboros.Consensus.Util.Condense
 import qualified Prelude as Prelude

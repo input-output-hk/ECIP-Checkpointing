@@ -21,19 +21,14 @@ where
 import NoThunks.Class
 import Cardano.Prelude
 import Codec.Serialise (Serialise)
-import Data.Map (Map)
 import qualified Data.Map as M
-import GHC.Generics (Generic)
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.PowTypes
 import Ouroboros.Consensus.Block.Abstract hiding (blockNo)
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config.SecurityParam
 import Ouroboros.Network.Block
-  ( ChainHash,
-    Point,
-    StandardHash,
-    genesisPoint,
+  ( genesisPoint,
   )
 
 {-------------------------------------------------------------------------------

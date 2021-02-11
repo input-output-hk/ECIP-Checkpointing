@@ -20,7 +20,6 @@ import Cardano.Prelude hiding (empty)
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
 import Data.Aeson
-import GHC.Generics (Generic)
 import Morpho.Common.Bytes
 import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
