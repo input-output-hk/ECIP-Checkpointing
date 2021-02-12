@@ -26,6 +26,7 @@ module Morpho.Ledger.Update
     -- Query (..),
     ExtractTxError (..),
     WontPushCheckpoint (..),
+    Ticked(..),
     voteBlockRef,
     genesisMorphoLedgerState,
     mkMorphoGenTx,
