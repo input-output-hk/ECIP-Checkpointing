@@ -52,6 +52,7 @@ import Cardano.Crypto.DSIGN.Mock (MockDSIGN)
 import Cardano.Crypto.Hash
 import Cardano.Crypto.Util
 import Cardano.Prelude
+import qualified Data.Map as Map
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Codec.Serialise (Serialise (..), serialise)
@@ -167,7 +168,7 @@ data instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig
 newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()
   deriving newtype (Generic, NoThunks)
 
-newtype instance StorageConfig (MorphoBlock h c) = MorphoStorageConfig ()
+newtype instance StorageConfig (MorphoBlock h c) = MorphoStorageConfig SecurityParam
   deriving newtype (Generic, NoThunks)
 
 {-------------------------------------------------------------------------------
@@ -372,6 +373,6 @@ type instance BlockProtocol (MorphoBlock h c) = Bft c
 
 instance HasNetworkProtocolVersion (MorphoBlock h c)
 
---instance TranslateNetworkProtocolVersion (MorphoBlock h c) where
---  nodeToNodeProtocolVersion _ _ = N.NodeToNodeV_1
---  nodeToClientProtocolVersion _ _ = N.NodeToClientV_2
+instance SupportedNetworkProtocolVersion (MorphoBlock h c) where
+  supportedNodeToNodeVersions _ = Map.singleton NodeToNodeV_6 ()
+  supportedNodeToClientVersions _ = Map.singleton NodeToClientV_8 ()

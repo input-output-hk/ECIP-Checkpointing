@@ -40,6 +40,7 @@ protocolInfoMorpho nc = do
   let ledgerConfig =
         MorphoLedgerConfig
           { checkpointingInterval = ncCheckpointInterval nc,
+            -- TODO: Security param still needed?
             securityParam = secParam,
             requiredMajority = ncRequiredMajority nc,
             fedPubKeys = ncFedPubKeys nc,
@@ -64,7 +65,7 @@ protocolInfoMorpho nc = do
               topLevelConfigLedger = ledgerConfig,
               topLevelConfigBlock = blockConfig,
               topLevelConfigCodec = MorphoCodecConfig (),
-              topLevelConfigStorage = MorphoStorageConfig ()
+              topLevelConfigStorage = MorphoStorageConfig secParam
             },
         pInfoInitLedger =
           ExtLedgerState

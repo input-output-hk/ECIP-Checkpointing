@@ -17,6 +17,7 @@
 module Morpho.Ledger.Serialise where
 
 import Cardano.Prelude
+import Codec.CBOR.Decoding (Decoder)
 import qualified Codec.CBOR.Encoding as CBOR
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Except
@@ -100,12 +101,15 @@ instance (HashAlgorithm h, BftCrypto c, blk ~ MorphoBlock h c) => EncodeDisk blk
 
 instance (HashAlgorithm h, BftCrypto c) => EncodeDiskDep (NestedCtxt Header) (MorphoBlock h c)
 
---instance (HashAlgorithm h, BftCrypto c) => SerialiseDiskConstraints (MorphoBlock h c)
+instance (HashAlgorithm h, BftCrypto c) => HasBinaryBlockInfo (MorphoBlock h c) where
+  getBinaryBlockInfo = morphoBlockBinaryInfo
+
+instance (HashAlgorithm h, BftCrypto c) => SerialiseDiskConstraints (MorphoBlock h c)
 
 encodeMorphoBlock :: (HashAlgorithm h, BftCrypto c) => MorphoBlock h c -> CBOR.Encoding
 encodeMorphoBlock = encode
 
---instance (HashAlgorithm h, BftCrypto c) => SerialiseNodeToNodeConstraints (MorphoBlock h c)
+instance (HashAlgorithm h, BftCrypto c) => SerialiseNodeToClientConstraints (MorphoBlock h c)
 
 instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c) =>
