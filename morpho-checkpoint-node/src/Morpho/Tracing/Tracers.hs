@@ -114,7 +114,7 @@ data ChainInformation = ChainInformation
 
 data ForgeTracers = ForgeTracers
   { ftForged :: Trace IO Text,
-    ftNodeCannotLead :: Trace IO Text,
+    ftNodeCannotForge :: Trace IO Text,
     ftAdopted :: Trace IO Text,
     ftDidntAdoptBlock :: Trace IO Text,
     ftForgedInvalid :: Trace IO Text,
@@ -124,7 +124,11 @@ data ForgeTracers = ForgeTracers
     ftTraceNodeIsLeader :: Trace IO Text,
     ftTraceStartLeadershipCheck :: Trace IO Text,
     ftTraceNoLedgerState :: Trace IO Text,
-    ftTraceNoLedgerView :: Trace IO Text
+    ftTraceNoLedgerView :: Trace IO Text,
+    ftTraceBlockContext :: Trace IO Text,
+    ftTraceLedgerState :: Trace IO Text,
+    ftTraceLedgerView :: Trace IO Text,
+    ftTraceForgeStateUpdateError :: Trace IO Text
   }
 
 -- | Definition of the measurement datatype for the transactions.
@@ -159,8 +163,7 @@ mkTracers ::
   ( Show peer,
     Show localPeer,
     MorphoStateDefaultConstraints h c,
-    NoThunks c,
-    blk ~ (MorphoBlock h c),
+    blk ~ MorphoBlock h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c),
     LedgerSupportsProtocol blk
   ) =>
@@ -174,7 +177,7 @@ mkTracers traceOptions tracer = do
   forgeTracers <-
     ForgeTracers
       <$> counting (liftCounting staticMetaCC name "forged" tracer)
-      <*> counting (liftCounting staticMetaCC name "could-not-lead" tracer)
+      <*> counting (liftCounting staticMetaCC name "could-not-forge" tracer)
       <*> counting (liftCounting staticMetaCC name "adopted" tracer)
       <*> counting (liftCounting staticMetaCC name "didnt-adopt" tracer)
       <*> counting (liftCounting staticMetaCC name "forged-invalid" tracer)
@@ -185,6 +188,10 @@ mkTracers traceOptions tracer = do
       <*> counting (liftCounting staticMetaCC name "trace-start-leadershipCheck" tracer)
       <*> counting (liftCounting staticMetaCC name "trace-no-ledger-state" tracer)
       <*> counting (liftCounting staticMetaCC name "trace-no-ledger-view" tracer)
+      <*> counting (liftCounting staticMetaCC name "block-context" tracer)
+      <*> counting (liftCounting staticMetaCC name "ledger-state" tracer)
+      <*> counting (liftCounting staticMetaCC name "ledger-view" tracer)
+      <*> counting (liftCounting staticMetaCC name "forge-state-update-error" tracer)
   pure
     Tracers
       { chainDBTracer =
@@ -310,8 +317,8 @@ mkTracers traceOptions tracer = do
       traceWith (mpTracer tr) ev
     mpTracer :: Trace IO Text -> Tracer IO (TraceEventMempool blk)
     mpTracer tr = annotateSeverity $ toLogObject' tracingVerbosity tr
-    forgeTracer :: ForgeTracers -> TraceOptions -> Tracer IO (Consensus.TraceForgeEvent blk)
-    forgeTracer forgeTracers traceOpts = Tracer $ \ev -> do
+    forgeTracer :: ForgeTracers -> TraceOptions -> Tracer IO (Consensus.TraceLabelCreds (Consensus.TraceForgeEvent blk))
+    forgeTracer forgeTracers traceOpts = Tracer $ \(Consensus.TraceLabelCreds _ ev) -> do
       traceWith (measureTxsEnd tracer) ev
       traceWith consensusForgeTracer ev
       where
@@ -332,7 +339,7 @@ mkTracers traceOptions tracer = do
         fanning $ \(WithSeverity _ e) ->
           case e of
             Consensus.TraceForgedBlock {} -> teeForge' (ftForged ft)
-            Consensus.TraceNodeCannotLead {} -> teeForge' (ftNodeCannotLead ft)
+            Consensus.TraceNodeCannotForge {} -> teeForge' (ftNodeCannotForge ft)
             Consensus.TraceAdoptedBlock {} -> teeForge' (ftAdopted ft)
             Consensus.TraceDidntAdoptBlock {} -> teeForge' (ftDidntAdoptBlock ft)
             Consensus.TraceForgedInvalidBlock {} -> teeForge' (ftForgedInvalid ft)
@@ -343,6 +350,10 @@ mkTracers traceOptions tracer = do
             Consensus.TraceBlockFromFuture {} -> teeForge' (ftTraceBlockFromFuture ft)
             Consensus.TraceSlotIsImmutable {} -> teeForge' (ftTraceSlotIsImmutable ft)
             Consensus.TraceNodeIsLeader {} -> teeForge' (ftTraceNodeIsLeader ft)
+            Consensus.TraceBlockContext {} -> teeForge' (ftTraceBlockContext ft)
+            Consensus.TraceLedgerState {} -> teeForge' (ftTraceLedgerState ft)
+            Consensus.TraceLedgerView {} -> teeForge' (ftTraceLedgerView ft)
+            Consensus.TraceForgeStateUpdateError {} -> teeForge' (ftTraceForgeStateUpdateError ft)
       traceWith (toLogObject' tverb tr) ev
     teeForge' ::
       Trace IO Text ->
@@ -354,8 +365,8 @@ mkTracers traceOptions tracer = do
           case ev of
             Consensus.TraceForgedBlock slot _ _ _ ->
               LogValue "forgedSlotLast" $ PureI $ fromIntegral $ unSlotNo slot
-            Consensus.TraceNodeCannotLead slot _ ->
-              LogValue "node Could not lead" $ PureI $ fromIntegral $ unSlotNo slot
+            Consensus.TraceNodeCannotForge slot _ ->
+              LogValue "node Could not forge" $ PureI $ fromIntegral $ unSlotNo slot
             Consensus.TraceAdoptedBlock slot _ _ ->
               LogValue "adoptedSlotLast" $ PureI $ fromIntegral $ unSlotNo slot
             Consensus.TraceDidntAdoptBlock slot _ ->
@@ -376,6 +387,14 @@ mkTracers traceOptions tracer = do
               LogValue "slotIsImmutable" $ PureI $ fromIntegral $ unSlotNo slot
             Consensus.TraceNodeIsLeader slot ->
               LogValue "nodeIsLeader" $ PureI $ fromIntegral $ unSlotNo slot
+            Consensus.TraceBlockContext slot _ _ ->
+              LogValue "blockContext" $ PureI $ fromIntegral $ unSlotNo slot
+            Consensus.TraceLedgerState slot _ ->
+              LogValue "ledgerState" $ PureI $ fromIntegral $ unSlotNo slot
+            Consensus.TraceLedgerView slot ->
+              LogValue "ledgerView" $ PureI $ fromIntegral $ unSlotNo slot
+            Consensus.TraceForgeStateUpdateError slot _ ->
+              LogValue "forgeStateUpdateError" $ PureI $ fromIntegral $ unSlotNo slot
     mkConsensusTracers :: ForgeTracers -> TraceOptions -> Consensus.Tracers IO peer localPeer blk
     mkConsensusTracers forgeTracers traceOpts =
       Consensus.Tracers
@@ -417,18 +436,21 @@ mkTracers traceOptions tracer = do
               toLogObject' tracingVerbosity $
                 appendName "LocalTxSubmissionServer" tracer,
           Consensus.mempoolTracer =
-            tracerOnOff (traceMempool traceOpts) $ mempoolTracer,
+            tracerOnOff (traceMempool traceOpts) mempoolTracer,
           Consensus.forgeTracer =
             forgeTracer forgeTracers traceOpts,
           Consensus.blockchainTimeTracer = Tracer $ \ev ->
             traceWith (toLogObject tracer) (readableTraceBlockchainTimeEvent ev),
           -- TODO: trace the forge state if we add any.
-          Consensus.forgeStateTracer = Tracer $ \_ -> mempty
+          Consensus.forgeStateInfoTracer = Tracer $ const mempty,
+          -- TODO: Trace this
+          Consensus.keepAliveClientTracer = Tracer $ const mempty
         }
-    readableTraceBlockchainTimeEvent :: TraceBlockchainTimeEvent -> Text
+    readableTraceBlockchainTimeEvent :: TraceBlockchainTimeEvent UTCTime -> Text
     readableTraceBlockchainTimeEvent ev = case ev of
       TraceStartTimeInTheFuture (SystemStart start) toWait ->
-        "Waiting " <> (Cardano.Prelude.show toWait) <> " until genesis start time at " <> Cardano.Prelude.show start
+        "Waiting " <> Cardano.Prelude.show toWait <> " until genesis start time at " <> Cardano.Prelude.show start
+      TraceSystemClockMovedBack _ _ -> "System clock moved back an acceptable time span"
       TraceCurrentSlotUnknown _ _ -> "Current slot is not yet known"
 
 chainInformation ::
@@ -490,10 +512,8 @@ withTip varTip tr = Tracer $ \msg -> do
 
 nodeToNodeTracers' ::
   ( Show peer,
-    Signable (BftDSIGN c) (MorphoStdHeader h c),
     MorphoStateDefaultConstraints h c,
-    NoThunks c,
-    blk ~ (MorphoBlock h c)
+    blk ~ MorphoBlock h c
   ) =>
   TraceOptions ->
   Trace IO Text ->
@@ -525,12 +545,17 @@ nodeToNodeTracers' traceOptions tracer =
             tracerOnOff (traceTxSubmissionProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
-                  appendName "TxSubmissionProtocol" tracer
+                  appendName "TxSubmissionProtocol" tracer,
+          NodeToNode.tTxSubmission2Tracer =
+            tracerOnOff (traceTxSubmissionProtocol traceOptions) $
+              annotateSeverity $
+                toLogObject' tVerb $
+                  appendName "TxSubmission2Protocol" tracer
         }
 
 nodeToClientTracers' ::
   ( Show peer,
-    blk ~ (MorphoBlock h c)
+    blk ~ MorphoBlock h c
   ) =>
   TraceOptions ->
   Trace IO Text ->
