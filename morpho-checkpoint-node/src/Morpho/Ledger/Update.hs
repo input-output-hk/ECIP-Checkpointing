@@ -2,10 +2,12 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -23,10 +25,10 @@ module Morpho.Ledger.Update
     GenTx (..),
     LedgerState (..),
     MorphoStateDefaultConstraints,
-    -- Query (..),
+    Query,
     ExtractTxError (..),
     WontPushCheckpoint (..),
-    Ticked(..),
+    Ticked (..),
     voteBlockRef,
     genesisMorphoLedgerState,
     mkMorphoGenTx,
@@ -35,10 +37,9 @@ module Morpho.Ledger.Update
   )
 where
 
-import NoThunks.Class
+import Cardano.Binary
 import Cardano.Crypto.Hash
 import Cardano.Prelude
-import Cardano.Binary
 import Codec.Serialise (Serialise (..))
 import Data.Aeson hiding ((.:))
 -- import Data.List (find, maximumBy)
@@ -51,15 +52,17 @@ import Morpho.Ledger.Block
 import Morpho.Ledger.PowTypes
 import Morpho.Ledger.State
 import Morpho.Ledger.Tx
+import NoThunks.Class
 import Ouroboros.Consensus.Block
 -- import Ouroboros.Consensus.Config
+
+import Ouroboros.Consensus.Config.SecurityParam
 import Ouroboros.Consensus.HardFork.Abstract
 import Ouroboros.Consensus.HardFork.History.Summary (neverForksSummary)
 import Ouroboros.Consensus.Ledger.Abstract
 import Ouroboros.Consensus.Ledger.CommonProtocolParams
+import Ouroboros.Consensus.Ledger.Query
 import Ouroboros.Consensus.Ledger.SupportsMempool
-import Ouroboros.Consensus.Config.SecurityParam
--- import Ouroboros.Consensus.Ledger.Query
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Consensus.Ticked
 import Ouroboros.Consensus.Util
@@ -87,8 +90,8 @@ class
 
 newtype instance Ticked (LedgerState (MorphoBlock h c))
   = MorphoTick (LedgerState (MorphoBlock h c))
-  deriving Generic
-  deriving anyclass NoThunks
+  deriving (Generic)
+  deriving anyclass (NoThunks)
 
 instance GetTip (LedgerState (MorphoBlock h c)) where
   getTip = castPoint . morphoTip . morphoLedgerState
@@ -105,9 +108,9 @@ instance
 
   applyChainTick _ _ = MorphoTick
 
-  -- TODO: See dfaf106aacbf86e625dd88ec45ec7fa2d439485b in ouroboros-network
-  -- for migration
-  --ledgerTipPoint = castPoint . morphoTip . morphoLedgerState
+-- TODO: See dfaf106aacbf86e625dd88ec45ec7fa2d439485b in ouroboros-network
+-- for migration
+--ledgerTipPoint = castPoint . morphoTip . morphoLedgerState
 
 instance
   (MorphoStateDefaultConstraints h c) =>
@@ -155,7 +158,6 @@ newtype instance TxId (GenTx (MorphoBlock h c)) = MorphoGenTxId
   deriving (Show, Eq, Ord, Generic)
   deriving anyclass (Serialise, NoThunks)
 
-
 instance HasTxId (GenTx (MorphoBlock h c)) where
   txId = MorphoGenTxId . morphoGenTxId
 
@@ -172,10 +174,10 @@ data instance GenTx (MorphoBlock h c) = MorphoGenTx
 type instance ApplyTxErr (MorphoBlock h c) = MorphoError (MorphoBlock h c)
 
 instance
-  ( HashAlgorithm h
-  , BftCrypto c
-  , UpdateLedger (MorphoBlock h c)
-  ) => 
+  ( HashAlgorithm h,
+    BftCrypto c,
+    UpdateLedger (MorphoBlock h c)
+  ) =>
   LedgerSupportsMempool (MorphoBlock h c)
   where
   txInBlockSize _ = 2000 -- TODO: find something more suitable
@@ -198,7 +200,7 @@ applyTxMorpho ::
   forall blk h c.
   (blk ~ MorphoBlock h c) =>
   MorphoLedgerConfig ->
-  SlotNo -> 
+  SlotNo ->
   GenTx (MorphoBlock h c) ->
   Ticked (LedgerState (MorphoBlock h c)) ->
   Except (MorphoError blk) (Ticked (LedgerState (MorphoBlock h c)))
@@ -376,20 +378,23 @@ instance HasHardForkHistory (MorphoBlock h c) where
     neverForksSummary
       (EpochSize $ maxRollbacks (securityParam cfg) * 10)
       (slotLength cfg)
-    --neverForksSummary
-    --  (defaultEraParams (securityParam cfg) (slotLength cfg))
+
+--neverForksSummary
+--  (defaultEraParams (securityParam cfg) (slotLength cfg))
 
 {-------------------------------------------------------------------------------
   QueryLedger
 -------------------------------------------------------------------------------}
 
---instance QueryLedger (MorphoBlock h c) where
-  --data Query (MorphoBlock h c) :: Type -> Type where
-  --  GetDummy :: Query (MorphoBlock h c) ()
-  --answerQuery _ GetDummy _ = ()
-  --eqQuery GetDummy GetDummy = Just Refl
+data instance Query (MorphoBlock h c) :: Type -> Type
 
---deriving instance Show (Query (MorphoBlock h c) result)
+deriving instance Show (Query (MorphoBlock h c) result)
 
---instance ShowQuery (Query (MorphoBlock h c)) where
---  showResult GetDummy = show
+instance SameDepIndex (Query (MorphoBlock h c)) where
+  sameDepIndex query = case query of
+
+instance ShowQuery (Query (MorphoBlock h c)) where
+  showResult query = case query of
+
+instance QueryLedger (MorphoBlock h c) where
+  answerQuery _ query = case query of

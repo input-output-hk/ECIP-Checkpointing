@@ -168,6 +168,7 @@ newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()
   deriving newtype (Generic, NoThunks)
 
 newtype instance StorageConfig (MorphoBlock h c) = MorphoStorageConfig ()
+  deriving newtype (Generic, NoThunks)
 
 {-------------------------------------------------------------------------------
   Working with 'MorphoBlock'

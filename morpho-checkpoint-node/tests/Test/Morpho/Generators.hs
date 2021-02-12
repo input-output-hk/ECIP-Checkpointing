@@ -124,12 +124,6 @@ instance Arbitrary (HeaderHash blk) => Arbitrary (ChainHash blk) where
 instance Arbitrary (SomeBlock (NestedCtxt Header) TestBlock) where
   arbitrary = return $ SomeBlock indexIsTrivial
 
-instance Arbitrary (SomeBlock Query TestBlock) where
-  arbitrary = return $ SomeBlock GetDummy
-
-instance Arbitrary (SomeResult TestBlock) where
-  arbitrary = SomeResult GetDummy <$> arbitrary
-
 instance Arbitrary (LedgerState TestBlock) where
   arbitrary = MorphoLedgerState <$> arbitrary
 
