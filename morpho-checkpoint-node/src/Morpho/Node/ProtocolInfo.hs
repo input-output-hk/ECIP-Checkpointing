@@ -10,12 +10,11 @@ import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad (fail)
 import Control.Monad.Class.MonadTime
 import qualified Data.Map as Map
-import qualified Data.Sequence.Strict as Seq
 import Morpho.Common.Conversions
 import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature (importPrivateKey, keyPairFromPrivate)
 import Morpho.Ledger.Block
-import Morpho.Ledger.Forge ()
+import Morpho.Ledger.Forge (morphoBlockForging)
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block.Forge
@@ -29,7 +28,7 @@ import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
 
 protocolInfoMorpho ::
-  (MonadIO m, MonadTime m) =>
+  (MonadIO m, MonadFail m, MonadTime m) =>
   NodeConfiguration ->
   m (ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto))
 protocolInfoMorpho nc = do
@@ -57,24 +56,23 @@ protocolInfoMorpho nc = do
     ProtocolInfo
       { pInfoConfig =
           TopLevelConfig
-            { topLevelConfigProtocol =
-                FullProtocolConfig
-                  { protocolConfigConsensus = bftConfig,
-                    protocolConfigIndep = ()
-                  },
-              topLevelConfigBlock =
-                FullBlockConfig
-                  { blockConfigLedger = ledgerConfig,
-                    blockConfigBlock = blockConfig,
-                    blockConfigCodec = MorphoCodecConfig ()
-                  }
+            { topLevelConfigProtocol = bftConfig,
+                --FullProtocolConfig
+                --  { protocolConfigConsensus = bftConfig,
+                --    protocolConfigIndep = ()
+                --  },
+              topLevelConfigLedger = ledgerConfig,
+              topLevelConfigBlock = blockConfig,
+              topLevelConfigCodec = MorphoCodecConfig (),
+              topLevelConfigStorage = MorphoStorageConfig ()
             },
         pInfoInitLedger =
           ExtLedgerState
             { ledgerState = genesisMorphoLedgerState,
-              headerState = HeaderState () Seq.Empty Origin
+              headerState = HeaderState Origin ()
             },
-        pInfoLeaderCreds = Just (toCoreId (ncNodeId nc), defaultMaintainForgeState)
+        -- Replace with pInfoBlockForging :: Maybe (m (BlockForging m b))
+        pInfoBlockForging = return [ morphoBlockForging coreId ]
       }
   where
     secParam = SecurityParam $ ncSecurityParameter nc

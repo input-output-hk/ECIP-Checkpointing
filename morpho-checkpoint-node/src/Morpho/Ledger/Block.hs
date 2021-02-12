@@ -26,6 +26,7 @@ module Morpho.Ledger.Block
     -- * Configurations
     BlockConfig (..),
     CodecConfig (..),
+    StorageConfig (..),
     ConsensusConfig (..),
 
     -- * Working with 'MorphoBlock'
@@ -43,12 +44,13 @@ module Morpho.Ledger.Block
   )
 where
 
-import Cardano.Binary (ToCBOR (..))
+import Cardano.Binary (ToCBOR (..), toStrictByteString)
 import Cardano.Crypto (ProtocolMagicId (..))
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.DSIGN.Ed25519
 import Cardano.Crypto.DSIGN.Mock (MockDSIGN)
 import Cardano.Crypto.Hash
+import Cardano.Crypto.Util
 import Cardano.Prelude
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
@@ -145,6 +147,9 @@ instance ToCBOR MorphoBody where
 instance (Typeable h, Typeable c) => ToCBOR (MorphoStdHeader h c) where
   toCBOR = encode
 
+instance SignableRepresentation (MorphoStdHeader h c) where
+  getSignableRepresentation = toStrictByteString . encode
+
 instance Condense MorphoBlockTx where
   condense = condense . morphoBlockGenTx
 
@@ -161,6 +166,8 @@ data instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig
 
 newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()
   deriving newtype (Generic, NoThunks)
+
+newtype instance StorageConfig (MorphoBlock h c) = MorphoStorageConfig ()
 
 {-------------------------------------------------------------------------------
   Working with 'MorphoBlock'
