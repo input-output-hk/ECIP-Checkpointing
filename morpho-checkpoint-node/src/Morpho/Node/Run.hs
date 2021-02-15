@@ -24,9 +24,8 @@ import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
-import qualified Data.List.NonEmpty as NE
 import Data.Map.Strict (size)
-import Data.Text (Text, breakOn, pack, take)
+import Data.Text (breakOn, pack, take)
 import Morpho.Common.Socket
 import Morpho.Config.Logging hiding (hostname)
 import Morpho.Config.Topology
@@ -53,23 +52,18 @@ import Network.HostName (getHostName)
 import Network.Socket
 import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
-import Ouroboros.Consensus.Config.SupportsNode
-import Ouroboros.Consensus.Fragment.InFuture (defaultClockSkew)
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
 import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, tracers)
-import qualified Ouroboros.Consensus.Node as Node (run, runWith)
-import Ouroboros.Consensus.Node.Run (RunNode)
+import qualified Ouroboros.Consensus.Node as Node (runWith)
 import Ouroboros.Consensus.NodeId
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import Ouroboros.Consensus.Storage.LedgerDB.DiskPolicy
-import Ouroboros.Consensus.Storage.VolatileDB
 import Ouroboros.Consensus.Util.ResourceRegistry
 import Ouroboros.Consensus.Util.STM
 import Ouroboros.Network.Block
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
-import Ouroboros.Network.Server.RateLimiting
 import System.Directory
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
@@ -108,7 +102,6 @@ handleSimpleNode ::
 handleSimpleNode pInfo trace nodeTracers nCli nc = do
   NetworkTopology nodeSetups <-
     either error id <$> readTopologyFile (unTopology . topFile $ mscFp nCli)
-  let cfg = pInfoConfig pInfo
   let tracer = contramap pack $ toLogObject trace
   let producers' = case List.lookup nid $
         map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) nodeSetups of
@@ -169,7 +162,9 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
             dtHandshakeTracer = handshakeTracer nodeTracers,
             dtHandshakeLocalTracer = handshakeLocalTracer nodeTracers,
             dtLocalErrorPolicyTracer = localErrorPolicyTracer nodeTracers,
-            dtAcceptPolicyTracer = acceptPolicyTracer nodeTracers
+            dtAcceptPolicyTracer = acceptPolicyTracer nodeTracers,
+            dtDiffusionInitializationTracer = undefined,
+            dtLedgerPeersTracer = undefined
           }
       diffusionArguments :: DiffusionArguments
       diffusionArguments =
@@ -185,7 +180,8 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
                 { acceptedConnectionsHardLimit = 512,
                   acceptedConnectionsSoftLimit = 384,
                   acceptedConnectionsDelay = 5
-                }
+                },
+            daDiffusionMode = InitiatorAndResponderDiffusionMode
           }
   dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ mscFp nCli)
   when (validateDB nCli) $
@@ -263,47 +259,40 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
           { rnTraceConsensus = consensusTracers nodeTracers,
             rnTraceNTN = nodeToNodeTracers nodeTracers,
             rnTraceNTC = nodeToClientTracers nodeTracers,
-            --rnTraceDB = chainDBTracer nodeTracers,
-            --rnTraceDiffusion = diffusionTracers,
-            --rnDiffusionArguments = diffusionArguments,
-            --rnNetworkMagic = getNetworkMagic $ blockConfigBlock $ topLevelConfigBlock cfg,
-            --rnDatabasePath = dbPath,
             rnProtocolInfo = pInfo,
-            --rnCustomiseChainDbArgs = customiseChainDbArgs,
-            --rnCustomiseNodeArgs = id,
-            --rnNodeToNodeVersions = NE.fromList [()],
-            --rnNodeToClientVersions = NE.fromList [()],
             rnNodeKernelHook = kernelHook
-            --rnMaxClockSkew = defaultClockSkew
           }
       stdRunNodeArgs =
-        LowLevelRunNodeArgs
-          {
+        StdRunNodeArgs
+          { srnBfcMaxConcurrencyBulkSync = Nothing,
+            srnBfcMaxConcurrencyDeadline = Nothing,
+            srcChainDbValidateOverride = validateDB nCli,
+            srnDatabasePath = dbPath,
+            srnDiffusionArguments = diffusionArguments,
+            srnDiffusionTracers = diffusionTracers,
+            srnTraceChainDB = chainDBTracer nodeTracers
           }
   -- Do we need runWith? Only if we need to customize LowLevelRunNodeArgs
-  Node.runWith args stdRunNodeArgs
+  lowLevelArgs <- stdLowLevelRunNodeArgsIO args stdRunNodeArgs
+  let customizedLowLevelArgs =
+        lowLevelArgs
+          { llrnCustomiseChainDbArgs = customiseChainDbArgs
+          }
+
+  Node.runWith args customizedLowLevelArgs
   where
     blockNoToDouble = realToFrac . unBlockNo
     nid = case ncNodeId nc of
       (CoreId n) -> n
       (RelayId _) -> error "Non-core nodes currently not supported"
-    customiseChainDbArgs args = args
-
---args
---  { --ChainDB.cdbImmValidation =
---    --  if validateDB nCli
---    --    then ValidateAllChunks
---    --    else ValidateMostRecentChunk,
---    --ChainDB.cdbVolValidation =
---    --  if validateDB nCli
---    --    then ValidateAll
---    --    else NoValidation,
---    --ChainDB.cdbDiskPolicy =
---    --  DiskPolicy
---    --    { onDiskNumSnapshots = fromIntegral $ ncSnapshotsOnDisk nc,
---    --      onDiskShouldTakeSnapshot = const (== ncSnapshotInterval nc)
---    --    }
---  }
+    customiseChainDbArgs cdbArgs =
+      cdbArgs
+        { cdbDiskPolicy =
+            DiskPolicy
+              { onDiskNumSnapshots = fromIntegral $ ncSnapshotsOnDisk nc,
+                onDiskShouldTakeSnapshot = const (== ncSnapshotInterval nc)
+              }
+        }
 
 requestCurrentBlock ::
   forall peer localPeer h c.
