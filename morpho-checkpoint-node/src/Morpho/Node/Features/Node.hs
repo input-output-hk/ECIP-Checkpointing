@@ -12,11 +12,10 @@ import Cardano.Prelude
 import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
 import Cardano.Shell.Types (CardanoFeature (..))
 import Morpho.Config.Logging
-import Morpho.Config.Logging (createLoggingFeature)
 import Morpho.Config.Types
 import Morpho.Node.Run (runNode)
 
-data NodeLayer = NodeLayer
+newtype NodeLayer = NodeLayer
   { nlRunNode :: forall m. MonadIO m => m ()
   }
 

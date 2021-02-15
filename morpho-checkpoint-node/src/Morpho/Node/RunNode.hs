@@ -15,21 +15,21 @@ import Cardano.Prelude
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge ()
 import Morpho.Ledger.Serialise ()
+import Morpho.Ledger.State
 import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.Config.SupportsNode
 import Ouroboros.Consensus.Forecast
+import Ouroboros.Consensus.Ledger.Inspect
+import Ouroboros.Consensus.Ledger.SupportsPeerSelection
 import Ouroboros.Consensus.Ledger.SupportsProtocol
+import Ouroboros.Consensus.Node.InitStorage
 import Ouroboros.Consensus.Node.Run
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Consensus.Protocol.Signed
 import Ouroboros.Consensus.Storage.ImmutableDB.Chunks
-import Ouroboros.Consensus.Ledger.Inspect
-import Ouroboros.Consensus.Ledger.SupportsPeerSelection
-import Ouroboros.Consensus.Node.InitStorage
 import Ouroboros.Consensus.Util
-import Morpho.Ledger.State
 
 {-------------------------------------------------------------------------------
   RunNode instance for the Morpho ledger
@@ -68,22 +68,26 @@ instance LedgerSupportsPeerSelection (MorphoBlock h c) where
   getPeers = const []
 
 instance (HashAlgorithm h, BftCrypto c) => NodeInitStorage (MorphoBlock h c) where
-  nodeImmutableDbChunkInfo (MorphoStorageConfig sParam)
+  nodeImmutableDbChunkInfo (MorphoStorageConfig sParam) =
     -- TODO: keep as big as possible without creating too big chunk files.
-    = simpleChunkInfo $ EpochSize (1000 * maxRollbacks sParam)
+    simpleChunkInfo $ EpochSize (1000 * maxRollbacks sParam)
   nodeCheckIntegrity _ block = blockMatchesHeader (getHeader block) block
 
-
 instance (Typeable h, Typeable c) => ShowProxy (GenTx (MorphoBlock h c))
+
 instance (Typeable h, Typeable c) => ShowProxy (TxId (GenTx (MorphoBlock h c)))
+
 instance (Typeable h, Typeable c) => ShowProxy (MorphoBlock h c)
+
 instance (Typeable h, Typeable c) => ShowProxy (MorphoError (MorphoBlock h c))
+
 instance (Typeable h, Typeable c) => ShowProxy (Header (MorphoBlock h c))
+
 instance (Typeable h, Typeable c) => ShowProxy (Query (MorphoBlock h c))
 
-
 type instance CannotForge (MorphoBlock h c) = ()
-type instance ForgeStateUpdateError (MorphoBlock h c) = ()
+
+type instance ForgeStateUpdateError (MorphoBlock h c) = Void
 
 instance
   ( MorphoStateDefaultConstraints h c,
