@@ -147,7 +147,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
       producerSubscription ra =
         DnsSubscriptionTarget
           { dstDomain = BSC.pack (raAddress ra),
-            dstPort = undefined, -- raPort ra,
+            dstPort = raPort ra,
             dstValency = raValency ra
           }
       diffusionTracers :: DiffusionTracers
@@ -163,8 +163,8 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
             dtHandshakeLocalTracer = handshakeLocalTracer nodeTracers,
             dtLocalErrorPolicyTracer = localErrorPolicyTracer nodeTracers,
             dtAcceptPolicyTracer = acceptPolicyTracer nodeTracers,
-            dtDiffusionInitializationTracer = undefined,
-            dtLedgerPeersTracer = undefined
+            dtDiffusionInitializationTracer = diffusionInitializationTracer nodeTracers,
+            dtLedgerPeersTracer = ledgerPeersTracer nodeTracers
           }
       diffusionArguments :: DiffusionArguments
       diffusionArguments =

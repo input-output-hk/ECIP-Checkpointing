@@ -1392,14 +1392,12 @@ instance HasSeverityAnnotation (WithDomainName DnsTrace) where
     DnsTraceLookupException {} -> Error
     DnsTraceLookupAError {} -> Error
     DnsTraceLookupAAAAError {} -> Error
-    -- TODO: Apply SRV patches to master ouroboros-network
-    --DnsTraceLookupSRVError {} -> Error
+    DnsTraceLookupSRVError {} -> Error
     DnsTraceLookupIPv6First -> Debug
     DnsTraceLookupIPv4First -> Debug
     DnsTraceLookupAResult {} -> Debug
     DnsTraceLookupAAAAResult {} -> Debug
-
---DnsTraceLookupSRVResult {} -> Debug
+    DnsTraceLookupSRVResult {} -> Debug
 
 instance HasPrivacyAnnotation (WithDomainName (SubscriptionTrace Socket.SockAddr))
 

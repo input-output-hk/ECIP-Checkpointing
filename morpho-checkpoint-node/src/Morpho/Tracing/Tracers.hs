@@ -60,9 +60,11 @@ import qualified Ouroboros.Network.AnchoredFragment as AF
 import Ouroboros.Network.Block
 import Ouroboros.Network.BlockFetch.ClientState
 import Ouroboros.Network.BlockFetch.Decision
+import Ouroboros.Network.Diffusion
 import qualified Ouroboros.Network.NodeToClient as NtC
 import Ouroboros.Network.NodeToNode
 import qualified Ouroboros.Network.NodeToNode as NtN
+import Ouroboros.Network.PeerSelection.LedgerPeers
 import Ouroboros.Network.Point
 import Ouroboros.Network.Snocket (LocalAddress)
 import Prelude (String, show)
@@ -100,7 +102,9 @@ data Tracers peer localPeer h c = Tracers
     handshakeTracer :: Tracer IO NtN.HandshakeTr,
     handshakeLocalTracer :: Tracer IO NtC.HandshakeTr,
     localErrorPolicyTracer :: Tracer IO (NtN.WithAddr NtC.LocalAddress NtN.ErrorPolicyTrace),
-    acceptPolicyTracer :: Tracer IO AcceptConnectionsPolicyTrace
+    acceptPolicyTracer :: Tracer IO AcceptConnectionsPolicyTrace,
+    diffusionInitializationTracer :: Tracer IO DiffusionInitializationTracer,
+    ledgerPeersTracer :: Tracer IO TraceLedgerPeers
   }
 
 -- | get information about a chain fragment
