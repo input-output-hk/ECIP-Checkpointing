@@ -278,7 +278,17 @@ mkTracers traceOptions tracer = do
           tracerOnOff (traceErrorPolicy traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
-                appendName "Handshake" tracer
+                appendName "Handshake" tracer,
+        diffusionInitializationTracer =
+          tracerOnOff (traceErrorPolicy traceOptions) $
+            annotateSeverity $
+              toLogObject' tracingVerbosity $
+                appendName "DiffusionInitialization" tracer,
+        ledgerPeersTracer =
+          tracerOnOff (traceErrorPolicy traceOptions) $
+            annotateSeverity $
+              toLogObject' tracingVerbosity $
+                appendName "LedgerPeers" tracer
       }
   where
     tracingVerbosity :: TracingVerbosity

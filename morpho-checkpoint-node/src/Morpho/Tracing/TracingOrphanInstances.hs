@@ -102,6 +102,7 @@ import Ouroboros.Network.BlockFetch.Decision
     FetchDecline (..),
   )
 import Ouroboros.Network.Codec (AnyMessage (..))
+import Ouroboros.Network.Diffusion
 import qualified Ouroboros.Network.NodeToClient as NtC
 import Ouroboros.Network.NodeToNode
   ( ErrorPolicyTrace (..),
@@ -109,6 +110,7 @@ import Ouroboros.Network.NodeToNode
     WithAddr (..),
   )
 import qualified Ouroboros.Network.NodeToNode as NtN
+import Ouroboros.Network.PeerSelection.LedgerPeers
 import Ouroboros.Network.Point (withOrigin)
 import Ouroboros.Network.Protocol.BlockFetch.Type
   ( BlockFetch,
@@ -1323,6 +1325,19 @@ instance HasSeverityAnnotation NtN.AcceptConnectionsPolicyTrace where
   getSeverityAnnotation NtN.ServerTraceAcceptConnectionRateLimiting {} = Info
   getSeverityAnnotation NtN.ServerTraceAcceptConnectionHardLimit {} = Warning
 
+instance HasPrivacyAnnotation DiffusionInitializationTracer
+
+instance HasSeverityAnnotation DiffusionInitializationTracer where
+  getSeverityAnnotation (UnsupportedLocalSystemdSocket _) = Error
+  getSeverityAnnotation UnsupportedReadySocketCase = Error
+  getSeverityAnnotation (DiffusionErrored _) = Error
+  getSeverityAnnotation _ = Debug
+
+instance HasPrivacyAnnotation TraceLedgerPeers
+
+instance HasSeverityAnnotation TraceLedgerPeers where
+  getSeverityAnnotation _ = Info
+
 instance HasPrivacyAnnotation (TraceFetchClientState header)
 
 instance HasSeverityAnnotation (TraceFetchClientState header) where
@@ -1551,6 +1566,16 @@ instance Transformable Text IO NtN.AcceptConnectionsPolicyTrace where
 instance HasTextFormatter NtN.AcceptConnectionsPolicyTrace where
   formatText a _ = showT a
 
+instance Transformable Text IO DiffusionInitializationTracer where
+  trTransformer = trStructuredText
+
+instance HasTextFormatter DiffusionInitializationTracer
+
+instance Transformable Text IO TraceLedgerPeers where
+  trTransformer = trStructuredText
+
+instance HasTextFormatter TraceLedgerPeers
+
 instance
   Show peer =>
   Transformable Text IO [TraceLabelPeer peer (FetchDecision [Point header])]
@@ -1752,6 +1777,100 @@ instance ToObject NtN.AcceptConnectionsPolicyTrace where
     mkObject
       [ "kind" .= String "ServerTraceAcceptConnectionHardLimit",
         "softLimit" .= show softLimit
+      ]
+
+instance ToObject DiffusionInitializationTracer where
+  toObject _verb (RunServer socket) =
+    mkObject
+      [ "kind" .= String "RunServer",
+        "socket" .= showT socket
+      ]
+  toObject _verb (RunLocalServer addr) =
+    mkObject
+      [ "kind" .= String "RunLocalServer",
+        "localAddress" .= showT addr
+      ]
+  toObject _verb (UsingSystemdSocket socketPath) =
+    mkObject
+      [ "kind" .= String "UsingSystemdSocket",
+        "socketPath" .= showT socketPath
+      ]
+  toObject _verb (CreateSystemdSocketForSnocketPath socketPath) =
+    mkObject
+      [ "kind" .= String "CreateSystemdSocketForSnocketPath",
+        "socketPath" .= showT socketPath
+      ]
+  toObject _verb (CreatedLocalSocket socketPath) =
+    mkObject
+      [ "kind" .= String "CreatedLocalSocket",
+        "socketPath" .= showT socketPath
+      ]
+  toObject _verb (ConfiguringLocalSocket socketPath _) =
+    mkObject
+      [ "kind" .= String "ConfiguringLocalSocket",
+        "socketPath" .= showT socketPath
+      ]
+  toObject _verb (ListeningLocalSocket socketPath _) =
+    mkObject
+      [ "kind" .= String "ListeningLocalSocket",
+        "socketPath" .= showT socketPath
+      ]
+  toObject _verb (LocalSocketUp socketPath _) =
+    mkObject
+      [ "kind" .= String "LocalSocketUp",
+        "socketPath" .= showT socketPath
+      ]
+  toObject _verb (CreatingServerSocket socket) =
+    mkObject
+      [ "kind" .= String "CreatingServerSocket",
+        "socket" .= showT socket
+      ]
+  toObject _verb (ConfiguringServerSocket socket) =
+    mkObject
+      [ "kind" .= String "ConfiguringServerSocket",
+        "socket" .= showT socket
+      ]
+  toObject _verb (ListeningServerSocket socket) =
+    mkObject
+      [ "kind" .= String "ListeningServerSocket",
+        "socket" .= showT socket
+      ]
+  toObject _verb (ServerSocketUp socket) =
+    mkObject
+      [ "kind" .= String "ServerSocketUp",
+        "socket" .= showT socket
+      ]
+  toObject _verb (UnsupportedLocalSystemdSocket socket) =
+    mkObject
+      [ "kind" .= String "UnsupportedLocalSystemdSocket",
+        "socket" .= showT socket
+      ]
+  toObject _verb UnsupportedReadySocketCase =
+    mkObject
+      [ "kind" .= String "UnsupportedReadySocketCase"
+      ]
+  toObject _verb (DiffusionErrored err) =
+    mkObject
+      [ "kind" .= String "DiffusionErrored",
+        "exception" .= showT err
+      ]
+
+instance ToObject TraceLedgerPeers where
+  toObject _verb (PickedPeer addr _ _) =
+    mkObject
+      [ "kind" .= String "PickedPeer",
+        "relayAddress" .= showT addr
+      ]
+  toObject _verb (PickedPeers n peers) =
+    mkObject
+      [ "kind" .= String "PickedPeers",
+        "count" .= n,
+        "peers" .= map showT peers
+      ]
+  toObject _verb (FetchingNewLedgerState n) =
+    mkObject
+      [ "kind" .= String "FetchingNewLedgerState",
+        "count" .= n
       ]
 
 instance
