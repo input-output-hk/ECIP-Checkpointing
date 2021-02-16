@@ -44,8 +44,6 @@ import Network.Mux (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket (SockAddr)
 import Ouroboros.Consensus.Block
   ( BlockProtocol,
-    --ForgeState (..),
-
     CannotForge,
     ForgeStateUpdateError,
     RealPoint,
@@ -84,15 +82,6 @@ import Ouroboros.Consensus.Util.Condense (Condense, condense)
 import Ouroboros.Consensus.Util.Orphans ()
 import qualified Ouroboros.Network.AnchoredFragment as AF
 import Ouroboros.Network.Block
---import Ouroboros.Network.Block
---  ( BlockNo (..),
---    ChainUpdate (..),
---    HeaderHash,
---    SlotNo (..),
---    StandardHash,
---    blockHash,
---    pointSlot,
---  )
 import Ouroboros.Network.BlockFetch.ClientState
   ( TraceFetchClientState (..),
     TraceLabelPeer (..),
@@ -372,11 +361,6 @@ instance HasPrivacyAnnotation (TraceEventMempool blk)
 instance HasSeverityAnnotation (TraceEventMempool blk) where
   getSeverityAnnotation _ = Info
 
---instance HasPrivacyAnnotation (ForgeState c)
---
---instance HasSeverityAnnotation (ForgeState c) where
---  getSeverityAnnotation _ = Info
-
 instance HasPrivacyAnnotation ()
 
 instance HasSeverityAnnotation () where
@@ -479,15 +463,6 @@ instance
   Transformable Text IO (TraceForgeEvent blk)
   where
   trTransformer = trStructuredText
-
---instance HasTextFormatter (ForgeState blk) where
---  formatText _ = pack . show . toList
-
---instance
---  ToObject (ChainIndepState (BlockProtocol blk)) =>
---  Transformable Text IO (ForgeState blk)
---  where
---  trTransformer = trStructuredText
 
 instance
   ( tx ~ GenTx blk,
@@ -1148,14 +1123,6 @@ instance HasTextFormatter () where
 -- ForgeState default value = ()
 instance Transformable Text IO () where
   trTransformer = trStructuredText
-
---instance
---  ToObject (ChainIndepState (BlockProtocol blk)) =>
---  ToObject (ForgeState blk)
---  where
---  toObject verb ForgeState {chainIndepState, extraForgeState = _} =
---    -- We assume there's nothing interesting in the extraForgeState
---    toObject verb chainIndepState
 
 instance
   ( tx ~ GenTx blk,

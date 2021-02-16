@@ -42,11 +42,8 @@ import Cardano.Crypto.Hash
 import Cardano.Prelude
 import Codec.Serialise (Serialise (..))
 import Data.Aeson hiding ((.:))
--- import Data.List (find, maximumBy)
 import qualified Data.Map as M
--- import Data.Ord (comparing)
 import Data.Text (pack)
--- import Data.Tuple (swap)
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
 import Morpho.Ledger.PowTypes
@@ -54,8 +51,6 @@ import Morpho.Ledger.State
 import Morpho.Ledger.Tx
 import NoThunks.Class
 import Ouroboros.Consensus.Block
--- import Ouroboros.Consensus.Config
-
 import Ouroboros.Consensus.Config.SecurityParam
 import Ouroboros.Consensus.HardFork.Abstract
 import Ouroboros.Consensus.HardFork.History.Summary (neverForksSummary)
@@ -107,10 +102,6 @@ instance
   type LedgerErr (LedgerState (MorphoBlock h c)) = MorphoError (MorphoBlock h c)
 
   applyChainTick _ _ = MorphoTick
-
--- TODO: See dfaf106aacbf86e625dd88ec45ec7fa2d439485b in ouroboros-network
--- for migration
---ledgerTipPoint = castPoint . morphoTip . morphoLedgerState
 
 instance
   (MorphoStateDefaultConstraints h c) =>
@@ -378,9 +369,6 @@ instance HasHardForkHistory (MorphoBlock h c) where
     neverForksSummary
       (EpochSize $ maxRollbacks (securityParam cfg) * 10)
       (slotLength cfg)
-
---neverForksSummary
---  (defaultEraParams (securityParam cfg) (slotLength cfg))
 
 {-------------------------------------------------------------------------------
   QueryLedger

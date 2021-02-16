@@ -17,7 +17,6 @@ import Morpho.Ledger.Block
 import Morpho.Ledger.Forge (morphoBlockForging)
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
-import Ouroboros.Consensus.Block.Forge
 import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.HeaderValidation
@@ -40,7 +39,6 @@ protocolInfoMorpho nc = do
   let ledgerConfig =
         MorphoLedgerConfig
           { checkpointingInterval = ncCheckpointInterval nc,
-            -- TODO: Security param still needed?
             securityParam = secParam,
             requiredMajority = ncRequiredMajority nc,
             fedPubKeys = ncFedPubKeys nc,
@@ -58,10 +56,6 @@ protocolInfoMorpho nc = do
       { pInfoConfig =
           TopLevelConfig
             { topLevelConfigProtocol = bftConfig,
-                --FullProtocolConfig
-                --  { protocolConfigConsensus = bftConfig,
-                --    protocolConfigIndep = ()
-                --  },
               topLevelConfigLedger = ledgerConfig,
               topLevelConfigBlock = blockConfig,
               topLevelConfigCodec = MorphoCodecConfig (),
@@ -72,8 +66,7 @@ protocolInfoMorpho nc = do
             { ledgerState = genesisMorphoLedgerState,
               headerState = HeaderState Origin ()
             },
-        -- Replace with pInfoBlockForging :: Maybe (m (BlockForging m b))
-        pInfoBlockForging = return [ morphoBlockForging coreId ]
+        pInfoBlockForging = return [morphoBlockForging coreId]
       }
   where
     secParam = SecurityParam $ ncSecurityParameter nc

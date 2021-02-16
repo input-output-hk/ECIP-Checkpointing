@@ -17,7 +17,6 @@
 module Morpho.Ledger.Serialise where
 
 import Cardano.Prelude
-import Codec.CBOR.Decoding (Decoder)
 import qualified Codec.CBOR.Encoding as CBOR
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Except
@@ -29,10 +28,6 @@ import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Block.NestedContent
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.SupportsMempool
---import Ouroboros.Consensus.Node.Run
-
--- import Ouroboros.Consensus.Storage.ChainDB.Serialisation
-
 import Ouroboros.Consensus.Node.Run
 import Ouroboros.Consensus.Node.Serialisation
 import Ouroboros.Consensus.Protocol.BFT
@@ -92,12 +87,6 @@ instance (blk ~ MorphoBlock h c) => EncodeDisk blk ()
 instance (blk ~ MorphoBlock h c) => DecodeDisk blk ()
 
 instance (HashAlgorithm h, BftCrypto c, blk ~ MorphoBlock h c) => EncodeDisk blk (Header blk)
-
---instance (HashAlgorithm h, BftCrypto c) => ImmDbSerialiseConstraints (MorphoBlock h c)
-
---instance BftCrypto c => LgrDbSerialiseConstraints (MorphoBlock h c)
-
---instance (HashAlgorithm h, BftCrypto c) => VolDbSerialiseConstraints (MorphoBlock h c)
 
 instance (HashAlgorithm h, BftCrypto c) => EncodeDiskDep (NestedCtxt Header) (MorphoBlock h c)
 

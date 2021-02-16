@@ -21,7 +21,7 @@ instance FromJSON SlotLength where
   parseJSON (Number i)
     | isInteger i =
       maybe
-        (panic $ "Paring of slot duration failed: integer overflow.")
+        (panic "Paring of slot duration failed: integer overflow.")
         pure
         (slotLengthFromSec . toInteger <$> (toBoundedInteger i :: Maybe Int))
     | otherwise =
@@ -32,4 +32,4 @@ instance FromJSON SlotLength where
     panic $
       "Parsing of slot duration failed due to type mismatch. "
         <> "Encountered: "
-        <> (T.pack $ Prelude.show invalid)
+        <> T.pack (Prelude.show invalid)

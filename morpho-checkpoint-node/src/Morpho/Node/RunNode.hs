@@ -85,7 +85,7 @@ instance (Typeable h, Typeable c) => ShowProxy (Header (MorphoBlock h c))
 
 instance (Typeable h, Typeable c) => ShowProxy (Query (MorphoBlock h c))
 
-type instance CannotForge (MorphoBlock h c) = ()
+type instance CannotForge (MorphoBlock h c) = Void
 
 type instance ForgeStateUpdateError (MorphoBlock h c) = Void
 

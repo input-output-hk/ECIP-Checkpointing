@@ -47,8 +47,6 @@ import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
 import Network.HostName (getHostName)
--- import Ouroboros.Consensus.Storage.ImmutableDB.Types
-
 import Network.Socket
 import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
@@ -272,7 +270,6 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
             srnDiffusionTracers = diffusionTracers,
             srnTraceChainDB = chainDBTracer nodeTracers
           }
-  -- Do we need runWith? Only if we need to customize LowLevelRunNodeArgs
   lowLevelArgs <- stdLowLevelRunNodeArgsIO args stdRunNodeArgs
   let customizedLowLevelArgs =
         lowLevelArgs
@@ -378,4 +375,4 @@ publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
 httpExceptionHandler :: PoWNodeRpcOperation -> Tracer IO PoWNodeRpcTrace -> HttpException -> IO ()
 httpExceptionHandler op t he = traceWith t . RpcNetworkError op $ displayException he
 
-instance MorphoStateDefaultConstraints (MD5Prefix 8) ConsensusMockCrypto
+instance MorphoStateDefaultConstraints ShortHash ConsensusMockCrypto

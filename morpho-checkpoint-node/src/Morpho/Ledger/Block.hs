@@ -52,11 +52,11 @@ import Cardano.Crypto.DSIGN.Mock (MockDSIGN)
 import Cardano.Crypto.Hash
 import Cardano.Crypto.Util
 import Cardano.Prelude
-import qualified Data.Map as Map
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Codec.Serialise (Serialise (..), serialise)
 import qualified Data.ByteString.Lazy as Lazy
+import qualified Data.Map as Map
 import Morpho.Ledger.Tx
 import NoThunks.Class
 import Ouroboros.Consensus.Block
