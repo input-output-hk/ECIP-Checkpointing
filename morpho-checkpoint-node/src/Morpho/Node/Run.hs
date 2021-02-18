@@ -2,7 +2,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-all-missed-specialisations #-}
@@ -81,7 +80,7 @@ runNode loggingLayer nc nCli = do
         setHostname hn $
           llAppendName loggingLayer "node" (llBasicTrace loggingLayer :: Trace IO Text)
   pInfo <- protocolInfoMorpho nc
-  tracers <- mkTracers (ncTraceOpts nc) trace
+  let tracers = mkTracers (ncTraceOpts nc) trace
   handleSimpleNode pInfo trace tracers nCli nc
   where
     hostname = do
