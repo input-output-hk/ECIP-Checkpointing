@@ -20,6 +20,7 @@ import Control.Monad.Fail
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.Vector as V
+import qualified Morpho.Common.Bytes as B
 import Morpho.Common.Conversions
 import Morpho.Ledger.PowTypes
 
@@ -67,13 +68,9 @@ data PoWNodeJSONRequest p = PoWNodeJSONRequest
 getParams :: PoWNodeJSONRequest p -> p
 getParams = params
 
-instance ToJSON (PoWNodeJSONRequest PoWBlockchainCheckpoint)
+instance FromJSON a => FromJSON (PoWNodeJSONRequest a)
 
-instance FromJSON (PoWNodeJSONRequest PoWBlockchainCheckpoint)
-
-instance ToJSON (PoWNodeJSONRequest [Int])
-
-instance FromJSON (PoWNodeJSONRequest [Int])
+instance ToJSON a => ToJSON (PoWNodeJSONRequest a)
 
 data PoWNodeRPCResponse r = PoWNodeRPCResponse
   { responseJsonrpc :: !Text,
@@ -82,7 +79,7 @@ data PoWNodeRPCResponse r = PoWNodeRPCResponse
   }
   deriving (Generic, Eq, Show)
 
-type LatestPoWBlockResponse = PoWNodeRPCResponse PowBlockRef
+type LatestPoWBlockResponse = PoWNodeRPCResponse LatestBlockResponse
 
 type PoWNodeCheckpointResponse = PoWNodeRPCResponse Bool
 
@@ -101,8 +98,18 @@ instance FromJSON r => FromJSON (PoWNodeRPCResponse r) where
       <*> v .: "result"
       <*> v .: "id"
 
-mkLatestBlockRequest :: Int -> PoWNodeJSONRequest [Int]
-mkLatestBlockRequest k = PoWNodeJSONRequest "2.0" "checkpointing_getLatestBlock" [k] 1
+mkLatestBlockRequest :: Int -> PowBlockHash -> PoWNodeJSONRequest (Int, Maybe PowBlockHash)
+mkLatestBlockRequest k lastCheckpointedBlockHash =
+  PoWNodeJSONRequest
+    "2.0"
+    "checkpointing_getLatestBlock"
+    (k, hash)
+    1
+  where
+    hash =
+      if unPowBlockHash lastCheckpointedBlockHash == B.empty
+        then Nothing
+        else Just lastCheckpointedBlockHash
 
 mkPoWNodeCheckpointRequest :: PoWBlockchainCheckpoint -> PoWNodeJSONRequest PoWBlockchainCheckpoint
 mkPoWNodeCheckpointRequest chkpt = PoWNodeJSONRequest "2.0" "checkpointing_pushCheckpoint" chkpt 1

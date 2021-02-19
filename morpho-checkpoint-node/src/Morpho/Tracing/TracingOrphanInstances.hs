@@ -197,6 +197,10 @@ instance ToObject PoWNodeRpcTrace where
       [ "kind" .= String "RpcLatestPoWBlock",
         "block" .= show blk
       ]
+  toObject _verb RpcNoLatestPoWBlock =
+    mkObject
+      [ "kind" .= String "RpcNoLatestPoWBlock"
+      ]
   toObject _verb (RpcNetworkError op err) =
     mkObject
       [ "kind" .= String "RpcNetworkError",
@@ -215,6 +219,7 @@ instance HasPrivacyAnnotation PoWNodeRpcTrace
 instance HasSeverityAnnotation PoWNodeRpcTrace where
   getSeverityAnnotation RpcPushedCheckpoint {} = Notice
   getSeverityAnnotation RpcLatestPoWBlock {} = Notice
+  getSeverityAnnotation RpcNoLatestPoWBlock {} = Notice
   getSeverityAnnotation RpcNetworkError {} = Error
   getSeverityAnnotation RpcResponseParseError {} = Error
 

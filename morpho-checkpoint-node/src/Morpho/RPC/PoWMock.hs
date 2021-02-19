@@ -19,19 +19,19 @@ import qualified Data.ByteString.Lazy as BL
 import Data.Text.Encoding
 import Morpho.Ledger.PowTypes
 import Morpho.RPC.Types
-import Network.HTTP.Types (status200, status404)
+import Network.HTTP.Types (status200)
 import Network.Wai
 import Network.Wai.Handler.Warp
 import System.Timeout
 import Prelude
 
 data RPCRequst
-  = GetBlock (PoWNodeJSONRequest [Int])
+  = GetBlock (PoWNodeJSONRequest (Int, Maybe PowBlockHash))
   | PutCheckpoint (PoWNodeJSONRequest PoWBlockchainCheckpoint)
 
 decodeRPCRequst :: BL.ByteString -> Either String RPCRequst
 decodeRPCRequst bs = case decode bs of
-  Just (x :: PoWNodeJSONRequest [Int]) -> Right $ GetBlock x
+  Just (x :: PoWNodeJSONRequest (Int, Maybe PowBlockHash)) -> Right $ GetBlock x
   Nothing -> case decode bs of
     Just (x :: PoWNodeJSONRequest PoWBlockchainCheckpoint) -> Right $ PutCheckpoint x
     Nothing -> Left $ show $ decodeUtf8 $ BL.toStrict bs
@@ -42,17 +42,11 @@ server checkpoint lock block request respond = do
   case decodeRPCRequst bd of
     Right (GetBlock _req) -> do
       mBlockRef <- readMVar block
-      case mBlockRef of
-        Nothing ->
-          respond $
-            responseBuilder status404 [("content-type", "application/json")] $
-              fromLazyByteString "Try again soon"
-        Just blockRef -> do
-          let body = PoWNodeRPCResponse "" blockRef 1
-          respond $
-            responseBuilder status200 [("content-type", "application/json")] $
-              fromLazyByteString $
-                encode body
+      let body = PoWNodeRPCResponse "" (LatestBlockResponse mBlockRef) 1
+      respond $
+        responseBuilder status200 [("content-type", "application/json")] $
+          fromLazyByteString $
+            encode body
     Right (PutCheckpoint req) -> do
       replaceMVar checkpoint (getParams req)
       -- wake up the thread waiting for the checkpoint
