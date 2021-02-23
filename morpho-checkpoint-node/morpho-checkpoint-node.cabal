@@ -35,9 +35,9 @@ library
         Morpho.Node.Run
         Morpho.Node.RunNode
         Morpho.Node.Env
-        Morpho.RPC.PoWMock
-        Morpho.RPC.Request
-        Morpho.RPC.Types
+        Morpho.RPC.Abstract
+        Morpho.RPC.JsonRpc
+        Morpho.RPC.JsonRpcProtocol
         Morpho.Tracing.TracingOrphanInstances
         Morpho.Tracing.Types
         Morpho.Tracing.Tracers
@@ -192,6 +192,7 @@ test-suite state-machine-tests
     build-depends:
         base >=4.12.0.0,
         QuickCheck,
+        aeson,
         async,
         barbies,
         bytestring,
@@ -199,6 +200,7 @@ test-suite state-machine-tests
         cborg,
         containers,
         directory,
+        iohk-monitoring,
         morpho-checkpoint-node,
         ouroboros-consensus,
         ouroboros-consensus-test,
