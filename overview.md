@@ -21,7 +21,7 @@ Sources:
 
 ## Mantis pushing
 - Every time the morpho ledger state changes:
-  - Compute the latest stable ledger state by going back 6 (StableLedgerDepth) morpho blocks 
+  - Compute the latest stable ledger state by going back 6 (setting `StableLedgerDepth`) morpho blocks 
   - Determine if the checkpoint for that ledger state should be pushed or not
     - If checkpointAt == morphoTip (See how [the ledger state updates](#ledger-state) for reasoning) and morphoTip isn't genesis, push
       - Pushing is done with the `checkpointing_pushCheckpoint` RPC call
