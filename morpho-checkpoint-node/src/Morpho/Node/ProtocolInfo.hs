@@ -47,7 +47,7 @@ protocolInfoMorpho nc privKey start =
           { ledgerState = genesisMorphoLedgerState,
             headerState = HeaderState () Seq.Empty Origin
           },
-      pInfoLeaderCreds = Just (toCoreId (ncNodeId nc), defaultMaintainForgeState)
+      pInfoLeaderCreds = Just (ncNodeId nc, defaultMaintainForgeState)
     }
   where
     ledgerConfig =
@@ -80,12 +80,6 @@ protocolInfoMorpho nc privKey start =
                 | n <- enumCoreNodes (NumCoreNodes $ ncNumCoreNodes nc)
               ]
         }
-    coreId :: CoreNodeId
-    coreId = toCoreId (ncNodeId nc)
-    CoreNodeId nId = coreId
+    CoreNodeId nId = ncNodeId nc
     verKey :: CoreNodeId -> VerKeyDSIGN MockDSIGN
     verKey (CoreNodeId n) = VerKeyMockDSIGN n
-    -- We won't have any relay
-    toCoreId :: NodeId -> CoreNodeId
-    toCoreId (CoreId cni) = cni
-    toCoreId (RelayId _) = panic "OBFT-checkpointing-nodes cannot be relays."

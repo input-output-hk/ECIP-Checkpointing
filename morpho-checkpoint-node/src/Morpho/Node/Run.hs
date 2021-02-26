@@ -261,9 +261,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
   Node.run args
   where
     blockNoToDouble = realToFrac . unBlockNo
-    nid = case ncNodeId nc of
-      (CoreId n) -> n
-      (RelayId _) -> error "Non-core nodes currently not supported"
+    nid = ncNodeId nc
     customiseChainDbArgs args =
       args
         { ChainDB.cdbImmValidation =

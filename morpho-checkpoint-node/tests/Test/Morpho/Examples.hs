@@ -176,7 +176,7 @@ exampleNodeConfig :: NodeConfiguration
 exampleNodeConfig =
   NodeConfiguration
     { ncProtocol = MockedBFT,
-      ncNodeId = CoreId $ CoreNodeId 0,
+      ncNodeId = CoreNodeId 0,
       ncNumCoreNodes = 1,
       ncReqNetworkMagic = RequiresMagic,
       ncNetworkMagic = 12345,
