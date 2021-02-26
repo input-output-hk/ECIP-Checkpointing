@@ -2,7 +2,6 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-all-missed-specialisations #-}
@@ -10,7 +9,8 @@
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 
 module Morpho.Node.Run
-  ( runNode,
+  ( run,
+    runNode,
   )
 where
 
@@ -19,6 +19,7 @@ import Cardano.BM.Data.Transformers (setHostname)
 import Cardano.BM.Tracing
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
+import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
@@ -26,6 +27,7 @@ import qualified Data.List.NonEmpty as NE
 import Data.Map.Strict (size)
 import Data.Text (Text, breakOn, pack, take)
 import Morpho.Common.Socket
+import Morpho.Config.Logging (loggingFeatures)
 import Morpho.Config.Logging hiding (hostname)
 import Morpho.Config.Topology
 import Morpho.Config.Types
@@ -52,7 +54,7 @@ import Ouroboros.Consensus.Config.SupportsNode
 import Ouroboros.Consensus.Fragment.InFuture (defaultClockSkew)
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
-import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, tracers)
+import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, run, tracers)
 import qualified Ouroboros.Consensus.Node as Node (run)
 import Ouroboros.Consensus.Node.Run (RunNode)
 import Ouroboros.Consensus.NodeId
@@ -70,6 +72,13 @@ import System.Metrics.Prometheus.Http.Scrape (serveHttpTextMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
+run :: NodeCLI -> IO ()
+run cli = do
+  nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
+  (loggingLayer, logging) <- loggingFeatures cli nodeConfig
+  runCardanoApplicationWithFeatures logging $
+    CardanoApplication $ runNode loggingLayer nodeConfig cli
+
 runNode ::
   LoggingLayer ->
   NodeConfiguration ->
@@ -79,7 +88,7 @@ runNode loggingLayer nc nCli = do
   hn <- hostname
   let trace =
         setHostname hn $
-          llAppendName loggingLayer "node" (llBasicTrace loggingLayer :: Trace IO Text)
+          appendName "node" (llBasicTrace loggingLayer)
   pInfo <- protocolInfoMorpho nc
   tracers <- mkTracers (ncTraceOpts nc) trace
   handleSimpleNode pInfo trace tracers nCli nc

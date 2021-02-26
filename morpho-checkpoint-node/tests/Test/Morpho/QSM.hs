@@ -28,7 +28,7 @@ import GHC.Generics (Generic, Generic1)
 import Morpho.Common.Bytes (Bytes)
 import Morpho.Config.Types
 import Morpho.Ledger.PowTypes hiding (Checkpoint (..))
-import Morpho.Node.Features.Node
+import Morpho.Node.Run
 import Morpho.RPC.PoWMock
 import Morpho.RPC.Types
 import System.Directory

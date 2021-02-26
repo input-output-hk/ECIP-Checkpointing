@@ -33,7 +33,6 @@ library
         Morpho.Node.ProtocolInfo
         Morpho.Node.Run
         Morpho.Node.RunNode
-        Morpho.Node.Features.Node
         Morpho.RPC.PoWMock
         Morpho.RPC.Request
         Morpho.RPC.Types
