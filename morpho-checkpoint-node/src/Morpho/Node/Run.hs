@@ -297,9 +297,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
   Node.runWith args customizedLowLevelArgs
   where
     blockNoToDouble = realToFrac . unBlockNo
-    nid = case ncNodeId nc of
-      (CoreId n) -> n
-      (RelayId _) -> error "Non-core nodes currently not supported"
+    nid = ncNodeId nc
     customiseChainDbArgs cdbArgs =
       cdbArgs
         { cdbDiskPolicy =

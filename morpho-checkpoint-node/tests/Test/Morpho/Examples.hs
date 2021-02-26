@@ -179,7 +179,7 @@ exampleNodeConfig :: NodeConfiguration
 exampleNodeConfig =
   NodeConfiguration
     { ncProtocol = MockedBFT,
-      ncNodeId = CoreId $ CoreNodeId 0,
+      ncNodeId = CoreNodeId 0,
       ncNumCoreNodes = 1,
       ncNetworkMagic = 12345,
       ncSystemStart = Just $ SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),

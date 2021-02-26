@@ -34,12 +34,12 @@ import Morpho.Config.Orphans ()
 import Morpho.Crypto.ECDSASignature
 import Network.Socket
 import Ouroboros.Consensus.BlockchainTime
-import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
+import Ouroboros.Consensus.NodeId (CoreNodeId (..))
 import qualified Prelude
 
 data NodeConfiguration = NodeConfiguration
   { ncProtocol :: Protocol,
-    ncNodeId :: NodeId,
+    ncNodeId :: CoreNodeId,
     ncNumCoreNodes :: Word64,
     ncNetworkMagic :: Word32,
     ncSystemStart :: Maybe SystemStart,
@@ -86,7 +86,7 @@ instance FromJSON NodeConfiguration where
     pure $
       NodeConfiguration
         ptcl
-        (CoreId (CoreNodeId nId))
+        (CoreNodeId nId)
         numCoreNode
         networkMagic
         systemStart
