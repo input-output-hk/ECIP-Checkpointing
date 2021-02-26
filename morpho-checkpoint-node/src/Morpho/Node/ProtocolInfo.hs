@@ -7,11 +7,9 @@ import Cardano.Crypto.DSIGN
 import Cardano.Crypto.ProtocolMagic
 import Cardano.Prelude
 import Cardano.Slotting.Slot (WithOrigin (..))
-import Control.Monad (fail)
-import Control.Monad.Class.MonadTime
 import qualified Data.Map as Map
 import Morpho.Config.Types
-import Morpho.Crypto.ECDSASignature (keyPairFromPrivate, readPrivateKey)
+import Morpho.Crypto.ECDSASignature (PrivateKey, keyPairFromPrivate)
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge (morphoBlockForging)
 import Morpho.Ledger.State
@@ -25,49 +23,40 @@ import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
 
-protocolInfoMorpho ::
-  (MonadIO m, MonadFail m, MonadTime m) =>
-  NodeConfiguration ->
-  m (ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto))
-protocolInfoMorpho nc = do
-  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
-  mprivKey <- liftIO $ readPrivateKey (ncNodePrivKeyFile nc)
-  privKey <- case mprivKey of
-    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
-    Right pk -> return pk
-  let ledgerConfig =
-        MorphoLedgerConfig
-          { checkpointingInterval = ncCheckpointInterval nc,
-            securityParam = secParam,
-            requiredMajority = ncRequiredMajority nc,
-            fedPubKeys = ncFedPubKeys nc,
-            slotLength = ncTimeslotLength nc,
-            nodeKeyPair = keyPairFromPrivate privKey
-          }
-      blockConfig =
-        MorphoBlockConfig
-          { systemStart = start,
-            networkMagic = NetworkMagic (ncNetworkMagic nc),
-            protocolMagicId = ProtocolMagicId (ncNetworkMagic nc)
-          }
-  pure
-    ProtocolInfo
-      { pInfoConfig =
-          TopLevelConfig
-            { topLevelConfigProtocol = bftConfig,
-              topLevelConfigLedger = ledgerConfig,
-              topLevelConfigBlock = blockConfig,
-              topLevelConfigCodec = MorphoCodecConfig (),
-              topLevelConfigStorage = MorphoStorageConfig secParam
-            },
-        pInfoInitLedger =
-          ExtLedgerState
-            { ledgerState = genesisMorphoLedgerState,
-              headerState = HeaderState Origin ()
-            },
-        pInfoBlockForging = return [morphoBlockForging coreId]
-      }
+protocolInfoMorpho :: Monad m => NodeConfiguration -> PrivateKey -> SystemStart -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
+protocolInfoMorpho nc privKey start =
+  ProtocolInfo
+    { pInfoConfig =
+        TopLevelConfig
+          { topLevelConfigProtocol = bftConfig,
+            topLevelConfigLedger = ledgerConfig,
+            topLevelConfigBlock = blockConfig,
+            topLevelConfigCodec = MorphoCodecConfig (),
+            topLevelConfigStorage = MorphoStorageConfig secParam
+          },
+      pInfoInitLedger =
+        ExtLedgerState
+          { ledgerState = genesisMorphoLedgerState,
+            headerState = HeaderState Origin ()
+          },
+      pInfoBlockForging = return [morphoBlockForging coreId]
+    }
   where
+    ledgerConfig =
+      MorphoLedgerConfig
+        { checkpointingInterval = ncCheckpointInterval nc,
+          securityParam = secParam,
+          requiredMajority = ncRequiredMajority nc,
+          fedPubKeys = ncFedPubKeys nc,
+          slotLength = ncTimeslotLength nc,
+          nodeKeyPair = keyPairFromPrivate privKey
+        }
+    blockConfig =
+      MorphoBlockConfig
+        { systemStart = start,
+          networkMagic = NetworkMagic (ncNetworkMagic nc),
+          protocolMagicId = ProtocolMagicId (ncNetworkMagic nc)
+        }
     secParam = SecurityParam $ ncSecurityParameter nc
     bftConfig =
       BftConfig
