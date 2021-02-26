@@ -20,12 +20,15 @@ import Cardano.BM.Tracing
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
 import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
+import Control.Monad (fail)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
+import Control.Monad.Class.MonadTime
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
 import Data.Map.Strict (size)
 import Data.Text (Text, breakOn, pack, take)
+import Morpho.Common.Conversions
 import Morpho.Common.Socket
 import Morpho.Config.Logging (loggingFeatures)
 import Morpho.Config.Logging hiding (hostname)
@@ -49,6 +52,7 @@ import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
 import Network.HostName (getHostName)
 import Ouroboros.Consensus.Block.Abstract
+import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.Config.SupportsNode
 import Ouroboros.Consensus.Fragment.InFuture (defaultClockSkew)
@@ -89,7 +93,14 @@ runNode loggingLayer nc nCli = do
   let trace =
         setHostname hn $
           appendName "node" (llBasicTrace loggingLayer)
-  pInfo <- protocolInfoMorpho nc
+
+  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
+  privKeyStr <- liftIO . readFile $ ncNodePrivKeyFile nc
+  privKey <- case importPrivateKey $ bytesFromHex privKeyStr of
+    Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
+    Just pk -> return pk
+
+  let pInfo = protocolInfoMorpho nc privKey start
   tracers <- mkTracers (ncTraceOpts nc) trace
   handleSimpleNode pInfo trace tracers nCli nc
   where

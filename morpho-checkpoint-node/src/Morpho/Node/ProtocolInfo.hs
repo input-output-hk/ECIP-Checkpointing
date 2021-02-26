@@ -7,13 +7,10 @@ import Cardano.Crypto.DSIGN
 import Cardano.Crypto.ProtocolMagic
 import Cardano.Prelude
 import Cardano.Slotting.Slot (WithOrigin (..))
-import Control.Monad (fail)
-import Control.Monad.Class.MonadTime
 import qualified Data.Map as Map
 import qualified Data.Sequence.Strict as Seq
-import Morpho.Common.Conversions
 import Morpho.Config.Types
-import Morpho.Crypto.ECDSASignature (importPrivateKey, keyPairFromPrivate)
+import Morpho.Crypto.ECDSASignature (PrivateKey, keyPairFromPrivate)
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge ()
 import Morpho.Ledger.State
@@ -28,55 +25,46 @@ import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
 
-protocolInfoMorpho ::
-  (MonadIO m, MonadTime m) =>
-  NodeConfiguration ->
-  m (ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto))
-protocolInfoMorpho nc = do
-  privKeyStr <- liftIO . readFile $ ncNodePrivKeyFile nc
-  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
-  privKey <- case importPrivateKey $ bytesFromHex privKeyStr of
-    Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
-    Just pk -> return pk
-  let ledgerConfig =
-        MorphoLedgerConfig
-          { checkpointingInterval = ncCheckpointInterval nc,
-            securityParam = secParam,
-            requiredMajority = ncRequiredMajority nc,
-            fedPubKeys = ncFedPubKeys nc,
-            slotLength = ncTimeslotLength nc,
-            nodeKeyPair = keyPairFromPrivate privKey
-          }
-      blockConfig =
-        MorphoBlockConfig
-          { systemStart = start,
-            networkMagic = NetworkMagic (ncNetworkMagic nc),
-            protocolMagicId = ProtocolMagicId (ncNetworkMagic nc)
-          }
-  pure
-    ProtocolInfo
-      { pInfoConfig =
-          TopLevelConfig
-            { topLevelConfigProtocol =
-                FullProtocolConfig
-                  { protocolConfigConsensus = bftConfig,
-                    protocolConfigIndep = ()
-                  },
-              topLevelConfigBlock =
-                FullBlockConfig
-                  { blockConfigLedger = ledgerConfig,
-                    blockConfigBlock = blockConfig,
-                    blockConfigCodec = MorphoCodecConfig ()
-                  }
-            },
-        pInfoInitLedger =
-          ExtLedgerState
-            { ledgerState = genesisMorphoLedgerState,
-              headerState = HeaderState () Seq.Empty Origin
-            },
-        pInfoLeaderCreds = Just (toCoreId (ncNodeId nc), defaultMaintainForgeState)
-      }
+protocolInfoMorpho :: Monad m => NodeConfiguration -> PrivateKey -> SystemStart -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
+protocolInfoMorpho nc privKey start =
+  ProtocolInfo
+    { pInfoConfig =
+        TopLevelConfig
+          { topLevelConfigProtocol =
+              FullProtocolConfig
+                { protocolConfigConsensus = bftConfig,
+                  protocolConfigIndep = ()
+                },
+            topLevelConfigBlock =
+              FullBlockConfig
+                { blockConfigLedger = ledgerConfig,
+                  blockConfigBlock = blockConfig,
+                  blockConfigCodec = MorphoCodecConfig ()
+                }
+          },
+      pInfoInitLedger =
+        ExtLedgerState
+          { ledgerState = genesisMorphoLedgerState,
+            headerState = HeaderState () Seq.Empty Origin
+          },
+      pInfoLeaderCreds = Just (toCoreId (ncNodeId nc), defaultMaintainForgeState)
+    }
   where
+    ledgerConfig =
+      MorphoLedgerConfig
+        { checkpointingInterval = ncCheckpointInterval nc,
+          securityParam = secParam,
+          requiredMajority = ncRequiredMajority nc,
+          fedPubKeys = ncFedPubKeys nc,
+          slotLength = ncTimeslotLength nc,
+          nodeKeyPair = keyPairFromPrivate privKey
+        }
+    blockConfig =
+      MorphoBlockConfig
+        { systemStart = start,
+          networkMagic = NetworkMagic (ncNetworkMagic nc),
+          protocolMagicId = ProtocolMagicId (ncNetworkMagic nc)
+        }
     secParam = SecurityParam $ ncSecurityParameter nc
     bftConfig =
       BftConfig
