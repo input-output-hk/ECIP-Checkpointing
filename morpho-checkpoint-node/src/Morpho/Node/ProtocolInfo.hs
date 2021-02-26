@@ -4,7 +4,6 @@ module Morpho.Node.ProtocolInfo
 where
 
 import Cardano.Crypto.DSIGN
-import Cardano.Crypto.ProtocolMagic
 import Cardano.Prelude
 import Cardano.Slotting.Slot (WithOrigin (..))
 import qualified Data.Map as Map
@@ -54,8 +53,7 @@ protocolInfoMorpho nc privKey start =
     blockConfig =
       MorphoBlockConfig
         { systemStart = start,
-          networkMagic = NetworkMagic (ncNetworkMagic nc),
-          protocolMagicId = ProtocolMagicId (ncNetworkMagic nc)
+          networkMagic = NetworkMagic (ncNetworkMagic nc)
         }
     secParam = SecurityParam $ ncSecurityParameter nc
     bftConfig =

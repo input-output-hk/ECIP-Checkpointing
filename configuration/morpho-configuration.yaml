@@ -6,12 +6,9 @@
 NodeId: 0
 Protocol: MockedBFT
 NumCoreNodes: 1
-RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
 SecurityParam : 3
 TurnOnLogging: True
-ViewMode: SimpleView
-TurnOnLogMetrics: True
 SlotDuration: 5
 SnapshotsOnDisk: 60
 SnapshotInterval: 60
@@ -26,14 +23,6 @@ FedPubKeys:
   - ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167
 NodePrivKeyFile: /path/to/secret/key
 
-
-#####    Update Parameters    #####
-
-ApplicationName: morpho-checkpoint
-ApplicationVersion: 1
-LastKnownBlockVersion-Major: 0
-LastKnownBlockVersion-Minor: 2
-LastKnownBlockVersion-Alt: 0
 
 #####         Tracing         #####
 

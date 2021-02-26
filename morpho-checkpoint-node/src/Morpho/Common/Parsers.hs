@@ -25,10 +25,7 @@ nodeCliParser = do
   -- Filepaths
   topFp <- parseTopologyFile
   dbFp <- parseDbPath
-  genFp <- optional parseGenesisPath
-  sKeyFp <- optional parseSigningKey
   socketFp <- parseSocketDir
-  genHash <- optional parseGenesisHash
   -- Node Address
   nAddress <- parseNodeAddress
   -- NodeConfiguration filepath
@@ -40,11 +37,8 @@ nodeCliParser = do
           MiscellaneousFilepaths
             { topFile = TopologyFile topFp,
               dBFile = DbFile dbFp,
-              genesisFile = GenesisFile <$> genFp,
-              signKeyFile = SigningKeyFile <$> sKeyFp,
               socketFile = SocketFile socketFp
             },
-        genesisHash = genHash,
         nodeAddr = nAddress,
         configFp = ConfigYamlFilePath nodeConfigFp,
         validateDB = validate
@@ -74,22 +68,6 @@ parseGenesisPathLast =
         <> help "The filepath to the genesis file."
     )
 
-parseGenesisPath :: Parser FilePath
-parseGenesisPath =
-  strOption
-    ( long "genesis-file"
-        <> metavar "FILEPATH"
-        <> help "The filepath to the genesis file."
-    )
-
-parseSigningKey :: Parser FilePath
-parseSigningKey =
-  strOption
-    ( long "signing-key"
-        <> metavar "FILEPATH"
-        <> help "Path to the signing key."
-    )
-
 parseSocketDir :: Parser FilePath
 parseSocketDir =
   strOption
@@ -103,14 +81,6 @@ parseSocketDir =
 parseGenesisHashLast :: Parser (Last Text)
 parseGenesisHashLast =
   lastStrOption
-    ( long "genesis-hash"
-        <> metavar "GENESIS-HASH"
-        <> help "The genesis hash value."
-    )
-
-parseGenesisHash :: Parser Text
-parseGenesisHash =
-  strOption
     ( long "genesis-hash"
         <> metavar "GENESIS-HASH"
         <> help "The genesis hash value."
@@ -142,7 +112,7 @@ parseHostAddr =
     ( long "host-addr"
         <> metavar "HOST-NAME"
         <> help "Optionally limit node to one ipv6 or ipv4 address"
-        <> (value $ NodeHostAddress Nothing)
+        <> value (NodeHostAddress Nothing)
     )
 
 parsePort :: Parser PortNumber

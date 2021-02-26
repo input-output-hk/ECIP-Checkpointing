@@ -47,7 +47,6 @@ module Morpho.Ledger.Block
 where
 
 import Cardano.Binary (ToCBOR (..), toStrictByteString)
-import Cardano.Crypto (ProtocolMagicId (..))
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.DSIGN.Ed25519
 import Cardano.Crypto.DSIGN.Mock (MockDSIGN)
@@ -162,8 +161,7 @@ instance Condense MorphoBlockTx where
 
 data instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig
   { systemStart :: SystemStart,
-    networkMagic :: NetworkMagic,
-    protocolMagicId :: ProtocolMagicId
+    networkMagic :: NetworkMagic
   }
   deriving (Generic, NoThunks)
 
