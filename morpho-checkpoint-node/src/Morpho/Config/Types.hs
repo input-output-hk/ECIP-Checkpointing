@@ -19,7 +19,6 @@ module Morpho.Config.Types
     NodeAddress (..),
     NodeHostAddress (..),
     LastKnownBlockVersion (..),
-    ViewMode (..),
     nodeAddressToSockAddr,
     parseNodeConfiguration,
   )
@@ -53,7 +52,6 @@ data NodeConfiguration = NodeConfiguration
     ncLoggingSwitch :: Bool,
     ncTraceOpts :: !TraceOptions,
     ncLogMetrics :: Bool,
-    ncViewMode :: ViewMode,
     ncUpdate :: Update,
     ncTimeslotLength :: SlotLength,
     ncSnapshotsOnDisk :: Int,
@@ -81,7 +79,6 @@ instance FromJSON NodeConfiguration where
     stableLedgerDepth <- v .: "StableLedgerDepth"
     loggingSwitch <- v .: "TurnOnLogging"
     traceOptions <- traceConfigParser v
-    vMode <- v .: "ViewMode"
     logMetrics <- v .: "TurnOnLogMetrics"
     -- Update Parameters
     lkBlkVersionMajor <- v .: "LastKnownBlockVersion-Major"
@@ -111,7 +108,6 @@ instance FromJSON NodeConfiguration where
         loggingSwitch
         traceOptions
         logMetrics
-        vMode
         ( Update
             ( LastKnownBlockVersion
                 lkBlkVersionMajor
@@ -198,30 +194,7 @@ instance FromJSON Protocol where
         <> "Encountered: "
         <> (T.pack $ Prelude.show invalid)
 
-instance FromJSON ViewMode where
-  parseJSON (String str) = case str of
-    "LiveView" -> pure LiveView
-    "SimpleView" -> pure SimpleView
-    view ->
-      panic $
-        "Parsing of ViewMode: "
-          <> view
-          <> " failed. "
-          <> view
-          <> " is not a valid view mode"
-  parseJSON invalid =
-    panic $
-      "Parsing of ViewMode failed due to type mismatch. "
-        <> "Encountered: "
-        <> (T.pack $ Prelude.show invalid)
-
 data Protocol = MockedBFT
-  deriving (Eq, Show)
-
--- Node can be run in two modes.
-data ViewMode
-  = LiveView -- Live mode with TUI
-  | SimpleView -- Simple mode, just output text.
   deriving (Eq, Show)
 
 parseNodeConfiguration :: FilePath -> IO NodeConfiguration

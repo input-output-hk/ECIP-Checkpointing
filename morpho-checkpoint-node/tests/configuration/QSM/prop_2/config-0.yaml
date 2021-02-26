@@ -12,7 +12,6 @@ SystemStart: "2020-11-12T04:07:09Z"
 SecurityParam : 5
 StableLedgerDepth : 3
 TurnOnLogging: True
-ViewMode: SimpleView
 TurnOnLogMetrics: False
 SlotDuration: 1
 SnapshotsOnDisk: 60

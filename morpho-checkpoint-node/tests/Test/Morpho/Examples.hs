@@ -186,7 +186,6 @@ exampleNodeConfig =
       ncLoggingSwitch = True,
       ncTraceOpts = exampleTraceOptions,
       ncLogMetrics = True,
-      ncViewMode = SimpleView,
       ncUpdate = Update $ LastKnownBlockVersion 0 2 0,
       ncTimeslotLength = mkSlotLength 5,
       ncSnapshotsOnDisk = 60,

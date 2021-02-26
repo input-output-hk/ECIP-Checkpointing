@@ -10,7 +10,6 @@ RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
 SecurityParam : 3
 TurnOnLogging: True
-ViewMode: SimpleView
 TurnOnLogMetrics: True
 SlotDuration: 5
 SnapshotsOnDisk: 60

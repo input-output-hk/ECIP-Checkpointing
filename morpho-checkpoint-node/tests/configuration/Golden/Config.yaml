@@ -12,7 +12,6 @@ SystemStart: "2009-02-13T23:13:09Z"
 SecurityParam : 3
 StableLedgerDepth : 2
 TurnOnLogging: True
-ViewMode: SimpleView
 TurnOnLogMetrics: True
 SlotDuration: 5
 SnapshotsOnDisk: 60
