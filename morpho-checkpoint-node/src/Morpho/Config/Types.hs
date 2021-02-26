@@ -15,10 +15,8 @@ module Morpho.Config.Types
     SocketFile (..),
     TopologyFile (..),
     TraceOptions (..),
-    Update (..),
     NodeAddress (..),
     NodeHostAddress (..),
-    LastKnownBlockVersion (..),
     nodeAddressToSockAddr,
     parseNodeConfiguration,
   )
@@ -52,7 +50,6 @@ data NodeConfiguration = NodeConfiguration
     ncLoggingSwitch :: Bool,
     ncTraceOpts :: !TraceOptions,
     ncLogMetrics :: Bool,
-    ncUpdate :: Update,
     ncTimeslotLength :: SlotLength,
     ncSnapshotsOnDisk :: Int,
     ncSnapshotInterval :: Word64,
@@ -80,10 +77,6 @@ instance FromJSON NodeConfiguration where
     loggingSwitch <- v .: "TurnOnLogging"
     traceOptions <- traceConfigParser v
     logMetrics <- v .: "TurnOnLogMetrics"
-    -- Update Parameters
-    lkBlkVersionMajor <- v .: "LastKnownBlockVersion-Major"
-    lkBlkVersionMinor <- v .: "LastKnownBlockVersion-Minor"
-    lkBlkVersionAlt <- v .: "LastKnownBlockVersion-Alt"
     slotLength <- v .: "SlotDuration"
     snapshotsOnDisk <- v .: "SnapshotsOnDisk"
     snapshotInterval <- v .: "SnapshotInterval"
@@ -108,13 +101,6 @@ instance FromJSON NodeConfiguration where
         loggingSwitch
         traceOptions
         logMetrics
-        ( Update
-            ( LastKnownBlockVersion
-                lkBlkVersionMajor
-                lkBlkVersionMinor
-                lkBlkVersionAlt
-            )
-        )
         slotLength
         snapshotsOnDisk
         snapshotInterval
@@ -243,24 +229,6 @@ newtype SocketFile = SocketFile
 newtype SigningKeyFile = SigningKeyFile
   {unSigningKey :: FilePath}
   deriving (Eq, Ord, Show, IsString)
-
--- TODO: migrate to Update.SoftwareVersion
-newtype Update = Update
-  { -- | Update last known block version.
-    upLastKnownBlockVersion :: LastKnownBlockVersion
-  }
-  deriving (Eq, Show)
-
--- TODO: migrate to Update.ProtocolVersion
-data LastKnownBlockVersion = LastKnownBlockVersion
-  { -- | Last known block version major.
-    lkbvMajor :: !Word16,
-    -- | Last known block version minor.
-    lkbvMinor :: !Word16,
-    -- | Last known block version alternative.
-    lkbvAlt :: !Word8
-  }
-  deriving (Eq, Show)
 
 nodeAddressToSockAddr :: NodeAddress -> SockAddr
 nodeAddressToSockAddr (NodeAddress addr port) =

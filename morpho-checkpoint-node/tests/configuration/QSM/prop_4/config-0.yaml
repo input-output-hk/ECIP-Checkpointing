@@ -29,14 +29,6 @@ FedPubKeys:
 NodePrivKeyFile: tests/configuration/QSM/prop_4/secret-key-0
 
 
-#####    Update Parameters    #####
-
-ApplicationName: morpho-checkpoint
-ApplicationVersion: 1
-LastKnownBlockVersion-Major: 0
-LastKnownBlockVersion-Minor: 2
-LastKnownBlockVersion-Alt: 0
-
 #####         Tracing         #####
 
 minSeverity: Debug

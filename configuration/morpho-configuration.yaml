@@ -26,14 +26,6 @@ FedPubKeys:
 NodePrivKeyFile: /path/to/secret/key
 
 
-#####    Update Parameters    #####
-
-ApplicationName: morpho-checkpoint
-ApplicationVersion: 1
-LastKnownBlockVersion-Major: 0
-LastKnownBlockVersion-Minor: 2
-LastKnownBlockVersion-Alt: 0
-
 #####         Tracing         #####
 
 # MinimalVerbosity: Minimal level of the rendering of captured items
