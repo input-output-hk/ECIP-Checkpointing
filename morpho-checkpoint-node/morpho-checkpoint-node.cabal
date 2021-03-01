@@ -206,6 +206,7 @@ test-suite state-machine-tests
         async,
         bytestring,
         cardano-crypto-class,
+        cborg,
         containers,
         directory,
         morpho-checkpoint-node,
