@@ -154,6 +154,7 @@ test-suite test
         cardano-crypto-class,
         cardano-crypto-wrapper,
         cardano-prelude,
+        cardano-binary,
         cborg,
         containers,
         hspec-core,

@@ -1,15 +1,22 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Morpho.Examples where
+module Test.Morpho.Examples
+  ( morphoExamples,
+    exampleNodeConfig,
+    exampleTopology,
+    TestBlock,
+    G.Examples (..),
+  )
+where
 
 import Cardano.BM.Data.Tracer (TracingVerbosity (..))
+import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
 import Cardano.Crypto.ProtocolMagic
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Maybe
-import qualified Data.Sequence.Strict as Seq
 import qualified Data.Text as T
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Morpho.Common.Bytes
@@ -24,19 +31,31 @@ import Morpho.Ledger.State
 import Morpho.Ledger.Tx
 import Morpho.Ledger.Update
 import Ouroboros.Consensus.BlockchainTime.WallClock.Types
-import Ouroboros.Consensus.Config.SecurityParam
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Extended
-import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.NodeId
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Block hiding (castHash)
 import Ouroboros.Network.Point
+import qualified Test.Util.Serialisation.Golden as G
 import Prelude
 
 type TestBlock = MorphoBlock MorphoMockHash ConsensusMockCrypto
 
 type TestStdHeader = MorphoStdHeader MorphoMockHash ConsensusMockCrypto
+
+morphoExamples :: G.Examples TestBlock
+morphoExamples =
+  mempty
+    { G.exampleBlock = G.unlabelled exampleBlock,
+      G.exampleHeader = G.unlabelled exampleHeader,
+      G.exampleHeaderHash = G.unlabelled exampleHeaderHash,
+      G.exampleGenTx = G.unlabelled exampleGenTx,
+      G.exampleApplyTxErr = G.unlabelled exampleApplyTxErr,
+      G.exampleAnnTip = G.unlabelled exampleAnnTip,
+      G.exampleLedgerState = G.unlabelled exampleLedgerState,
+      G.exampleExtLedgerState = G.unlabelled exampleExtLedgerState
+    }
 
 exampleBlock :: TestBlock
 exampleBlock = MorphoBlock exampleHeader exampleBody
@@ -59,12 +78,9 @@ exampleStdHeader =
     { morphoPrev = GenesisHash,
       morphoSlotNo = SlotNo 5,
       morphoBlockNo = BlockNo 3,
-      morphoBodyHash = castHash $ hash (1 :: Int),
+      morphoBodyHash = castHash $ hashWithSerialiser toCBOR (1 :: Int),
       morphoBlockSize = 100
     }
-
-exampleChainHash :: ChainHash TestBlock
-exampleChainHash = BlockHash $ castHash $ hash (0 :: Int)
 
 exampleBody :: MorphoBody
 exampleBody = MorphoBody [exampleMorphoBlockTx]
@@ -83,16 +99,16 @@ exampleGenTx = mkMorphoGenTx exampleTx
 exampleHeader :: Header TestBlock
 exampleHeader =
   MorphoHeader
-    { morphoHeaderHash = castHash $ hash (10 :: Int),
+    { morphoHeaderHash = castHash $ hashWithSerialiser toCBOR (10 :: Int),
       morphoHeaderStd = exampleStdHeader,
       morphoBftFields =
-        BftFields $ SignedDSIGN $ SigMockDSIGN (castHash $ hash (10 :: Int)) 20
+        BftFields $ SignedDSIGN $ SigMockDSIGN (castHash $ hashWithSerialiser toCBOR (10 :: Int)) 20
     }
 
 examplePoint :: Point TestBlock
 examplePoint =
   Point
-    { getPoint = block 4 (castHash $ hash True)
+    { getPoint = block 4 (castHash $ hashWithSerialiser toCBOR True)
     }
 
 examplePublicKey :: PublicKey
@@ -130,21 +146,8 @@ examplePowBlockRef =
       powBlockHash = PowBlockHash $ Bytes $ B.pack [0 .. 15]
     }
 
-exampleBftConfig :: ConsensusConfig (Bft ConsensusMockCrypto)
-exampleBftConfig =
-  BftConfig
-    { bftParams -- not used to forge blocks
-      =
-        BftParams
-          { bftSecurityParam = SecurityParam 4,
-            bftNumNodes = NumCoreNodes 5
-          },
-      bftSignKey = SignKeyMockDSIGN 1,
-      bftVerKeys = mempty -- not used to forge blocks
-    }
-
 exampleHeaderHash :: HeaderHash TestBlock
-exampleHeaderHash = castHash $ hash (10 :: Int)
+exampleHeaderHash = castHash $ hashWithSerialiser toCBOR (10 :: Int)
 
 exampleExtLedgerState :: ExtLedgerState TestBlock
 exampleExtLedgerState =
@@ -156,9 +159,8 @@ exampleExtLedgerState =
 exampleHeaderState :: HeaderState TestBlock
 exampleHeaderState =
   HeaderState
-    { headerStateConsensus = (),
-      headerStateTips = Seq.singleton exampleAnnTip,
-      headerStateAnchor = Origin
+    { headerStateTip = Origin,
+      headerStateChainDep = ()
     }
 
 exampleAnnTip :: AnnTip TestBlock

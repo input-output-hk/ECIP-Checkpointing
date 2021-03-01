@@ -12,6 +12,7 @@ module Test.Morpho.Generators where
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Short as SB
 import Data.Proxy
 import qualified Data.Text as T
 import Morpho.Common.Bytes
@@ -32,7 +33,7 @@ import Test.QuickCheck hiding (Result)
 import Test.QuickCheck.Instances ()
 import Test.Util.Orphans.Arbitrary ()
 import Test.Util.Orphans.Slotting.Arbitrary ()
-import Test.Util.Serialisation (SomeResult (..), WithVersion (..))
+import Test.Util.Serialisation.Roundtrip
 import Prelude
 
 type TestBlock = MorphoBlock MorphoMockHash ConsensusMockCrypto
@@ -121,8 +122,8 @@ instance Arbitrary (HeaderHash blk) => Arbitrary (ChainHash blk) where
         BlockHash <$> arbitrary
       ]
 
-instance Arbitrary (SomeBlock (NestedCtxt Header) TestBlock) where
-  arbitrary = return $ SomeBlock indexIsTrivial
+instance Arbitrary (SomeSecond (NestedCtxt Header) TestBlock) where
+  arbitrary = return $ SomeSecond indexIsTrivial
 
 instance Arbitrary (LedgerState TestBlock) where
   arbitrary = MorphoLedgerState <$> arbitrary
@@ -160,11 +161,14 @@ instance Arbitrary (MorphoError TestBlock) where
 
 instance HashAlgorithm h => Arbitrary (Hash h a) where
   arbitrary =
-    UnsafeHash . B.pack
+    UnsafeHash . SB.pack
       <$> vectorOf (fromIntegral (sizeHash (Proxy @h))) arbitrary
 
-instance Arbitrary a => Arbitrary (WithVersion () a) where
-  arbitrary = WithVersion () <$> arbitrary
+instance Arbitrary a => Arbitrary (WithVersion MorphoNodeToNodeVersion a) where
+  arbitrary = WithVersion MorphoNodeToNodeVersion1 <$> arbitrary
+
+instance Arbitrary a => Arbitrary (WithVersion MorphoNodeToClientVersion a) where
+  arbitrary = WithVersion MorphoNodeToClientVersion1 <$> arbitrary
 
 instance Arbitrary (HeaderHash blk) => Arbitrary (Point blk) where
   arbitrary =

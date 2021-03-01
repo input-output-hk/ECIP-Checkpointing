@@ -41,6 +41,8 @@ module Morpho.Ledger.Block
     encodeMorphoHeader,
     decodeMorphoHeader,
     morphoBlockBinaryInfo,
+    MorphoNodeToNodeVersion (..),
+    MorphoNodeToClientVersion (..),
   )
 where
 
@@ -371,8 +373,16 @@ type instance BlockProtocol (MorphoBlock h c) = Bft c
   ProtocolVersion
 -------------------------------------------------------------------------------}
 
-instance HasNetworkProtocolVersion (MorphoBlock h c)
+data MorphoNodeToNodeVersion = MorphoNodeToNodeVersion1
+  deriving (Show, Eq, Ord, Enum, Bounded)
+
+data MorphoNodeToClientVersion = MorphoNodeToClientVersion1
+  deriving (Show, Eq, Ord, Enum, Bounded)
+
+instance HasNetworkProtocolVersion (MorphoBlock h c) where
+  type BlockNodeToNodeVersion (MorphoBlock h c) = MorphoNodeToNodeVersion
+  type BlockNodeToClientVersion (MorphoBlock h c) = MorphoNodeToClientVersion
 
 instance SupportedNetworkProtocolVersion (MorphoBlock h c) where
-  supportedNodeToNodeVersions _ = Map.singleton NodeToNodeV_6 ()
-  supportedNodeToClientVersions _ = Map.singleton NodeToClientV_8 ()
+  supportedNodeToNodeVersions _ = Map.singleton NodeToNodeV_6 MorphoNodeToNodeVersion1
+  supportedNodeToClientVersions _ = Map.singleton NodeToClientV_8 MorphoNodeToClientVersion1
