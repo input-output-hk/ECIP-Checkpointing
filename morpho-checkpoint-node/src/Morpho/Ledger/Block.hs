@@ -102,6 +102,7 @@ data instance Header (MorphoBlock h c) = MorphoHeader
     morphoHeaderHash :: HeaderHash (MorphoBlock h c),
     -- | Fields required for the 'HasHeader' instance
     morphoHeaderStd :: MorphoStdHeader h c,
+    morphoBlockSize :: Word64,
     -- | Bft fields
     --
     -- These fields are required by the underlying BFT consensus
@@ -125,8 +126,7 @@ data MorphoStdHeader h c = MorphoStdHeader
   { morphoPrev :: ChainHash (MorphoBlock h c),
     morphoSlotNo :: SlotNo,
     morphoBlockNo :: BlockNo,
-    morphoBodyHash :: Hash h MorphoBody,
-    morphoBlockSize :: Word64
+    morphoBodyHash :: Hash h MorphoBody
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise, NoThunks)
@@ -181,8 +181,9 @@ mkMorphoHeader ::
   (HashAlgorithm h, BftCrypto c) =>
   MorphoStdHeader h c ->
   BftFields c (MorphoStdHeader h c) ->
+  Word64 ->
   Header (MorphoBlock h c)
-mkMorphoHeader std bftf =
+mkMorphoHeader std bftf size =
   headerWithoutHash
     { morphoHeaderHash =
         hashWithSerialiser
@@ -194,7 +195,8 @@ mkMorphoHeader std bftf =
       MorphoHeader
         { morphoHeaderHash = panic "Serialise instances should ignore the header hash",
           morphoHeaderStd = std,
-          morphoBftFields = bftf
+          morphoBftFields = bftf,
+          morphoBlockSize = size
         }
 
 -- | Check whether the block matches the header
@@ -325,17 +327,18 @@ encodeMorphoHeader ::
   CBOR.Encoding
 encodeMorphoHeader MorphoHeader {..} =
   mconcat
-    [ CBOR.encodeListLen 2,
+    [ CBOR.encodeListLen 3,
       encode morphoHeaderStd,
-      encode morphoBftFields
+      encode morphoBftFields,
+      encode morphoBlockSize
     ]
 
 decodeMorphoHeader ::
   (HashAlgorithm h, BftCrypto c) =>
   forall s. CBOR.Decoder s (Header (MorphoBlock h c))
 decodeMorphoHeader = do
-  CBOR.decodeListLenOf 2
-  mkMorphoHeader <$> decode <*> decode
+  CBOR.decodeListLenOf 3
+  mkMorphoHeader <$> decode <*> decode <*> decode
 
 instance (HashAlgorithm h, BftCrypto c) => Serialise (BftFields c (MorphoStdHeader h c)) where
   encode BftFields {..} =

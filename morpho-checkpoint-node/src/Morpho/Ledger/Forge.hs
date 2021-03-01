@@ -67,7 +67,7 @@ forgeMorpho ::
   MorphoBlock h c
 forgeMorpho ccfg curSlot curBlock prevHash txs =
   MorphoBlock
-    { morphoHeader = mkMorphoHeader stdHeader bftFields,
+    { morphoHeader = mkMorphoHeader stdHeader bftFields bodySize,
       morphoBody = body
     }
   where
@@ -85,11 +85,11 @@ forgeMorpho ccfg curSlot curBlock prevHash txs =
         { morphoPrev = prevHash,
           morphoSlotNo = curSlot,
           morphoBlockNo = curBlock,
-          morphoBodyHash = hashWithSerialiser toCBOR body,
-          morphoBlockSize = bodySize
+          morphoBodyHash = hashWithSerialiser toCBOR body
         }
     -- We use the size of the body, not of the whole block (= header + body),
     -- since the header size is fixed and this size is only used for
     -- prioritisation.
+    -- TODO: Check this, see also the better implementation of this in tests/Test/Morpho/Generators.hs
     bodySize :: Word64
     bodySize = fromIntegral $ Lazy.length $ serialise body

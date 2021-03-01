@@ -134,7 +134,7 @@ instance
   SerialiseNodeToNode blk (GenTxId blk)
 
 instance (HashAlgorithm h, BftCrypto c) => SerialiseNodeToNodeConstraints (MorphoBlock h c) where
-  estimateBlockSize = fromIntegral . morphoBlockSize . morphoHeaderStd
+  estimateBlockSize = fromIntegral . morphoBlockSize
 
 instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c) =>

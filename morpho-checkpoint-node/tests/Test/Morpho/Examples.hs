@@ -78,8 +78,7 @@ exampleStdHeader =
     { morphoPrev = GenesisHash,
       morphoSlotNo = SlotNo 5,
       morphoBlockNo = BlockNo 3,
-      morphoBodyHash = castHash $ hashWithSerialiser toCBOR (1 :: Int),
-      morphoBlockSize = 100
+      morphoBodyHash = castHash $ hashWithSerialiser toCBOR (1 :: Int)
     }
 
 exampleBody :: MorphoBody
@@ -102,7 +101,8 @@ exampleHeader =
     { morphoHeaderHash = castHash $ hashWithSerialiser toCBOR (10 :: Int),
       morphoHeaderStd = exampleStdHeader,
       morphoBftFields =
-        BftFields $ SignedDSIGN $ SigMockDSIGN (castHash $ hashWithSerialiser toCBOR (10 :: Int)) 20
+        BftFields $ SignedDSIGN $ SigMockDSIGN (castHash $ hashWithSerialiser toCBOR (10 :: Int)) 20,
+      morphoBlockSize = 100
     }
 
 examplePoint :: Point TestBlock

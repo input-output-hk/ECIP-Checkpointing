@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
@@ -11,7 +12,9 @@ module Test.Morpho.Generators where
 
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
+import Codec.CBOR.Write
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Short as SB
 import Data.Proxy
 import qualified Data.Text as T
@@ -28,6 +31,7 @@ import Ouroboros.Consensus.Block
 import Ouroboros.Consensus.Config.SecurityParam
 import Ouroboros.Consensus.HeaderValidation (AnnTip (..))
 import Ouroboros.Consensus.Node.ProtocolInfo
+import Ouroboros.Consensus.Node.Serialisation
 import Ouroboros.Consensus.Protocol.BFT
 import Test.QuickCheck hiding (Result)
 import Test.QuickCheck.Instances ()
@@ -41,21 +45,44 @@ type TestBlock = MorphoBlock MorphoMockHash ConsensusMockCrypto
 type TestStdHeader = MorphoStdHeader MorphoMockHash ConsensusMockCrypto
 
 instance Arbitrary TestBlock where
-  arbitrary = MorphoBlock <$> arbitrary <*> arbitrary
+  arbitrary :: Gen TestBlock
+  arbitrary = do
+    headerStd <- arbitrary
+    body <- arbitrary
+    -- FIXME: Implement this in the actual block forging
+    let bftFields = forgeBftFields testBftConfig headerStd
+        ccfg :: CodecConfig TestBlock
+        ccfg = MorphoCodecConfig ()
+
+        -- Since the block contains an estimate of its own size (morphoBlockSize)
+        -- to get its size we first assume a size of 0
+        minHeader = mkMorphoHeader headerStd bftFields 0
+        minBlock = MorphoBlock minHeader body
+        minBlockSize = fromIntegral $ BS.length $ toLazyByteString $ encodeNodeToNode ccfg MorphoNodeToNodeVersion1 minBlock
+
+        -- However because Word64 has a variable length, we can still
+        -- underestimate the size, which is not good because morphoBlockSize's
+        -- purpose is for an *overestimate* for estimateBlockSize. So we add
+        -- 10 extra bytes, which is just the amount we can overestimate in the
+        -- estimateBlockSize test, and more than it could actually vary due to
+        -- Word64's encoding
+        header = mkMorphoHeader headerStd bftFields (minBlockSize + 10)
+        block = MorphoBlock header body
+    return block
 
 instance Arbitrary (Header TestBlock) where
   arbitrary = do
     headerStd <- arbitrary
+    size <- arbitrary
     -- Do we want more randomness here, even if the block becomes
     -- invalid?
     let bftFields = forgeBftFields testBftConfig headerStd
-    return $ mkMorphoHeader headerStd bftFields
+    return $ mkMorphoHeader headerStd bftFields size
 
 instance Arbitrary TestStdHeader where
   arbitrary =
     MorphoStdHeader
       <$> arbitrary
-      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
