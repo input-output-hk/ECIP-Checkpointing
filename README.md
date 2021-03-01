@@ -6,6 +6,8 @@ This is the codebase of the checkpointing nodes for [Mantis](https://mantisclien
 
 For building and development, a recent Nix version supporting Flakes is recommended, see [here](https://nixos.wiki/wiki/Flakes#Installing_flakes) for installation instructions. The readme assumes such a newer version is available, however older Nix versions can still be used with slightly adjusted commands. Not using Nix is also a possibility but not explicitly shown.
 
+For an overview of how morpho is implemented, see [overview.md](./overview.md).
+
 ## Binary Cache
 
 Unless if you are looking for a rather expensive lap/desk heater, you are probably off better leveraging the [Mantis Hydra](https://hydra.mantis.ist/project/ecip-checkpointing) binary cache instead of rebuilding the whole world by yourself.

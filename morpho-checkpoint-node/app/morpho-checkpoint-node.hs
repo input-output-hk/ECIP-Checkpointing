@@ -2,7 +2,7 @@ import Cardano.Prelude
 import Morpho.Common.Parsers
 import Morpho.Common.TopHandler
 import Morpho.Config.Types
-import Morpho.Node.Features.Node
+import Morpho.Node.Run
 import qualified Options.Applicative as Opt
 import Options.Applicative.Help ((<$$>))
 import qualified Options.Applicative.Help as OptI

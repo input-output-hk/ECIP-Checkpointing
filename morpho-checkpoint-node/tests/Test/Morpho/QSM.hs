@@ -9,8 +9,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Test.Morpho.QSM
@@ -30,7 +28,7 @@ import GHC.Generics (Generic, Generic1)
 import Morpho.Common.Bytes (Bytes)
 import Morpho.Config.Types
 import Morpho.Ledger.PowTypes hiding (Checkpoint (..))
-import Morpho.Node.Features.Node
+import Morpho.Node.Run
 import Morpho.RPC.PoWMock
 import Morpho.RPC.Types
 import System.Directory
@@ -45,6 +43,17 @@ import Test.Tasty
 import Test.Tasty.QuickCheck
 import Prelude
 
+{-
+State machine tests
+===================
+
+These tests use the Morpho.RPC.PoWMock interface to simulate PoW nodes.
+This module generates blocks, then sends them to the PoWMock interface, which
+is then regularly queried by the morpho nodes.
+
+-}
+
+-- TODO extend the tests: test more properties of the chain.
 qsmTests :: TestTree
 qsmTests =
   testGroup
@@ -59,54 +68,49 @@ newtype Node = Node Int
   deriving (Eq, Show, Ord, Generic)
   deriving newtype (ToExpr)
 
--- TODO extend the tests: test more properties of the chain.
+-- | The state of the PoW chain
 data Chain = Chain
-  { nextBlockNo :: PowBlockNo,
-    unusedPowBlockRef :: Map PowBlockRef [Node]
+  { -- | The next PoW block number that is eligible to be checkpointed
+    nextBlockNo :: PowBlockNo,
+    -- | Stores the PoW block that is currently in the process of being
+    -- checkpointed. This means that the number of nodes is at least 1
+    -- (because the checkpointing started), but less than the majority
+    -- needed for a checkpoint. So in fact, since we currently only test
+    -- a majority of up to 2, the list is always just a single node
+    currentCandidate :: Maybe (PowBlockRef, [Node])
   }
   deriving (Eq, Show, Generic)
   deriving anyclass (ToExpr)
 
+-- Updates the chain with a command
 updateChain :: Config -> Chain -> Command r -> (Chain, Maybe PowBlockRef)
 updateChain Config {..} Chain {..} (SendPowBlock toNodes block) =
   (chain', mElected)
   where
-    eiUnused = M.alterF f block unusedPowBlockRef
-    (blockNo, blocks, mElected) = case eiUnused of
-      Deleted refs -> (extendBlockNo nextBlockNo, refs, Just block)
-      Appened refs -> (nextBlockNo, refs, Nothing)
     chain' =
       Chain
         { nextBlockNo = blockNo,
-          unusedPowBlockRef = blocks
+          currentCandidate = candidate
         }
-    f mOld =
-      let allNodes = addToOld mOld
-       in if length allNodes >= majority
-            then Deleted Nothing
-            else Appened (Just allNodes)
-    addToOld Nothing = toNodes
-    addToOld (Just oldNodes) = union oldNodes toNodes
-
-data MapResult a = Appened a | Deleted a
-  deriving (Functor)
-
-newtype MockedChain = MockedChain
-  { nextMockedBlockNo :: PowBlockNo
-  }
-  deriving (Eq, Show, Generic)
-  deriving newtype (ToExpr)
-
-type Block = PowBlockRef
-
-data Error = Error
-  deriving (Eq, Show, Generic, ToExpr)
+    (blockNo, candidate, mElected) =
+      if length allNodes >= majority
+        then (extendBlockNo nextBlockNo, Nothing, Just block)
+        else (nextBlockNo, Just (block, allNodes), Nothing)
+    allNodes = case currentCandidate of
+      Nothing -> toNodes
+      Just (oldBlock, oldNodes)
+        | oldBlock == block -> oldNodes `union` toNodes
+        | otherwise ->
+          error
+            ( "These tests currently require all nodes to first "
+                <> "receive a PoW block candidate before a new one can be received"
+            )
 
 initChain :: Chain
 initChain =
   Chain
     { nextBlockNo = PowBlockNo checkpointInterval,
-      unusedPowBlockRef = M.empty
+      currentCandidate = Nothing
     }
 
 shrinker :: Model Symbolic -> Command Symbolic -> [Command Symbolic]
@@ -120,17 +124,24 @@ data Model (r :: Type -> Type) = Model
   deriving (Eq, Show, Generic)
 
 data Command (r :: Type -> Type)
-  = SendPowBlock [Node] Block
+  = -- | Sends a Pow block to a set of PoW nodes, indicating that they either
+    -- mined or received such a block
+    SendPowBlock [Node] PowBlockRef
   deriving (Eq, Show, Generic1, Rank2.Functor, Rank2.Foldable, Rank2.Traversable, CommandNames)
 
+-- The response to a SendPowBlock command
 newtype Response (r :: Type -> Type) = Response
-  {getResponse :: Either Error [(Node, CheckpointResult)]}
+  { -- | The response from each of the nodes the block was sent to
+    getResponse :: [(Node, CheckpointResult)]
+  }
   deriving stock (Eq, Show, Generic1)
   deriving anyclass (Rank2.Foldable)
 
 data CheckpointResult
-  = Checkpoint !PowBlockHash !Int
-  | NoCheckpoint
+  = -- | A new checkpoint was created from a PoW block at a certain block number
+    Checkpoint !PowBlockHash !Int
+  | -- | No new checkpoint was created
+    NoCheckpoint
   deriving (Eq, Show)
 
 toBlockRef :: CheckpointResult -> Maybe PowBlockHash
@@ -180,7 +191,7 @@ semantics cfg handles (SendPowBlock toNodes blockRef) = do
   let sendHandles = getHandle <$> toNodes
   forM_ sendHandles (\h -> addPoWBlock h blockRef)
   res <- waitAll cfg $ M.toList handles
-  return $ Response $ Right res
+  return $ Response res
 
 -- | Wait and get the next nextpoint from all the nodes.
 waitAll :: Config -> [(Node, MockNodeHandle)] -> IO [(Node, CheckpointResult)]
@@ -194,37 +205,29 @@ waitNode cfg (node, mockHandle) = do
         Just chkp -> Checkpoint (parentHash chkp) (majority cfg)
   return (node, res)
 
+-- TODO extend the generators
 generator :: Model Symbolic -> Maybe (Gen (Command Symbolic))
 generator Model {..} = Just $ do
-  -- TODO extend the generators
-  (toNodes, block) <-
-    frequency
-      [ (if hasNotUnused then 1 else 0, newBlockGen),
-        (if hasNotUnused then 0 else 1, existingBlockGen)
-      ]
-  return $ SendPowBlock toNodes block
-  where
-    hasNotUnused = M.null (unusedPowBlockRef chain)
-    newBlockGen = do
+  case currentCandidate chain of
+    Nothing -> do
       toNodes <- suchThat (sublistOf nodes) (not . null)
       let blockNo = nextBlockNo chain
       block <- genBlockRef blockNo
-      return (toNodes, block)
-    existingBlockGen = do
-      (block, oldNodes) <- elements $ M.toList (unusedPowBlockRef chain)
+      return $ SendPowBlock toNodes block
+    Just (block, oldNodes) -> do
       newNodes <- suchThat (sublistOf $ nodes \\ oldNodes) (not . null)
-      return (newNodes, block)
+      return $ SendPowBlock newNodes block
+  where
     genBlockRef blockNo =
       PowBlockRef blockNo <$> arbitrary
 
 toMock :: Config -> Model r -> Command r -> Response r
 toMock cfg Model {..} cmd = Response $
-  Right $
-    case snd $ updateChain cfg chain cmd of
-      Just elected ->
-        map (,Checkpoint (powBlockHash elected) (majority cfg)) nodes
-      _ ->
-        map (,NoCheckpoint) nodes
+  case snd $ updateChain cfg chain cmd of
+    Just elected ->
+      map (,Checkpoint (powBlockHash elected) (majority cfg)) nodes
+    _ ->
+      map (,NoCheckpoint) nodes
 
 mock :: Config -> Model Symbolic -> Command Symbolic -> GenSym (Response Symbolic)
 mock cfg m cmd = return $ toMock cfg m cmd
