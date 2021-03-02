@@ -10,9 +10,9 @@ module Test.Morpho.Ledger.State
   )
 where
 
+import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
-import Cardano.Binary
 import Cardano.Prelude hiding ((.))
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
@@ -28,6 +28,7 @@ import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block (getHeader, headerPoint)
 import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.Config
+import Ouroboros.Consensus.Ledger.Abstract
 import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Block hiding (castHash)
@@ -35,7 +36,6 @@ import Ouroboros.Network.Point
 import Test.Tasty
 import Test.Tasty.HUnit
 import Prelude hiding (show)
-import Ouroboros.Consensus.Ledger.Abstract
 
 stateTests :: TestTree
 stateTests =
@@ -266,14 +266,15 @@ assert_singleVoteInvalidHash = case newStateResult of
     b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
 
 testConfig :: LedgerConfig TestBlock
-testConfig = MorphoLedgerConfig
-          { checkpointingInterval = 4,
-            securityParam = SecurityParam 4,
-            requiredMajority = 3,
-            fedPubKeys = publicKeys,
-            nodeKeyPair = keyPairs !! 0,
-            slotLength = mkSlotLength 2000
-          }
+testConfig =
+  MorphoLedgerConfig
+    { checkpointingInterval = 4,
+      securityParam = SecurityParam 4,
+      requiredMajority = 3,
+      fedPubKeys = publicKeys,
+      nodeKeyPair = keyPairs !! 0,
+      slotLength = mkSlotLength 2000
+    }
 
 keyPairs :: [KeyPair]
 keyPairs =

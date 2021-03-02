@@ -15,7 +15,6 @@ module Morpho.Ledger.PowTypes
   )
 where
 
-import NoThunks.Class
 import Cardano.Prelude hiding (empty)
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
@@ -23,6 +22,7 @@ import Data.Aeson
 import Morpho.Common.Bytes
 import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
+import NoThunks.Class
 
 newtype PowBlockNo = PowBlockNo {unPowBlockNo :: Int}
   deriving stock (Eq, Show, Generic)

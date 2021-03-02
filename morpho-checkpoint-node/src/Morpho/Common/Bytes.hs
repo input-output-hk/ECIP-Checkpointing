@@ -13,7 +13,6 @@ module Morpho.Common.Bytes
   )
 where
 
-import NoThunks.Class
 import Codec.Serialise (Serialise)
 import Data.Aeson
 import Data.ByteString (ByteString)
@@ -22,6 +21,7 @@ import qualified Data.HexString as Hex
 import qualified Data.Text as T
 import Data.Word
 import GHC.Generics (Generic)
+import NoThunks.Class
 import Prelude hiding (length)
 
 newtype Bytes = Bytes {unBytes :: ByteString}

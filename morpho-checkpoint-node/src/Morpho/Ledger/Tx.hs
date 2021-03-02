@@ -14,13 +14,13 @@ module Morpho.Ledger.Tx
   )
 where
 
-import NoThunks.Class
 import Cardano.Binary (ToCBOR (..))
 import Cardano.Crypto.Hash
 import Cardano.Prelude
 import Codec.Serialise (Serialise (..))
 import Data.Aeson hiding (encode)
 import Morpho.Ledger.PowTypes
+import NoThunks.Class
 import Ouroboros.Consensus.Util.Condense
 import qualified Prelude as Prelude
 

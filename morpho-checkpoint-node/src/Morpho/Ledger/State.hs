@@ -18,12 +18,12 @@ module Morpho.Ledger.State
   )
 where
 
-import NoThunks.Class
 import Cardano.Prelude
 import Codec.Serialise (Serialise)
 import qualified Data.Map as M
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.PowTypes
+import NoThunks.Class
 import Ouroboros.Consensus.Block.Abstract hiding (blockNo)
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config.SecurityParam

@@ -22,7 +22,6 @@ module Morpho.Crypto.ECDSASignature
   )
 where
 
-import NoThunks.Class
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
 import Crypto.Secp256k1 (CompactRecSig (..), PubKey, RecSig, SecKey)
@@ -36,6 +35,7 @@ import GHC.Generics (Generic)
 import GHC.Word (Word8)
 import qualified Morpho.Common.Bytes as B
 import Morpho.Common.Conversions
+import NoThunks.Class
 import Prelude hiding (fail)
 
 newtype PublicKey = PublicKey B.Bytes
