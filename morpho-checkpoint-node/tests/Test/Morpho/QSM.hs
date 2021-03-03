@@ -16,6 +16,7 @@ module Test.Morpho.QSM
   )
 where
 
+import Barbies
 import Control.Concurrent.Async
 import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class
@@ -353,12 +354,15 @@ runDualNode createDir testId nodeId = do
   when createDir $ createDirectory nodeDir
   let nodeCli =
         NodeCLI
-          { topologyFile = TopologyFile $ configDir ++ "/topology.json",
-            databaseFile = DbFile $ nodeDir ++ "/db",
-            socketFile = SocketFile $ nodeDir ++ "/.socket",
-            nodeAddr = NodeAddress (NodeHostAddress Nothing) (fromIntegral $ 3000 + 2 * nodeId),
-            configFp = ConfigYamlFilePath $ configDir ++ "/config-" ++ show nodeId ++ ".yaml",
-            validateDB = True
+          { configFp = ConfigYamlFilePath $ configDir ++ "/config-" ++ show nodeId ++ ".yaml",
+            cliNodeConfiguration =
+              (bpure Nothing)
+                { ncTopologyFile = Just $ TopologyFile $ configDir ++ "/topology.json",
+                  ncDatabaseFile = Just $ DbFile $ nodeDir ++ "/db",
+                  ncSocketFile = Just $ SocketFile $ nodeDir ++ "/.socket",
+                  ncNodeAddress = Just $ NodeAddress (NodeHostAddress Nothing) (fromIntegral $ 3000 + 2 * nodeId),
+                  ncValidateDB = Just True
+                }
           }
   mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
   node <- async $ run nodeCli

@@ -203,6 +203,7 @@ test-suite state-machine-tests
         base >=4.12.0.0,
         QuickCheck -any,
         async -any,
+        barbies -any,
         bytestring -any,
         cardano-crypto-class -any,
         containers -any,

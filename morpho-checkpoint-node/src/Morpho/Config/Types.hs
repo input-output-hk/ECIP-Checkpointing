@@ -167,16 +167,6 @@ defaultNodeConfiguration =
         ncPoWBlockFetchInterval = Compose $ return $ Just 1000000
       }
 
-cliToNodeConfiguration :: NodeCLI -> NodeConfigurationPartial
-cliToNodeConfiguration nCli =
-  (bpure Nothing)
-    { ncValidateDB = Just $ validateDB nCli,
-      ncNodeAddress = Just $ nodeAddr nCli,
-      ncTopologyFile = Just $ topologyFile nCli,
-      ncDatabaseFile = Just $ databaseFile nCli,
-      ncSocketFile = Just $ socketFile nCli
-    }
-
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
 
@@ -251,7 +241,7 @@ data Protocol = MockedBFT
 getNodeConfiguration :: NodeCLI -> IO (Maybe NodeConfiguration)
 getNodeConfiguration nCli = do
   let ConfigYamlFilePath configFile = configFp nCli
-  let fromCLI = cliToNodeConfiguration nCli
+  let fromCLI = cliNodeConfiguration nCli
   fromLogFile <- logConfiguration configFile
   fromFile <- decodeFileThrow configFile
   fromDefaults <- defaultNodeConfiguration
@@ -267,12 +257,8 @@ logConfiguration path = do
       }
 
 data NodeCLI = NodeCLI
-  { topologyFile :: TopologyFile,
-    databaseFile :: DbFile,
-    socketFile :: SocketFile,
-    nodeAddr :: !NodeAddress,
-    configFp :: !ConfigYamlFilePath,
-    validateDB :: !Bool
+  { configFp :: !ConfigYamlFilePath,
+    cliNodeConfiguration :: NodeConfigurationPartial
   }
   deriving (Show)
 

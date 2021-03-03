@@ -12,31 +12,25 @@ module Morpho.Common.Parsers
   )
 where
 
+import Barbies
 import Cardano.Prelude hiding (option)
+import Data.Functor.Compose
 import Morpho.Config.Types
 import Network.Socket (PortNumber)
 import Options.Applicative
 
--- | The product parser for all the CLI arguments.
 nodeCliParser :: Parser NodeCLI
-nodeCliParser = do
-  -- Filepaths
-  topFp <- parseTopologyFile
-  dbFp <- parseDbPath
-  socketFp <- parseSocketDir
-  -- Node Address
-  nAddress <- parseNodeAddress
-  -- NodeConfiguration filepath
-  nodeConfigFp <- parseConfigFile
-  validate <- parseValidateDB
-  pure
-    NodeCLI
-      { topologyFile = TopologyFile topFp,
-        databaseFile = DbFile dbFp,
-        socketFile = SocketFile socketFp,
-        nodeAddr = nAddress,
-        configFp = ConfigYamlFilePath nodeConfigFp,
-        validateDB = validate
+nodeCliParser = NodeCLI <$> (ConfigYamlFilePath <$> parseConfigFile) <*> parseNodeConfig
+
+parseNodeConfig :: Parser NodeConfigurationPartial
+parseNodeConfig =
+  bsequence $
+    (bpure (Compose (pure Nothing)))
+      { ncTopologyFile = Compose $ Just . TopologyFile <$> parseTopologyFile,
+        ncDatabaseFile = Compose $ Just . DbFile <$> parseDbPath,
+        ncSocketFile = Compose $ Just . SocketFile <$> parseSocketDir,
+        ncNodeAddress = Compose $ Just <$> parseNodeAddress,
+        ncValidateDB = Compose $ Just <$> parseValidateDB
       }
 
 parseTopologyFile :: Parser FilePath
