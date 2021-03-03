@@ -72,7 +72,8 @@ data NodeConfiguration_ t f = NodeConfiguration
     ncRequiredMajority :: Wear t f Int,
     ncFedPubKeys :: Wear t f [PublicKey],
     ncNodePrivKeyFile :: Wear t f FilePath,
-    ncValidateDB :: Wear t f Bool
+    ncValidateDB :: Wear t f Bool,
+    ncNodeAddress :: Wear t f NodeAddress
   }
   deriving (Generic)
 
@@ -145,6 +146,7 @@ instance FromJSON NodeConfigurationPartial where
         fedPubKeys
         nodePrivKeyFile
         Nothing
+        Nothing
 
 defaultNodeConfiguration :: IO NodeConfigurationPartial
 defaultNodeConfiguration =
@@ -160,7 +162,8 @@ defaultNodeConfiguration =
 cliToNodeConfiguration :: NodeCLI -> NodeConfigurationPartial
 cliToNodeConfiguration nCli =
   (bpure Nothing)
-    { ncValidateDB = Just $ validateDB nCli
+    { ncValidateDB = Just $ validateDB nCli,
+      ncNodeAddress = Just $ nodeAddr nCli
     }
 
 instance FromJSON SystemStart where

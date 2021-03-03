@@ -134,7 +134,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         Nothing ->
           error $
             "handleSimpleNode: own address "
-              <> show (nodeAddr nCli)
+              <> show (ncNodeAddress nc)
               <> ", Node Id "
               <> show nid
               <> " not found in topology"
@@ -142,12 +142,12 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
     unlines
       [ "",
         "**************************************",
-        "I am Node " <> show (nodeAddr nCli) <> " Id: " <> show nid,
+        "I am Node " <> show (ncNodeAddress nc) <> " Id: " <> show nid,
         "My producers are " <> show producers',
         "**************************************"
       ]
   -- Socket directory TODO
-  addresses <- nodeAddressInfo (nodeAddr nCli)
+  addresses <- nodeAddressInfo (ncNodeAddress nc)
   let localSocketPath = unSocket . socketFile $ mscFp nCli
   removeStaleLocalSocket localSocketPath
   let ipProducerAddrs :: [NodeAddress]
