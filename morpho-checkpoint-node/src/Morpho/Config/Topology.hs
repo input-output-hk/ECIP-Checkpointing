@@ -98,8 +98,8 @@ instance FromJSON RemoteAddress where
       <*> (fmap (fromIntegral :: Int -> PortNumber) <$> v .:? "port")
       <*> (v .: "valency")
 
-readTopologyFile :: FilePath -> IO (Either String NetworkTopology)
-readTopologyFile topo = do
+readTopologyFile :: TopologyFile -> IO (Either String NetworkTopology)
+readTopologyFile (TopologyFile topo) = do
   eBs <- Exception.try $ BS.readFile topo
   case eBs of
     Left e -> pure . Left $ handler e

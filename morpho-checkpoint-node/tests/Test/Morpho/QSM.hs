@@ -351,15 +351,11 @@ runDualNode createDir testId nodeId = do
   let nodeDir = testDir ++ "/nodedir-" ++ show nodeId
   let configDir = "tests/configuration/QSM/prop_" ++ show testId
   when createDir $ createDirectory nodeDir
-  let paths =
-        MiscellaneousFilepaths
-          { topFile = TopologyFile $ configDir ++ "/topology.json",
-            dBFile = DbFile $ nodeDir ++ "/db",
-            socketFile = SocketFile $ nodeDir ++ "/.socket"
-          }
   let nodeCli =
         NodeCLI
-          { mscFp = paths,
+          { topologyFile = TopologyFile $ configDir ++ "/topology.json",
+            databaseFile = DbFile $ nodeDir ++ "/db",
+            socketFile = SocketFile $ nodeDir ++ "/.socket",
             nodeAddr = NodeAddress (NodeHostAddress Nothing) (fromIntegral $ 3000 + 2 * nodeId),
             configFp = ConfigYamlFilePath $ configDir ++ "/config-" ++ show nodeId ++ ".yaml",
             validateDB = True

@@ -11,7 +11,6 @@ module Morpho.Config.Types
     DbFile (..),
     DelegationCertFile (..),
     GenesisFile (..),
-    MiscellaneousFilepaths (..),
     NodeCLI (..),
     NodeConfiguration,
     NodeConfigurationPartial,
@@ -75,7 +74,9 @@ data NodeConfiguration_ t f = NodeConfiguration
     ncNodePrivKeyFile :: Wear t f FilePath,
     ncValidateDB :: Wear t f Bool,
     ncNodeAddress :: Wear t f NodeAddress,
-    ncMscFp :: Wear t f MiscellaneousFilepaths,
+    ncTopologyFile :: Wear t f TopologyFile,
+    ncDatabaseFile :: Wear t f DbFile,
+    ncSocketFile :: Wear t f SocketFile,
     ncLogRepresentation :: Wear t f Representation
   }
   deriving (Generic)
@@ -152,6 +153,8 @@ instance FromJSON NodeConfigurationPartial where
         Nothing
         Nothing
         Nothing
+        Nothing
+        Nothing
 
 defaultNodeConfiguration :: IO NodeConfigurationPartial
 defaultNodeConfiguration =
@@ -169,7 +172,9 @@ cliToNodeConfiguration nCli =
   (bpure Nothing)
     { ncValidateDB = Just $ validateDB nCli,
       ncNodeAddress = Just $ nodeAddr nCli,
-      ncMscFp = Just $ mscFp nCli
+      ncTopologyFile = Just $ topologyFile nCli,
+      ncDatabaseFile = Just $ databaseFile nCli,
+      ncSocketFile = Just $ socketFile nCli
     }
 
 instance FromJSON SystemStart where
@@ -262,17 +267,12 @@ logConfiguration path = do
       }
 
 data NodeCLI = NodeCLI
-  { mscFp :: !MiscellaneousFilepaths,
+  { topologyFile :: TopologyFile,
+    databaseFile :: DbFile,
+    socketFile :: SocketFile,
     nodeAddr :: !NodeAddress,
     configFp :: !ConfigYamlFilePath,
     validateDB :: !Bool
-  }
-  deriving (Show)
-
-data MiscellaneousFilepaths = MiscellaneousFilepaths
-  { topFile :: !TopologyFile,
-    dBFile :: !DbFile,
-    socketFile :: !SocketFile
   }
   deriving (Show)
 

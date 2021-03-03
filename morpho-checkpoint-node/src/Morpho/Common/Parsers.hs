@@ -31,12 +31,9 @@ nodeCliParser = do
   validate <- parseValidateDB
   pure
     NodeCLI
-      { mscFp =
-          MiscellaneousFilepaths
-            { topFile = TopologyFile topFp,
-              dBFile = DbFile dbFp,
-              socketFile = SocketFile socketFp
-            },
+      { topologyFile = TopologyFile topFp,
+        databaseFile = DbFile dbFp,
+        socketFile = SocketFile socketFp,
         nodeAddr = nAddress,
         configFp = ConfigYamlFilePath nodeConfigFp,
         validateDB = validate

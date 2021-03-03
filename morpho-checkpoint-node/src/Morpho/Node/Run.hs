@@ -123,7 +123,7 @@ handleSimpleNode ::
   IO ()
 handleSimpleNode pInfo trace nodeTracers nc = do
   NetworkTopology nodeSetups <-
-    either error id <$> readTopologyFile (unTopology . topFile $ ncMscFp nc)
+    either error id <$> readTopologyFile (ncTopologyFile nc)
   let cfg = pInfoConfig pInfo
   let tracer = contramap pack $ toLogObject trace
   let producers' = case List.lookup nid $
@@ -146,7 +146,7 @@ handleSimpleNode pInfo trace nodeTracers nc = do
       ]
   -- Socket directory TODO
   addresses <- nodeAddressInfo (ncNodeAddress nc)
-  let localSocketPath = unSocket . socketFile $ ncMscFp nc
+  let localSocketPath = unSocket $ ncSocketFile nc
   removeStaleLocalSocket localSocketPath
   let ipProducerAddrs :: [NodeAddress]
       dnsProducerAddrs :: [RemoteAddress]
@@ -200,7 +200,7 @@ handleSimpleNode pInfo trace nodeTracers nc = do
                   acceptedConnectionsDelay = 5
                 }
           }
-  dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ ncMscFp nc)
+  dbPath <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseFile nc)
   when (ncValidateDB nc) $
     traceWith tracer "Performing DB validation"
   (metrics, irs) <- setupPrometheus
