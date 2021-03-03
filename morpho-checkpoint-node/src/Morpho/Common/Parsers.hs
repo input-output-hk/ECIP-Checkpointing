@@ -23,7 +23,6 @@ nodeCliParser = do
   -- Filepaths
   topFp <- parseTopologyFile
   dbFp <- parseDbPath
-  sKeyFp <- optional parseSigningKey
   socketFp <- parseSocketDir
   -- Node Address
   nAddress <- parseNodeAddress
@@ -36,7 +35,6 @@ nodeCliParser = do
           MiscellaneousFilepaths
             { topFile = TopologyFile topFp,
               dBFile = DbFile dbFp,
-              signKeyFile = SigningKeyFile <$> sKeyFp,
               socketFile = SocketFile socketFp
             },
         nodeAddr = nAddress,
@@ -58,14 +56,6 @@ parseDbPath =
     ( long "database-path"
         <> metavar "FILEPATH"
         <> help "Directory where the state is stored."
-    )
-
-parseSigningKey :: Parser FilePath
-parseSigningKey =
-  strOption
-    ( long "signing-key"
-        <> metavar "FILEPATH"
-        <> help "Path to the signing key."
     )
 
 parseSocketDir :: Parser FilePath

@@ -244,7 +244,6 @@ data NodeCLI = NodeCLI
 data MiscellaneousFilepaths = MiscellaneousFilepaths
   { topFile :: !TopologyFile,
     dBFile :: !DbFile,
-    signKeyFile :: !(Maybe SigningKeyFile),
     socketFile :: !SocketFile
   }
   deriving (Show)

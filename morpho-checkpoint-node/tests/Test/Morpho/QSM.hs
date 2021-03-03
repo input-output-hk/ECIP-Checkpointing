@@ -355,7 +355,6 @@ runDualNode createDir testId nodeId = do
         MiscellaneousFilepaths
           { topFile = TopologyFile $ configDir ++ "/topology.json",
             dBFile = DbFile $ nodeDir ++ "/db",
-            signKeyFile = Nothing,
             socketFile = SocketFile $ nodeDir ++ "/.socket"
           }
   let nodeCli =
