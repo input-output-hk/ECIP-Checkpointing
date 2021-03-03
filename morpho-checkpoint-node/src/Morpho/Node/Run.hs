@@ -14,6 +14,8 @@ module Morpho.Node.Run
   )
 where
 
+import Barbies
+import Barbies.Bare
 import Cardano.BM.Data.Tracer
 import Cardano.BM.Data.Transformers (setHostname)
 import Cardano.BM.Tracing
@@ -78,10 +80,14 @@ import Prelude (error, id, unlines)
 
 run :: NodeCLI -> IO ()
 run cli = do
-  nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
-  (loggingLayer, logging) <- loggingFeatures cli nodeConfig
-  runCardanoApplicationWithFeatures logging $
-    CardanoApplication $ runNode loggingLayer nodeConfig cli
+  nodeConfig' <- parseNodeConfiguration $ unConfigPath (configFp cli)
+  case bsequence' nodeConfig' of
+    Nothing -> do
+      fail $ "Something is missing in the config " <> show nodeConfig'
+    Just nodeConfig -> do
+      (loggingLayer, logging) <- loggingFeatures cli (bstrip nodeConfig)
+      runCardanoApplicationWithFeatures logging $
+        CardanoApplication $ runNode loggingLayer (bstrip nodeConfig) cli
 
 runNode ::
   LoggingLayer ->

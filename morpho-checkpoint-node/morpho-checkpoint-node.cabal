@@ -48,6 +48,7 @@ library
         base >=4.12.0.0,
         aeson -any,
         async -any,
+        barbies -any,
         binary -any,
         bytestring -any,
         cardano-binary -any,
