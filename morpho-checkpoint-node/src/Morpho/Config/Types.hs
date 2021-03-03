@@ -235,8 +235,6 @@ parseNodeConfiguration file = do
 
 data NodeCLI = NodeCLI
   { mscFp :: !MiscellaneousFilepaths,
-    -- TODO Use genesis file.
-    genesisHash :: !(Maybe Text),
     nodeAddr :: !NodeAddress,
     configFp :: !ConfigYamlFilePath,
     validateDB :: !Bool
@@ -246,8 +244,6 @@ data NodeCLI = NodeCLI
 data MiscellaneousFilepaths = MiscellaneousFilepaths
   { topFile :: !TopologyFile,
     dBFile :: !DbFile,
-    -- TODO Use genesis file.
-    genesisFile :: !(Maybe GenesisFile),
     signKeyFile :: !(Maybe SigningKeyFile),
     socketFile :: !SocketFile
   }

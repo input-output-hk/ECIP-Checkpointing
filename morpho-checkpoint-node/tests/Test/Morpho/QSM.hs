@@ -355,14 +355,12 @@ runDualNode createDir testId nodeId = do
         MiscellaneousFilepaths
           { topFile = TopologyFile $ configDir ++ "/topology.json",
             dBFile = DbFile $ nodeDir ++ "/db",
-            genesisFile = Nothing,
             signKeyFile = Nothing,
             socketFile = SocketFile $ nodeDir ++ "/.socket"
           }
   let nodeCli =
         NodeCLI
           { mscFp = paths,
-            genesisHash = Nothing,
             nodeAddr = NodeAddress (NodeHostAddress Nothing) (fromIntegral $ 3000 + 2 * nodeId),
             configFp = ConfigYamlFilePath $ configDir ++ "/config-" ++ show nodeId ++ ".yaml",
             validateDB = True
