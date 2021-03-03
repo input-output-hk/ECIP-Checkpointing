@@ -32,6 +32,7 @@ where
 
 import Barbies
 import Barbies.Bare
+import Cardano.BM.Data.Configuration
 import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Crypto.ProtocolMagic (RequiresNetworkMagic)
 import Cardano.Prelude
@@ -74,7 +75,8 @@ data NodeConfiguration_ t f = NodeConfiguration
     ncNodePrivKeyFile :: Wear t f FilePath,
     ncValidateDB :: Wear t f Bool,
     ncNodeAddress :: Wear t f NodeAddress,
-    ncMscFp :: Wear t f MiscellaneousFilepaths
+    ncMscFp :: Wear t f MiscellaneousFilepaths,
+    ncLogRepresentation :: Wear t f Representation
   }
   deriving (Generic)
 
@@ -146,6 +148,7 @@ instance FromJSON NodeConfigurationPartial where
         requiredMajority
         fedPubKeys
         nodePrivKeyFile
+        Nothing
         Nothing
         Nothing
         Nothing
@@ -240,13 +243,23 @@ instance FromJSON Protocol where
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
-getNodeConfiguration :: NodeCLI -> FilePath -> IO (Maybe NodeConfiguration)
-getNodeConfiguration nCli file = do
+getNodeConfiguration :: NodeCLI -> IO (Maybe NodeConfiguration)
+getNodeConfiguration nCli = do
+  let ConfigYamlFilePath configFile = configFp nCli
   let fromCLI = cliToNodeConfiguration nCli
-  fromFile <- decodeFileThrow file
+  fromLogFile <- logConfiguration configFile
+  fromFile <- decodeFileThrow configFile
   fromDefaults <- defaultNodeConfiguration
-  let combined = fromCLI <> fromFile <> fromDefaults
+  let combined = fromCLI <> fromFile <> fromLogFile <> fromDefaults
   return $ bstrip <$> bsequence' combined
+
+logConfiguration :: FilePath -> IO NodeConfigurationPartial
+logConfiguration path = do
+  representation <- readRepresentation path
+  return $
+    (bpure Nothing)
+      { ncLogRepresentation = Just representation
+      }
 
 data NodeCLI = NodeCLI
   { mscFp :: !MiscellaneousFilepaths,

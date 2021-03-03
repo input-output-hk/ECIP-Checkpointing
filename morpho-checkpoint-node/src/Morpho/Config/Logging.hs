@@ -45,10 +45,10 @@ newtype LoggingLayer = LoggingLayer
   { llBasicTrace :: forall m. MonadIO m => Trace m Text
   }
 
-loggingFeatures :: Representation -> NodeConfiguration -> IO (LoggingLayer, [CardanoFeature])
-loggingFeatures representation nc
+loggingFeatures :: NodeConfiguration -> IO (LoggingLayer, [CardanoFeature])
+loggingFeatures nc
   | ncLoggingSwitch nc = do
-    (loggingLayer, logging) <- loggingFeatureWithRepresentation representation
+    (loggingLayer, logging) <- loggingFeatureWithRepresentation (ncLogRepresentation nc)
     let metrics = metricsFeature (llBasicTrace loggingLayer)
     return (loggingLayer, [logging, metrics])
   | otherwise = return (LoggingLayer Trace.nullTracer, [])

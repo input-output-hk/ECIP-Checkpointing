@@ -14,7 +14,6 @@ module Morpho.Node.Run
   )
 where
 
-import Cardano.BM.Data.Configuration
 import Cardano.BM.Data.Tracer
 import Cardano.BM.Data.Transformers (setHostname)
 import Cardano.BM.Tracing
@@ -77,14 +76,12 @@ import Prelude (error, id, unlines)
 
 run :: NodeCLI -> IO ()
 run cli = do
-  let ConfigYamlFilePath configFile = configFp cli
-  mnodeConfig <- getNodeConfiguration cli configFile
-  representation <- readRepresentation configFile
+  mnodeConfig <- getNodeConfiguration cli
   case mnodeConfig of
     Nothing -> do
       fail "Something is missing in the config"
     Just nodeConfig -> do
-      (loggingLayer, logging) <- loggingFeatures representation nodeConfig
+      (loggingLayer, logging) <- loggingFeatures nodeConfig
       runCardanoApplicationWithFeatures logging $
         CardanoApplication $ runNode loggingLayer nodeConfig
 
