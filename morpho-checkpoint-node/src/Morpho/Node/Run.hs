@@ -14,8 +14,6 @@ module Morpho.Node.Run
   )
 where
 
-import Barbies
-import Barbies.Bare
 import Cardano.BM.Data.Tracer
 import Cardano.BM.Data.Transformers (setHostname)
 import Cardano.BM.Tracing
@@ -24,7 +22,6 @@ import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
 import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
 import Control.Monad (fail)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
-import Control.Monad.Class.MonadTime
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NE
@@ -54,7 +51,6 @@ import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
 import Network.HostName (getHostName)
 import Ouroboros.Consensus.Block.Abstract
-import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.Config.SupportsNode
 import Ouroboros.Consensus.Fragment.InFuture (defaultClockSkew)
@@ -80,14 +76,14 @@ import Prelude (error, id, unlines)
 
 run :: NodeCLI -> IO ()
 run cli = do
-  nodeConfig' <- parseNodeConfiguration $ unConfigPath (configFp cli)
-  case bsequence' nodeConfig' of
+  mnodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
+  case mnodeConfig of
     Nothing -> do
-      fail $ "Something is missing in the config " <> show nodeConfig'
+      fail "Something is missing in the config"
     Just nodeConfig -> do
-      (loggingLayer, logging) <- loggingFeatures cli (bstrip nodeConfig)
+      (loggingLayer, logging) <- loggingFeatures cli nodeConfig
       runCardanoApplicationWithFeatures logging $
-        CardanoApplication $ runNode loggingLayer (bstrip nodeConfig) cli
+        CardanoApplication $ runNode loggingLayer nodeConfig cli
 
 runNode ::
   LoggingLayer ->
@@ -100,13 +96,12 @@ runNode loggingLayer nc nCli = do
         setHostname hn $
           appendName "node" (llBasicTrace loggingLayer)
 
-  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
   privKeyStr <- liftIO . readFile $ ncNodePrivKeyFile nc
   privKey <- case importPrivateKey $ bytesFromHex privKeyStr of
     Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
     Just pk -> return pk
 
-  let pInfo = protocolInfoMorpho nc privKey start
+  let pInfo = protocolInfoMorpho nc privKey
   tracers <- mkTracers (ncTraceOpts nc) trace
   handleSimpleNode pInfo trace tracers nCli nc
   where
@@ -294,7 +289,7 @@ requestCurrentBlock ::
   MorphoMetrics ->
   IO ()
 requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
-  threadDelay (fromMaybe (1000 * 1000) $ ncPoWBlockFetchInterval nc)
+  threadDelay (ncPoWBlockFetchInterval nc)
   handle (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers) $ do
     er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc)
     either

@@ -16,7 +16,6 @@ import Morpho.Ledger.Forge ()
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block.Forge
-import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Extended
@@ -25,8 +24,8 @@ import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
 
-protocolInfoMorpho :: Monad m => NodeConfiguration -> PrivateKey -> SystemStart -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
-protocolInfoMorpho nc privKey start =
+protocolInfoMorpho :: Monad m => NodeConfiguration -> PrivateKey -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
+protocolInfoMorpho nc privKey =
   ProtocolInfo
     { pInfoConfig =
         TopLevelConfig
@@ -61,7 +60,7 @@ protocolInfoMorpho nc privKey start =
         }
     blockConfig =
       MorphoBlockConfig
-        { systemStart = start,
+        { systemStart = ncSystemStart nc,
           networkMagic = NetworkMagic (ncNetworkMagic nc),
           protocolMagicId = ProtocolMagicId (ncNetworkMagic nc)
         }

@@ -37,9 +37,10 @@ import Cardano.Crypto.ProtocolMagic (RequiresNetworkMagic)
 import Cardano.Prelude
 import Data.Aeson
 import Data.Aeson.Types (Parser)
+import Data.Functor.Compose
 import qualified Data.IP as IP
 import qualified Data.Text as T
-import Data.Time ()
+import Data.Time
 import Data.Yaml (decodeFileThrow)
 import Morpho.Config.Orphans ()
 import Morpho.Crypto.ECDSASignature
@@ -54,7 +55,7 @@ data NodeConfiguration_ t f = NodeConfiguration
     ncNumCoreNodes :: Wear t f Word64,
     ncReqNetworkMagic :: Wear t f RequiresNetworkMagic,
     ncNetworkMagic :: Wear t f Word32,
-    ncSystemStart :: Wear t f (Maybe SystemStart),
+    ncSystemStart :: Wear t f SystemStart,
     ncSecurityParameter :: Wear t f Word64,
     ncStableLedgerDepth :: Wear t f Int,
     ncLoggingSwitch :: Wear t f Bool,
@@ -63,7 +64,7 @@ data NodeConfiguration_ t f = NodeConfiguration
     ncTimeslotLength :: Wear t f SlotLength,
     ncSnapshotsOnDisk :: Wear t f Int,
     ncSnapshotInterval :: Wear t f Word64,
-    ncPoWBlockFetchInterval :: Wear t f (Maybe Int),
+    ncPoWBlockFetchInterval :: Wear t f Int,
     ncPoWNodeRpcUrl :: Wear t f Text,
     ncPrometheusPort :: Wear t f Int,
     -- FIXME: separate data type: CheckpointingConfiguration
@@ -103,7 +104,7 @@ instance FromJSON NodeConfigurationPartial where
     securityParam <- v .: "SecurityParam"
     stableLedgerDepth <- v .: "StableLedgerDepth"
     loggingSwitch <- v .: "TurnOnLogging"
-    traceOptions <- bcoverWith Just <$> traceConfigParser v
+    traceOptions <- traceConfigParser v
     logMetrics <- v .: "TurnOnLogMetrics"
     slotLength <- v .: "SlotDuration"
     snapshotsOnDisk <- v .: "SnapshotsOnDisk"
@@ -123,7 +124,7 @@ instance FromJSON NodeConfigurationPartial where
         numCoreNode
         rNetworkMagic
         networkMagic
-        (Just systemStart)
+        systemStart
         securityParam
         stableLedgerDepth
         loggingSwitch
@@ -132,7 +133,7 @@ instance FromJSON NodeConfigurationPartial where
         slotLength
         snapshotsOnDisk
         snapshotInterval
-        (Just blockFetchInterval)
+        blockFetchInterval
         powNodeRpcUrl
         promPort
         checkpointInterval
@@ -140,41 +141,55 @@ instance FromJSON NodeConfigurationPartial where
         fedPubKeys
         nodePrivKeyFile
 
+emptyConfiguration :: ApplicativeB c => c (Compose IO Maybe)
+emptyConfiguration = bpure (Compose $ return Nothing)
+
+defaultNodeConfiguration :: IO NodeConfigurationPartial
+defaultNodeConfiguration =
+  bsequence $
+    emptyConfiguration
+      { ncSystemStart =
+          Compose $
+            Just . SystemStart <$> getCurrentTime,
+        ncTraceOpts = bmap (Compose . return) $ bcoverWith Just defaultTraceOptions,
+        ncPoWBlockFetchInterval = Compose $ return $ Just 1000000
+      }
+
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
 
-traceConfigParser :: Object -> Parser TraceOptions
+traceConfigParser :: Object -> Parser TraceOptionsPartial
 traceConfigParser v =
   TraceOptions
-    <$> v .:? "TracingVerbosity" .!= NormalVerbosity
-    <*> v .:? "TraceChainDb" .!= True
-    <*> v .:? "TraceChainSyncClient" .!= True
-    <*> v .:? "TraceChainSyncHeaderServer" .!= True
-    <*> v .:? "TraceChainSyncBlockServer" .!= True
-    <*> v .:? "TraceBlockFetchDecisions" .!= True
-    <*> v .:? "TraceBlockFetchServer" .!= True
-    <*> v .:? "TraceBlockFetchClient" .!= True
-    <*> v .:? "TraceTxInbound" .!= True
-    <*> v .:? "TraceTxOutbound" .!= True
-    <*> v .:? "TraceLocalTxSubmissionServer" .!= True
-    <*> v .:? "TraceMempool" .!= True
-    <*> v .:? "TraceForge" .!= True
-    <*> v .:? "TraceChainSyncProtocol" .!= True
-    <*> v .:? "TraceBlockFetchProtocol" .!= True
-    <*> v .:? "TraceBlockFetchProtocolSerialised" .!= True
-    <*> v .:? "TraceTxSubmissionProtocol" .!= True
-    <*> v .:? "TraceLocalChainSyncProtocol" .!= True
-    <*> v .:? "TraceLocalTxSubmissionProtocol" .!= True
-    <*> v .:? "traceLocalStateQueryProtocol" .!= True
-    <*> v .:? "TraceIpSubscription" .!= True
-    <*> v .:? "TraceDNSSubscription" .!= True
-    <*> v .:? "TraceDNSResolver" .!= True
-    <*> v .:? "TraceErrorPolicy" .!= True
-    <*> v .:? "TraceMux" .!= True
-    <*> v .:? "TraceHandshake" .!= True
-    <*> v .:? "TraceLedgerState" .!= True
-    <*> v .:? "TracePoWNodeRpc" .!= True
-    <*> v .:? "TraceTimeTravelError" .!= True
+    <$> v .:? "TracingVerbosity"
+    <*> v .:? "TraceChainDb"
+    <*> v .:? "TraceChainSyncClient"
+    <*> v .:? "TraceChainSyncHeaderServer"
+    <*> v .:? "TraceChainSyncBlockServer"
+    <*> v .:? "TraceBlockFetchDecisions"
+    <*> v .:? "TraceBlockFetchServer"
+    <*> v .:? "TraceBlockFetchClient"
+    <*> v .:? "TraceTxInbound"
+    <*> v .:? "TraceTxOutbound"
+    <*> v .:? "TraceLocalTxSubmissionServer"
+    <*> v .:? "TraceMempool"
+    <*> v .:? "TraceForge"
+    <*> v .:? "TraceChainSyncProtocol"
+    <*> v .:? "TraceBlockFetchProtocol"
+    <*> v .:? "TraceBlockFetchProtocolSerialised"
+    <*> v .:? "TraceTxSubmissionProtocol"
+    <*> v .:? "TraceLocalChainSyncProtocol"
+    <*> v .:? "TraceLocalTxSubmissionProtocol"
+    <*> v .:? "traceLocalStateQueryProtocol"
+    <*> v .:? "TraceIpSubscription"
+    <*> v .:? "TraceDNSSubscription"
+    <*> v .:? "TraceDNSResolver"
+    <*> v .:? "TraceErrorPolicy"
+    <*> v .:? "TraceMux"
+    <*> v .:? "TraceHandshake"
+    <*> v .:? "TraceLedgerState"
+    <*> v .:? "TracePoWNodeRpc"
+    <*> v .:? "TraceTimeTravelError"
 
 instance FromJSON TracingVerbosity where
   parseJSON (String str) = case str of
@@ -211,8 +226,12 @@ instance FromJSON Protocol where
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
-parseNodeConfiguration :: FilePath -> IO NodeConfigurationPartial
-parseNodeConfiguration = decodeFileThrow
+parseNodeConfiguration :: FilePath -> IO (Maybe NodeConfiguration)
+parseNodeConfiguration file = do
+  fromFile <- decodeFileThrow file
+  fromDefaults <- defaultNodeConfiguration
+  let combined = bzipWith (<|>) fromFile fromDefaults
+  return $ bstrip <$> bsequence' combined
 
 data NodeCLI = NodeCLI
   { mscFp :: !MiscellaneousFilepaths,
@@ -329,6 +348,40 @@ deriving instance AllBF Eq f (TraceOptions_ Covered) => Eq (TraceOptions_ Covere
 type TraceOptions = TraceOptions_ Bare Identity
 
 type TraceOptionsPartial = TraceOptions_ Covered Maybe
+
+defaultTraceOptions :: TraceOptions
+defaultTraceOptions =
+  TraceOptions
+    { traceVerbosity = NormalVerbosity,
+      traceChainDB = True,
+      traceChainSyncClient = True,
+      traceChainSyncHeaderServer = True,
+      traceChainSyncBlockServer = True,
+      traceBlockFetchDecisions = True,
+      traceBlockFetchClient = True,
+      traceBlockFetchServer = True,
+      traceTxInbound = True,
+      traceTxOutbound = True,
+      traceLocalTxSubmissionServer = True,
+      traceMempool = True,
+      traceForge = True,
+      traceChainSyncProtocol = True,
+      traceBlockFetchProtocol = True,
+      traceBlockFetchProtocolSerialised = True,
+      traceTxSubmissionProtocol = True,
+      traceLocalChainSyncProtocol = True,
+      traceLocalTxSubmissionProtocol = True,
+      traceLocalStateQueryProtocol = True,
+      traceIpSubscription = True,
+      traceDnsSubscription = True,
+      traceDnsResolver = True,
+      traceErrorPolicy = True,
+      traceMux = True,
+      traceHandshake = True,
+      traceLedgerState = True,
+      tracePoWNodeRpc = True,
+      traceTimeTravelError = True
+    }
 
 newtype ConfigYamlFilePath = ConfigYamlFilePath
   {unConfigPath :: FilePath}
