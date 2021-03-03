@@ -26,7 +26,7 @@ module Morpho.Config.Types
     NodeAddress (..),
     NodeHostAddress (..),
     nodeAddressToSockAddr,
-    parseNodeConfiguration,
+    getNodeConfiguration,
   )
 where
 
@@ -71,7 +71,8 @@ data NodeConfiguration_ t f = NodeConfiguration
     ncCheckpointInterval :: Wear t f Int,
     ncRequiredMajority :: Wear t f Int,
     ncFedPubKeys :: Wear t f [PublicKey],
-    ncNodePrivKeyFile :: Wear t f FilePath
+    ncNodePrivKeyFile :: Wear t f FilePath,
+    ncValidateDB :: Wear t f Bool
   }
   deriving (Generic)
 
@@ -84,6 +85,9 @@ instance ApplicativeB (NodeConfiguration_ Covered)
 instance ConstraintsB (NodeConfiguration_ Covered)
 
 instance BareB NodeConfiguration_
+
+instance (Alternative f) => Semigroup (NodeConfiguration_ Covered f) where
+  (<>) = bzipWith (<|>)
 
 deriving instance AllBF Show f (NodeConfiguration_ Covered) => Show (NodeConfiguration_ Covered f)
 
@@ -140,20 +144,24 @@ instance FromJSON NodeConfigurationPartial where
         requiredMajority
         fedPubKeys
         nodePrivKeyFile
-
-emptyConfiguration :: ApplicativeB c => c (Compose IO Maybe)
-emptyConfiguration = bpure (Compose $ return Nothing)
+        Nothing
 
 defaultNodeConfiguration :: IO NodeConfigurationPartial
 defaultNodeConfiguration =
   bsequence $
-    emptyConfiguration
+    (bpure (Compose $ return Nothing))
       { ncSystemStart =
           Compose $
             Just . SystemStart <$> getCurrentTime,
         ncTraceOpts = bmap (Compose . return) $ bcoverWith Just defaultTraceOptions,
         ncPoWBlockFetchInterval = Compose $ return $ Just 1000000
       }
+
+cliToNodeConfiguration :: NodeCLI -> NodeConfigurationPartial
+cliToNodeConfiguration nCli =
+  (bpure Nothing)
+    { ncValidateDB = Just $ validateDB nCli
+    }
 
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
@@ -226,11 +234,12 @@ instance FromJSON Protocol where
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
-parseNodeConfiguration :: FilePath -> IO (Maybe NodeConfiguration)
-parseNodeConfiguration file = do
+getNodeConfiguration :: NodeCLI -> FilePath -> IO (Maybe NodeConfiguration)
+getNodeConfiguration nCli file = do
+  let fromCLI = cliToNodeConfiguration nCli
   fromFile <- decodeFileThrow file
   fromDefaults <- defaultNodeConfiguration
-  let combined = bzipWith (<|>) fromFile fromDefaults
+  let combined = fromCLI <> fromFile <> fromDefaults
   return $ bstrip <$> bsequence' combined
 
 data NodeCLI = NodeCLI

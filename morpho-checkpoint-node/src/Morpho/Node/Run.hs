@@ -76,7 +76,7 @@ import Prelude (error, id, unlines)
 
 run :: NodeCLI -> IO ()
 run cli = do
-  mnodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
+  mnodeConfig <- getNodeConfiguration cli $ unConfigPath (configFp cli)
   case mnodeConfig of
     Nothing -> do
       fail "Something is missing in the config"
@@ -203,7 +203,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
                 }
           }
   dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ mscFp nCli)
-  when (validateDB nCli) $
+  when (ncValidateDB nc) $
     traceWith tracer "Performing DB validation"
   (metrics, irs) <- setupPrometheus
   let kernelHook ::
@@ -266,11 +266,11 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
     customiseChainDbArgs args =
       args
         { ChainDB.cdbImmValidation =
-            if validateDB nCli
+            if ncValidateDB nc
               then ValidateAllChunks
               else ValidateMostRecentChunk,
           ChainDB.cdbVolValidation =
-            if validateDB nCli
+            if ncValidateDB nc
               then ValidateAll
               else NoValidation,
           ChainDB.cdbDiskPolicy =
