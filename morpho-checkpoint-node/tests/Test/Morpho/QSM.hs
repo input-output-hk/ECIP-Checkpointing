@@ -365,9 +365,13 @@ runDualNode createDir testId nodeId = do
                 }
           }
   mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
-  node <- async $ run nodeCli
-  link node
-  return $ NodeHandle nodeId mockNode node
+  nodeConfig' <- getNodeConfiguration nodeCli
+  case nodeConfig' of
+    Nothing -> fail "Some field is missing"
+    Just nodeConfig -> do
+      node <- async $ run nodeConfig
+      link node
+      return $ NodeHandle nodeId mockNode node
 
 data NodeHandle = NodeHandle
   { _nodeId :: Int,

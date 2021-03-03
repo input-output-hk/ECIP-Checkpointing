@@ -1,4 +1,5 @@
 import Cardano.Prelude
+import Control.Monad (fail)
 import Morpho.Common.Parsers
 import Morpho.Common.TopHandler
 import Morpho.Config.Types
@@ -11,7 +12,10 @@ import Prelude (String)
 main :: IO ()
 main = toplevelExceptionHandler $ do
   cli <- Opt.execParser opts
-  run cli
+  nodeConfig' <- getNodeConfiguration cli
+  case nodeConfig' of
+    Nothing -> fail "Some field is empty"
+    Just nodeConfig -> run nodeConfig
   where
     opts :: Opt.ParserInfo NodeCLI
     opts =

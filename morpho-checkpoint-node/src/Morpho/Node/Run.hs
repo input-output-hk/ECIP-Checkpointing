@@ -74,16 +74,11 @@ import System.Metrics.Prometheus.Http.Scrape (serveHttpTextMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
-run :: NodeCLI -> IO ()
-run cli = do
-  mnodeConfig <- getNodeConfiguration cli
-  case mnodeConfig of
-    Nothing -> do
-      fail "Something is missing in the config"
-    Just nodeConfig -> do
-      (loggingLayer, logging) <- loggingFeatures nodeConfig
-      runCardanoApplicationWithFeatures logging $
-        CardanoApplication $ runNode loggingLayer nodeConfig
+run :: NodeConfiguration -> IO ()
+run nodeConfig = do
+  (loggingLayer, logging) <- loggingFeatures nodeConfig
+  runCardanoApplicationWithFeatures logging $
+    CardanoApplication $ runNode loggingLayer nodeConfig
 
 runNode ::
   LoggingLayer ->
