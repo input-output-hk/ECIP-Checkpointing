@@ -44,10 +44,10 @@ newtype LoggingLayer = LoggingLayer
   { llBasicTrace :: forall m. MonadIO m => Trace m Text
   }
 
-loggingFeatures :: NodeCLI -> NodeConfiguration -> IO (LoggingLayer, [CardanoFeature])
-loggingFeatures nCli nc
+loggingFeatures :: FilePath -> NodeConfiguration -> IO (LoggingLayer, [CardanoFeature])
+loggingFeatures configFile nc
   | ncLoggingSwitch nc = do
-    (loggingLayer, logging) <- loggingFeatureWithConfigFile $ unConfigPath $ configFp nCli
+    (loggingLayer, logging) <- loggingFeatureWithConfigFile configFile
     let metrics = metricsFeature (llBasicTrace loggingLayer)
     return (loggingLayer, [logging, metrics])
   | otherwise = return (LoggingLayer Trace.nullTracer, [])

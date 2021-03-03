@@ -76,21 +76,21 @@ import Prelude (error, id, unlines)
 
 run :: NodeCLI -> IO ()
 run cli = do
-  mnodeConfig <- getNodeConfiguration cli $ unConfigPath (configFp cli)
+  let ConfigYamlFilePath configFile = configFp cli
+  mnodeConfig <- getNodeConfiguration cli configFile
   case mnodeConfig of
     Nothing -> do
       fail "Something is missing in the config"
     Just nodeConfig -> do
-      (loggingLayer, logging) <- loggingFeatures cli nodeConfig
+      (loggingLayer, logging) <- loggingFeatures configFile nodeConfig
       runCardanoApplicationWithFeatures logging $
-        CardanoApplication $ runNode loggingLayer nodeConfig cli
+        CardanoApplication $ runNode loggingLayer nodeConfig
 
 runNode ::
   LoggingLayer ->
   NodeConfiguration ->
-  NodeCLI ->
   IO ()
-runNode loggingLayer nc nCli = do
+runNode loggingLayer nc = do
   hn <- hostname
   let trace =
         setHostname hn $
@@ -103,7 +103,7 @@ runNode loggingLayer nc nCli = do
 
   let pInfo = protocolInfoMorpho nc privKey
   tracers <- mkTracers (ncTraceOpts nc) trace
-  handleSimpleNode pInfo trace tracers nCli nc
+  handleSimpleNode pInfo trace tracers nc
   where
     hostname = do
       hn0 <- pack <$> getHostName
@@ -120,12 +120,11 @@ handleSimpleNode ::
   ProtocolInfo IO blk ->
   Trace IO Text -> -- (LogObject Text)
   Tracers RemoteConnectionId LocalConnectionId h c ->
-  NodeCLI ->
   NodeConfiguration ->
   IO ()
-handleSimpleNode pInfo trace nodeTracers nCli nc = do
+handleSimpleNode pInfo trace nodeTracers nc = do
   NetworkTopology nodeSetups <-
-    either error id <$> readTopologyFile (unTopology . topFile $ mscFp nCli)
+    either error id <$> readTopologyFile (unTopology . topFile $ ncMscFp nc)
   let cfg = pInfoConfig pInfo
   let tracer = contramap pack $ toLogObject trace
   let producers' = case List.lookup nid $
@@ -148,7 +147,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
       ]
   -- Socket directory TODO
   addresses <- nodeAddressInfo (ncNodeAddress nc)
-  let localSocketPath = unSocket . socketFile $ mscFp nCli
+  let localSocketPath = unSocket . socketFile $ ncMscFp nc
   removeStaleLocalSocket localSocketPath
   let ipProducerAddrs :: [NodeAddress]
       dnsProducerAddrs :: [RemoteAddress]
@@ -202,7 +201,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
                   acceptedConnectionsDelay = 5
                 }
           }
-  dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ mscFp nCli)
+  dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ ncMscFp nc)
   when (ncValidateDB nc) $
     traceWith tracer "Performing DB validation"
   (metrics, irs) <- setupPrometheus
