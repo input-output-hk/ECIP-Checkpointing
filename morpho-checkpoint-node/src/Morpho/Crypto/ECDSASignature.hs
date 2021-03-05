@@ -15,6 +15,7 @@ module Morpho.Crypto.ECDSASignature
     sigToHex,
     importPublicKey,
     importPrivateKey,
+    readPrivateKey,
     PublicKey (..), -- not opaque for testing
     PrivateKey,
     KeyPair (..),
@@ -31,6 +32,8 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Short as BS (fromShort, toShort)
 import Data.Maybe (fromJust)
 import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import GHC.Generics (Generic)
 import GHC.Word (Word8)
 import qualified Morpho.Common.Bytes as B
@@ -133,6 +136,11 @@ importPrivateKey (B.Bytes bytestr) =
   PrivateKey . B.Bytes . EC.getSecKey <$> EC.secKey adjustedBytestr
   where
     adjustedBytestr = if BS.length bytestr > 32 then BS.drop 1 bytestr else bytestr
+
+readPrivateKey :: FilePath -> IO (Maybe PrivateKey)
+readPrivateKey file = do
+  privKeyStr <- T.strip <$> T.readFile file
+  return $ importPrivateKey $ bytesFromHex privKeyStr
 
 -- | import an uncompressed 64 byte long public key (that is without compression indicator byte)
 importPublicKey :: B.Bytes -> Maybe PublicKey
