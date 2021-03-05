@@ -37,6 +37,7 @@ import Ouroboros.Consensus.NodeId
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Block hiding (castHash)
 import Ouroboros.Network.Point
+import Test.Morpho.Common.Utils
 import qualified Test.Util.Serialisation.Golden as G
 import Prelude
 
@@ -122,7 +123,7 @@ exampleVote =
     }
 
 examplePrivateKey :: PrivateKey
-examplePrivateKey = fromMaybe (error "privateKey") $ importPrivateKey $ bytesFromHex $ T.pack $ replicate 64 'a'
+examplePrivateKey = fromRight' $ importPrivateKey $ fromRight' $ bytesFromHex $ T.pack $ replicate 64 'a'
 
 exampleSignature :: Signature
 exampleSignature =
@@ -202,8 +203,8 @@ exampleNodeConfig =
       ncNodePrivKeyFile = "abc"
     }
   where
-    hex = fromMaybe (error "publicKey") $ normalizeHex "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167"
-    publicKey = fromMaybe (error "publicKey") $ importPublicKey $ bytesFromHex hex
+    hex = fromJust $ normalizeHex "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167"
+    publicKey = fromRight' $ importPublicKey $ fromRight' $ bytesFromHex hex
 
 exampleTraceOptions :: TraceOptions
 exampleTraceOptions =

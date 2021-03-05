@@ -54,9 +54,9 @@ newtype PrivateKey = PrivateKey B.Bytes
 instance FromJSON PublicKey where
   parseJSON (String str) =
     case normalizeHex str of
-      Just hex -> case importPublicKey $ bytesFromHex hex of
-        Just sk -> pure sk
-        Nothing -> fail $ "Invalid PublicKey (should be 64 bytes): " <> show str
+      Just hex -> case bytesFromHex hex >>= importPublicKey of
+        Left err -> fail $ "Failed to import public key: " <> T.unpack err
+        Right sk -> pure sk
       Nothing -> fail $ "Parsing of PublicKey failed. Invalid hex: " <> show str
   parseJSON invalid =
     fail $
@@ -67,9 +67,9 @@ instance FromJSON PublicKey where
 instance FromJSON PrivateKey where
   parseJSON (String str) =
     case normalizeHex str of
-      Just hex -> case importPrivateKey $ bytesFromHex hex of
-        Just sk -> pure sk
-        Nothing -> fail $ "Invalid PrivateKey (should be 32 bytes): " <> show str
+      Just hex -> case bytesFromHex hex >>= importPrivateKey of
+        Left err -> fail $ "Failed to import private key: " <> T.unpack err
+        Right sk -> pure sk
       Nothing -> fail $ "Parsing of PrivateKey failed. Invalid hex: " <> show str
   parseJSON invalid =
     fail $
@@ -131,21 +131,25 @@ recSigFromSignature sig =
     compactRS = CompactRecSig (BS.toShort r) (BS.toShort s) (v - morphoRecIdOffset)
 
 -- | import a 32 or 33 byte long (that is with leading 0) private key
-importPrivateKey :: B.Bytes -> Maybe PrivateKey
-importPrivateKey (B.Bytes bytestr) =
-  PrivateKey . B.Bytes . EC.getSecKey <$> EC.secKey adjustedBytestr
+importPrivateKey :: B.Bytes -> Either Text PrivateKey
+importPrivateKey (B.Bytes bytestr) = case EC.secKey adjustedBytestr of
+  Nothing -> Left "Invalid private key length"
+  Just key -> Right $ PrivateKey $ B.Bytes $ EC.getSecKey key
   where
     adjustedBytestr = if BS.length bytestr > 32 then BS.drop 1 bytestr else bytestr
 
-readPrivateKey :: FilePath -> IO (Maybe PrivateKey)
+readPrivateKey :: FilePath -> IO (Either Text PrivateKey)
 readPrivateKey file = do
   privKeyStr <- T.strip <$> T.readFile file
-  return $ importPrivateKey $ bytesFromHex privKeyStr
+  return $ bytesFromHex privKeyStr >>= importPrivateKey
 
 -- | import an uncompressed 64 byte long public key (that is without compression indicator byte)
-importPublicKey :: B.Bytes -> Maybe PublicKey
-importPublicKey (B.Bytes bytestr) =
-  toPublicKey <$> EC.importPubKey (BS.cons uncompressedIndicator bytestr)
+importPublicKey :: B.Bytes -> Either Text PublicKey
+importPublicKey (B.Bytes bytestr) = case EC.importPubKey adjustedBytestr of
+  Nothing -> Left $ "Invalid public key: " <> T.pack (show adjustedBytestr)
+  Just pubkey -> Right $ toPublicKey pubkey
+  where
+    adjustedBytestr = BS.cons uncompressedIndicator bytestr
 
 -- safe if PrivateKey was created using importPrivateKey
 getSecKey :: PrivateKey -> SecKey

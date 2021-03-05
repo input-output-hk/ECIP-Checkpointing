@@ -19,6 +19,7 @@ import Cardano.Prelude hiding (empty)
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
 import Data.Aeson
+import qualified Data.Text as T
 import Morpho.Common.Bytes
 import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
@@ -38,7 +39,9 @@ newtype PowBlockHash = PowBlockHash {unPowBlockHash :: Bytes}
 instance FromJSON PowBlockHash where
   parseJSON (String text) =
     case normalizeHex text of
-      Just h -> pure $ PowBlockHash $ bytesFromHex h
+      Just h -> case bytesFromHex h of
+        Left err -> fail $ "Failed to parse block hash: " <> T.unpack err
+        Right hash -> pure $ PowBlockHash hash
       Nothing -> fail $ "Failed to parse block hash. Invalid hash: " <> show text
   parseJSON invalid = fail $ "Failed to parse block hash due to type mismatch. Encountered: " <> show invalid
 

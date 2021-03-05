@@ -15,7 +15,7 @@ where
 
 import Cardano.Prelude
 import qualified Data.ByteString as BS
-import qualified Data.HexString as Hex
+import qualified Data.ByteString.Base16 as B16
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Morpho.Common.Bytes as B
@@ -27,7 +27,7 @@ integerFromBytes (B.Bytes bytestr) = BS.foldl' f 0 bytestr
 
 integerToBytes :: (Integral a, Bits a, Show a) => Int -> a -> B.Bytes
 integerToBytes len n =
-  if (BS.length padded > len)
+  if BS.length padded > len
     then panic $ "Integer " <> show n <> " to large to fit in " <> show len <> " bytes"
     else B.Bytes padded
   where
@@ -43,23 +43,27 @@ integerToBytes len n =
         digit = fromIntegral $ i .&. 0xFF
         remd = i `shiftR` 8
 
-integerFromHexString :: (Integral a, Bits a) => Hex.HexString -> a
-integerFromHexString = integerFromBytes . B.Bytes . Hex.toBytes
-
-integerToHexString :: (Integral a, Bits a, Show a) => Int -> a -> Hex.HexString
-integerToHexString len = Hex.fromBytes . B.unBytes . integerToBytes len
-
-integerFromHex :: (Integral a, Bits a) => Text -> a
-integerFromHex = integerFromHexString . Hex.hexString . encodeUtf8
+integerFromHex :: (Integral a, Bits a) => Text -> Either Text a
+integerFromHex hex = integerFromBytes <$> bytesFromHex hex
 
 integerToHex :: (Integral a, Bits a, Show a) => Int -> a -> Text
-integerToHex len = Hex.toText . integerToHexString len
+integerToHex len = decodeUtf8 . B16.encode . B.unBytes . integerToBytes len
 
 bytesToHex :: B.Bytes -> Text
-bytesToHex = Hex.toText . Hex.fromBytes . B.unBytes
+bytesToHex = decodeUtf8 . B16.encode . B.unBytes
 
-bytesFromHex :: Text -> B.Bytes
-bytesFromHex = B.Bytes . Hex.toBytes . Hex.hexString . encodeUtf8
+bytesFromHex :: Text -> Either Text B.Bytes
+bytesFromHex text
+  | BS.all isValidHex bytes = Right $ B.Bytes $ B16.decodeLenient bytes
+  | otherwise = Left $ "Not a valid hex string: " <> text
+  where
+    bytes = encodeUtf8 text
+
+isValidHex :: Word8 -> Bool
+isValidHex c
+  | 48 <= c && c < 58 = True
+  | 97 <= c && c < 103 = True
+  | otherwise = False
 
 --validates hex, removes 0x prefix if present
 normalizeHex :: Text -> Maybe Text
@@ -72,5 +76,5 @@ normalizeHex s =
     hexChars = Set.fromList $ ['0' .. '9'] <> ['a' .. 'f'] <> ['A' .. 'F']
     inputAsSet = Set.fromList $ T.unpack normalized
     validChars = Set.difference inputAsSet hexChars == Set.empty
-    validLength = T.length s `mod` 2 == 0
+    validLength = even (T.length s)
     validHex = validChars && validLength

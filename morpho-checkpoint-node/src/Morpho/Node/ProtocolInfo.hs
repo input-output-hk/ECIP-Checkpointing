@@ -33,8 +33,8 @@ protocolInfoMorpho nc = do
   start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
   mprivKey <- liftIO $ readPrivateKey (ncNodePrivKeyFile nc)
   privKey <- case mprivKey of
-    Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
-    Just pk -> return pk
+    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
+    Right pk -> return pk
   let ledgerConfig =
         MorphoLedgerConfig
           { checkpointingInterval = ncCheckpointInterval nc,

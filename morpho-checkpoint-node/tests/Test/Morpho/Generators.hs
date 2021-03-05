@@ -121,9 +121,9 @@ generateBytes =
 instance Arbitrary PrivateKey where
   arbitrary = do
     hex <- vectorOf 64 (elements validHex)
-    case importPrivateKey $ bytesFromHex $ T.pack hex of
-      Nothing -> error $ "Invalid Generator for PrivateKey: " ++ hex
-      Just sk -> pure sk
+    case bytesFromHex (T.pack hex) >>= importPrivateKey of
+      Left err -> error $ "Invalid Generator for PrivateKey. Generated " <> hex <> ", which is invalid because: " <> T.unpack err
+      Right sk -> pure sk
     where
       validHex = ['0' .. '9'] <> ['a' .. 'f']
 
