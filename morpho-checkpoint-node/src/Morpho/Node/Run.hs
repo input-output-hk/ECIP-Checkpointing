@@ -1,4 +1,6 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
@@ -23,9 +25,8 @@ import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeat
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
-import qualified Data.List.NonEmpty as NE
 import Data.Map.Strict (size)
-import Data.Text (Text, breakOn, pack, take)
+import Data.Text (breakOn, pack, take)
 import Morpho.Common.Socket
 import Morpho.Config.Logging (loggingFeatures)
 import Morpho.Config.Logging hiding (hostname)
@@ -48,27 +49,24 @@ import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
 import Network.HostName (getHostName)
+import Network.Socket
 import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
-import Ouroboros.Consensus.Config.SupportsNode
-import Ouroboros.Consensus.Fragment.InFuture (defaultClockSkew)
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
 import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, run, tracers)
-import qualified Ouroboros.Consensus.Node as Node (run)
+import qualified Ouroboros.Consensus.Node as Node (runWith)
 import Ouroboros.Consensus.Node.Run (RunNode)
 import Ouroboros.Consensus.NodeId
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
-import Ouroboros.Consensus.Storage.ImmutableDB.Types
 import Ouroboros.Consensus.Storage.LedgerDB.DiskPolicy
-import Ouroboros.Consensus.Storage.VolatileDB
 import Ouroboros.Consensus.Util.ResourceRegistry
 import Ouroboros.Consensus.Util.STM
 import Ouroboros.Network.Block
 import Ouroboros.Network.NodeToClient
-import Ouroboros.Network.Server.RateLimiting
+import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
 import System.Directory
-import System.Metrics.Prometheus.Http.Scrape (serveHttpTextMetrics)
+import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
@@ -102,9 +100,7 @@ runNode loggingLayer nc nCli = do
 -- create a new block.
 handleSimpleNode ::
   forall blk h c.
-  ( RunNode blk,
-    (blk ~ MorphoBlock h c)
-  ) =>
+  (RunNode blk, blk ~ MorphoBlock h c, MorphoStateDefaultConstraints h c) =>
   ProtocolInfo IO blk ->
   Trace IO Text -> -- (LogObject Text)
   Tracers RemoteConnectionId LocalConnectionId h c ->
@@ -114,7 +110,6 @@ handleSimpleNode ::
 handleSimpleNode pInfo trace nodeTracers nCli nc = do
   NetworkTopology nodeSetups <-
     either error id <$> readTopologyFile (unTopology . topFile $ mscFp nCli)
-  let cfg = pInfoConfig pInfo
   let tracer = contramap pack $ toLogObject trace
   let producers' = case List.lookup nid $
         map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) nodeSetups of
@@ -136,7 +131,9 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
       ]
   -- Socket directory TODO
   addresses <- nodeAddressInfo (nodeAddr nCli)
-  let localSocketPath = unSocket . socketFile $ mscFp nCli
+  let ipv4Address = find ((== AF_INET) . addrFamily) addresses
+      ipv6Address = find ((== AF_INET6) . addrFamily) addresses
+      localSocketPath = unSocket . socketFile $ mscFp nCli
   removeStaleLocalSocket localSocketPath
   let ipProducerAddrs :: [NodeAddress]
       dnsProducerAddrs :: [RemoteAddress]
@@ -173,12 +170,15 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
             dtHandshakeTracer = handshakeTracer nodeTracers,
             dtHandshakeLocalTracer = handshakeLocalTracer nodeTracers,
             dtLocalErrorPolicyTracer = localErrorPolicyTracer nodeTracers,
-            dtAcceptPolicyTracer = acceptPolicyTracer nodeTracers
+            dtAcceptPolicyTracer = acceptPolicyTracer nodeTracers,
+            dtDiffusionInitializationTracer = diffusionInitializationTracer nodeTracers,
+            dtLedgerPeersTracer = ledgerPeersTracer nodeTracers
           }
       diffusionArguments :: DiffusionArguments
       diffusionArguments =
         DiffusionArguments
-          { daAddresses = Right addresses,
+          { daIPv4Address = Right <$> ipv4Address,
+            daIPv6Address = Right <$> ipv6Address,
             daLocalAddress = Right localSocketPath,
             daIpProducers = ipProducers,
             daDnsProducers = dnsProducers,
@@ -188,7 +188,8 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
                 { acceptedConnectionsHardLimit = 512,
                   acceptedConnectionsSoftLimit = 384,
                   acceptedConnectionsDelay = 5
-                }
+                },
+            daDiffusionMode = InitiatorAndResponderDiffusionMode
           }
   dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ mscFp nCli)
   when (validateDB nCli) $
@@ -203,67 +204,97 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         void $
           forkLinkedThread registry "PrometheusMetrics" $
             catch
-              (serveHttpTextMetrics (ncPrometheusPort nc) ["metrics"] irs)
+              (serveMetrics (ncPrometheusPort nc) ["metrics"] irs)
               (\e -> traceWith tracer $ show (e :: IOException))
         -- Watch the tip of the chain and store it in @varTip@ so we can include
         -- it in trace messages.
         let chainDB = getChainDB nodeKernel
         lastBlockTsVar <- atomically (newTVar Nothing)
         void $
-          onEachChange registry "WriteTip" id Nothing (ChainDB.getTipPoint chainDB) $ \tip -> do
-            traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
-            setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
+          forkLinkedWatcher
+            registry
+            "WriteTip"
+            Watcher
+              { wFingerprint = id,
+                wInitial = Nothing,
+                wReader = ChainDB.getTipPoint chainDB,
+                wNotify = \tip -> do
+                  traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
+                  setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
+              }
         --  Track current block number
         void $
-          onEachChange registry "TrackBlockNumberMetric" id Nothing (ChainDB.getTipBlockNo chainDB) $
-            \ob -> do
-              let mb = withOriginToMaybe ob
-              set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
+          forkLinkedWatcher
+            registry
+            "TrackBlockNumberMetric"
+            Watcher
+              { wFingerprint = id,
+                wInitial = Nothing,
+                wReader = ChainDB.getTipBlockNo chainDB,
+                wNotify =
+                  \ob -> do
+                    let mb = withOriginToMaybe ob
+                    set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
+              }
         --  Check if we need to push a checkpoint to the PoW node
         void $
-          onEachChange registry "PublishStableCheckpoint" id Nothing (ledgerState <$> ChainDB.getCurrentLedger chainDB) $
-            publishStableCheckpoint nc nodeTracers metrics chainDB
+          forkLinkedWatcher
+            registry
+            "PublishStableCheckpoint"
+            Watcher
+              { wFingerprint = id,
+                wInitial = Nothing,
+                wReader = ledgerState <$> ChainDB.getCurrentLedger chainDB,
+                wNotify =
+                  publishStableCheckpoint nc nodeTracers metrics chainDB
+              }
         -- Fetch the current stable PoW block
         void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel nc nodeTracers metrics
         -- Track the nb of connected peers
         void $
-          onEachChange registry "TrackNbPeersMetric" id Nothing (size <$> readTVar (getNodeCandidates nodeKernel)) $
-            \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers metrics
+          forkLinkedWatcher
+            registry
+            "TrackNbPeersMetric"
+            Watcher
+              { wFingerprint = id,
+                wInitial = Nothing,
+                wReader = size <$> readTVar (getNodeCandidates nodeKernel),
+                wNotify =
+                  \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers metrics
+              }
   let args =
         RunNodeArgs
           { rnTraceConsensus = consensusTracers nodeTracers,
             rnTraceNTN = nodeToNodeTracers nodeTracers,
             rnTraceNTC = nodeToClientTracers nodeTracers,
-            rnTraceDB = chainDBTracer nodeTracers,
-            rnTraceDiffusion = diffusionTracers,
-            rnDiffusionArguments = diffusionArguments,
-            rnNetworkMagic = getNetworkMagic $ blockConfigBlock $ topLevelConfigBlock cfg,
-            rnDatabasePath = dbPath,
             rnProtocolInfo = pInfo,
-            rnCustomiseChainDbArgs = customiseChainDbArgs,
-            rnCustomiseNodeArgs = id,
-            rnNodeToNodeVersions = NE.fromList [()],
-            rnNodeToClientVersions = NE.fromList [()],
-            rnNodeKernelHook = kernelHook,
-            rnMaxClockSkew = defaultClockSkew
+            rnNodeKernelHook = kernelHook
           }
-  Node.run args
+      stdRunNodeArgs =
+        StdRunNodeArgs
+          { srnBfcMaxConcurrencyBulkSync = Nothing,
+            srnBfcMaxConcurrencyDeadline = Nothing,
+            srcChainDbValidateOverride = validateDB nCli,
+            srnDatabasePath = dbPath,
+            srnDiffusionArguments = diffusionArguments,
+            srnDiffusionTracers = diffusionTracers,
+            srnTraceChainDB = chainDBTracer nodeTracers
+          }
+  lowLevelArgs <- stdLowLevelRunNodeArgsIO args stdRunNodeArgs
+  let customizedLowLevelArgs =
+        lowLevelArgs
+          { llrnCustomiseChainDbArgs = customiseChainDbArgs
+          }
+
+  Node.runWith args customizedLowLevelArgs
   where
     blockNoToDouble = realToFrac . unBlockNo
     nid = case ncNodeId nc of
       (CoreId n) -> n
       (RelayId _) -> error "Non-core nodes currently not supported"
-    customiseChainDbArgs args =
-      args
-        { ChainDB.cdbImmValidation =
-            if validateDB nCli
-              then ValidateAllChunks
-              else ValidateMostRecentChunk,
-          ChainDB.cdbVolValidation =
-            if validateDB nCli
-              then ValidateAll
-              else NoValidation,
-          ChainDB.cdbDiskPolicy =
+    customiseChainDbArgs cdbArgs =
+      cdbArgs
+        { cdbDiskPolicy =
             DiskPolicy
               { onDiskNumSnapshots = fromIntegral $ ncSnapshotsOnDisk nc,
                 onDiskShouldTakeSnapshot = const (== ncSnapshotInterval nc)
@@ -272,6 +303,7 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
 
 requestCurrentBlock ::
   forall peer localPeer h c.
+  MorphoStateDefaultConstraints h c =>
   Tracer IO PoWNodeRpcTrace ->
   NodeKernel IO peer localPeer (MorphoBlock h c) ->
   NodeConfiguration ->
@@ -293,7 +325,7 @@ requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
       set (fromIntegral . powBlockNo $ blockRef) $ mLatestPowBlock metrics
       (traceWith tr . RpcLatestPoWBlock) resp
       st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
-      let maybeVote = voteBlockRef (blockConfigLedger $ topLevelConfigBlock $ getTopLevelConfig kernel) st blockRef
+      let maybeVote = voteBlockRef (configLedger $ getTopLevelConfig kernel) st blockRef
       case maybeVote of
         Left err ->
           traceWith (extractStateTracer nodeTracers) $ ExtractTxErrorTrace err

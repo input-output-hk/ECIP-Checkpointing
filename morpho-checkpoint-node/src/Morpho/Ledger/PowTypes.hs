@@ -15,26 +15,25 @@ module Morpho.Ledger.PowTypes
   )
 where
 
-import Cardano.Prelude (NoUnexpectedThunks)
 import Cardano.Prelude hiding (empty)
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
 import Data.Aeson
-import GHC.Generics (Generic)
 import Morpho.Common.Bytes
 import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
+import NoThunks.Class
 
 newtype PowBlockNo = PowBlockNo {unPowBlockNo :: Int}
   deriving stock (Eq, Show, Generic)
   deriving newtype (Num, Ord, Real, Enum, Integral, ToJSON, FromJSON)
   deriving anyclass (Serialise)
-  deriving anyclass (NoUnexpectedThunks)
+  deriving anyclass (NoThunks)
 
 newtype PowBlockHash = PowBlockHash {unPowBlockHash :: Bytes}
   deriving stock (Eq, Show, Ord, Generic)
   deriving anyclass (Serialise)
-  deriving anyclass (NoUnexpectedThunks)
+  deriving anyclass (NoThunks)
 
 instance FromJSON PowBlockHash where
   parseJSON (String text) =
@@ -52,7 +51,7 @@ data PowBlockRef = PowBlockRef
   }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (Serialise)
-  deriving anyclass (NoUnexpectedThunks)
+  deriving anyclass (NoThunks)
 
 instance ToJSON PowBlockRef where
   toJSON PowBlockRef {..} =
@@ -73,7 +72,7 @@ data Vote = Vote
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 instance ToJSON Vote
 
@@ -83,7 +82,7 @@ data Checkpoint = Checkpoint
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 genesisCheckpoint :: Checkpoint
 genesisCheckpoint = Checkpoint (PowBlockRef (PowBlockNo 0) (PowBlockHash empty)) []

@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -16,8 +17,6 @@
 module Morpho.Ledger.Serialise where
 
 import Cardano.Prelude
-import Codec.CBOR.Decoding (Decoder)
-import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Except
@@ -32,7 +31,7 @@ import Ouroboros.Consensus.Ledger.SupportsMempool
 import Ouroboros.Consensus.Node.Run
 import Ouroboros.Consensus.Node.Serialisation
 import Ouroboros.Consensus.Protocol.BFT
-import Ouroboros.Consensus.Storage.ChainDB.Serialisation
+import Ouroboros.Consensus.Storage.Serialisation
 import Ouroboros.Network.Block
 
 instance (HashAlgorithm h, BftCrypto c) => EncodeDisk (MorphoBlock h c) (MorphoBlock h c) where
@@ -89,20 +88,17 @@ instance (blk ~ MorphoBlock h c) => DecodeDisk blk ()
 
 instance (HashAlgorithm h, BftCrypto c, blk ~ MorphoBlock h c) => EncodeDisk blk (Header blk)
 
-instance (HashAlgorithm h, BftCrypto c) => ImmDbSerialiseConstraints (MorphoBlock h c)
-
-instance BftCrypto c => LgrDbSerialiseConstraints (MorphoBlock h c)
-
-instance (HashAlgorithm h, BftCrypto c) => VolDbSerialiseConstraints (MorphoBlock h c)
-
 instance (HashAlgorithm h, BftCrypto c) => EncodeDiskDep (NestedCtxt Header) (MorphoBlock h c)
+
+instance (HashAlgorithm h, BftCrypto c) => HasBinaryBlockInfo (MorphoBlock h c) where
+  getBinaryBlockInfo = morphoBlockBinaryInfo
 
 instance (HashAlgorithm h, BftCrypto c) => SerialiseDiskConstraints (MorphoBlock h c)
 
 encodeMorphoBlock :: (HashAlgorithm h, BftCrypto c) => MorphoBlock h c -> CBOR.Encoding
 encodeMorphoBlock = encode
 
-instance (HashAlgorithm h, BftCrypto c) => SerialiseNodeToNodeConstraints (MorphoBlock h c)
+instance (HashAlgorithm h, BftCrypto c) => SerialiseNodeToClientConstraints (MorphoBlock h c)
 
 instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c) =>
@@ -137,7 +133,8 @@ instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c) =>
   SerialiseNodeToNode blk (GenTxId blk)
 
-instance (HashAlgorithm h, BftCrypto c) => SerialiseNodeToClientConstraints (MorphoBlock h c)
+instance (HashAlgorithm h, BftCrypto c) => SerialiseNodeToNodeConstraints (MorphoBlock h c) where
+  estimateBlockSize = fromIntegral . morphoBlockSize
 
 instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c) =>
@@ -178,35 +175,14 @@ instance
 
 instance
   (blk ~ MorphoBlock h c, BftCrypto c) =>
-  SerialiseNodeToClient blk (SomeBlock Query blk)
+  SerialiseNodeToClient blk (SomeSecond Query blk)
   where
-  encodeNodeToClient _ _ (SomeBlock q) = encodeMorphoQuery q
-  decodeNodeToClient _ _ = decodeMorphoQuery
+  encodeNodeToClient _ _ query = case query of
+  decodeNodeToClient _ _ = fail "Morpho doesn't support node-to-client queries"
 
 instance
   (blk ~ MorphoBlock h c, BftCrypto c) =>
   SerialiseResult blk (Query blk)
   where
-  encodeResult _ _ = encodeMorphoResult
-  decodeResult _ _ = decodeMorphoResult
-
-encodeMorphoQuery :: Query (MorphoBlock h c) result -> CBOR.Encoding
-encodeMorphoQuery query = case query of
-  GetDummy -> CBOR.encodeWord8 0
-
-decodeMorphoQuery :: Decoder s (SomeBlock Query (MorphoBlock h c))
-decodeMorphoQuery = do
-  tag <- CBOR.decodeWord8
-  case tag of
-    0 -> return $ SomeBlock GetDummy
-    _ -> fail $ "decodeMorphoQuery: invalid tag " <> show tag
-
-encodeMorphoResult :: Query (MorphoBlock h c) result -> result -> CBOR.Encoding
-encodeMorphoResult query = case query of
-  GetDummy -> encode
-
-decodeMorphoResult ::
-  Query (MorphoBlock h c) result ->
-  forall s. Decoder s result
-decodeMorphoResult query = case query of
-  GetDummy -> decode
+  encodeResult _ _ query = case query of
+  decodeResult _ _ query = case query of

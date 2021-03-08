@@ -9,10 +9,12 @@
 -- The CanFoge instance is Orphan.
 
 module Morpho.Ledger.Forge
-  ( forgeMorpho,
+  ( morphoBlockForging,
+    forgeMorpho,
   )
 where
 
+import Cardano.Binary
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.Hash
 import Cardano.Prelude
@@ -22,27 +24,30 @@ import Morpho.Ledger.Block
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block.Abstract
-import Ouroboros.Consensus.Block.Forge
+import Ouroboros.Consensus.Block.Forging
 import Ouroboros.Consensus.Config
-import Ouroboros.Consensus.Protocol.Abstract
+import Ouroboros.Consensus.NodeId
 import Ouroboros.Consensus.Protocol.BFT
-import Ouroboros.Consensus.Ticked
 
-instance
-  forall blk h c p.
-  ( HashAlgorithm h,
-    blk ~ (MorphoBlock h c),
-    p ~ (BlockProtocol blk),
-    p ~ (Bft c),
+type instance ForgeStateInfo (MorphoBlock h c) = ()
+
+morphoBlockForging ::
+  ( Signable (BftDSIGN c) (MorphoStdHeader h c),
     BftCrypto c,
-    Signable (BftDSIGN c) (MorphoStdHeader h c)
+    HashAlgorithm h,
+    Monad m
   ) =>
-  CanForge (MorphoBlock h c)
-  where
-  forgeBlock cfg _ blNo (Ticked slotNo st) = forgeMorpho consensusCfg slotNo blNo prevHash
-    where
-      prevHash = pointHash . morphoTip $ morphoLedgerState st
-      consensusCfg = protocolConfigConsensus $ topLevelConfigProtocol cfg
+  CoreNodeId ->
+  BlockForging m (MorphoBlock h c)
+morphoBlockForging nodeId =
+  BlockForging
+    { forgeLabel = "morphoBlockForging",
+      canBeLeader = nodeId,
+      updateForgeState = \_ _ _ -> return $ ForgeStateUpdated (),
+      checkCanForge = \_ _ _ _ _ -> return (),
+      forgeBlock = \cfg blNo slotNo (MorphoTick (MorphoLedgerState st)) txs _ ->
+        return $ forgeMorpho (configConsensus cfg) slotNo blNo (pointHash $ morphoTip st) txs
+    }
 
 forgeMorpho ::
   forall h c.
@@ -59,17 +64,15 @@ forgeMorpho ::
   ChainHash (MorphoBlock h c) ->
   -- | Txs to add in the block
   [GenTx (MorphoBlock h c)] ->
-  -- | Proof we are slot leader
-  IsLeader (Bft c) ->
   MorphoBlock h c
-forgeMorpho ccfg curSlot curBlock prevHash txs _ =
+forgeMorpho ccfg curSlot curBlock prevHash txs =
   MorphoBlock
-    { morphoHeader = mkMorphoHeader stdHeader bftFields,
+    { morphoHeader = mkMorphoHeader stdHeader bftFields bodySize,
       morphoBody = body
     }
   where
     bftFields :: BftFields c (MorphoStdHeader h c)
-    bftFields = forgeBftFields ccfg $ stdHeader
+    bftFields = forgeBftFields ccfg stdHeader
     body :: MorphoBody
     body =
       MorphoBody
@@ -82,11 +85,11 @@ forgeMorpho ccfg curSlot curBlock prevHash txs _ =
         { morphoPrev = prevHash,
           morphoSlotNo = curSlot,
           morphoBlockNo = curBlock,
-          morphoBodyHash = hash body,
-          morphoBlockSize = bodySize
+          morphoBodyHash = hashWithSerialiser toCBOR body
         }
     -- We use the size of the body, not of the whole block (= header + body),
     -- since the header size is fixed and this size is only used for
     -- prioritisation.
+    -- TODO: Check this, see also the better implementation of this in tests/Test/Morpho/Generators.hs
     bodySize :: Word64
     bodySize = fromIntegral $ Lazy.length $ serialise body

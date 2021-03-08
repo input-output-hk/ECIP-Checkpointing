@@ -10,15 +10,13 @@ module Test.Morpho.Ledger.State
   )
 where
 
-import Cardano.Crypto (ProtocolMagicId (..))
+import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding ((.))
-import Data.List ((!!))
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
@@ -30,10 +28,10 @@ import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block (getHeader, headerPoint)
 import Ouroboros.Consensus.BlockchainTime.WallClock.Types
 import Ouroboros.Consensus.Config
+import Ouroboros.Consensus.Ledger.Abstract
 import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Block hiding (castHash)
-import Ouroboros.Network.Magic
 import Ouroboros.Network.Point
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -86,8 +84,8 @@ assert_stateUpdateNewCheckpoint = case newStateResult of
           morphoTip = newTip
         }
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig) powBlockHash2
-    b3 = makeBlockRef (interval testConfig) powBlockHash3
+    b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
+    b3 = makeBlockRef (checkpointingInterval testConfig) powBlockHash3
 
 assert_stateUpdateInsufficientVotes ::
   forall blk.
@@ -118,8 +116,8 @@ assert_stateUpdateInsufficientVotes = case newStateResult of
           morphoTip = newTip
         }
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig) powBlockHash2
-    b3 = makeBlockRef (interval testConfig) powBlockHash3
+    b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
+    b3 = makeBlockRef (checkpointingInterval testConfig) powBlockHash3
 
 assert_stateUpdateSingleVote ::
   forall blk.
@@ -147,8 +145,8 @@ assert_stateUpdateSingleVote = case newStateResult of
           morphoTip = newTip
         }
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig) powBlockHash2
-    b3 = makeBlockRef (interval testConfig) powBlockHash3
+    b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
+    b3 = makeBlockRef (checkpointingInterval testConfig) powBlockHash3
 
 assert_singleVoteWrongDistance ::
   forall blk.
@@ -171,7 +169,7 @@ assert_singleVoteWrongDistance = case newStateResult of
     newBlock = makeBlock (morphoTip currentState) [newVote]
     newStateResult = runExcept $ updateMorphoState testConfig newBlock currentState
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig + 1) powBlockHash2
+    b2 = makeBlockRef (checkpointingInterval testConfig + 1) powBlockHash2
 
 assert_singleVoteInvalidSignature ::
   forall blk.
@@ -195,7 +193,7 @@ assert_singleVoteInvalidSignature = case newStateResult of
     newBlock = makeBlock (morphoTip currentState) [newVote]
     newStateResult = runExcept $ updateMorphoState testConfig newBlock currentState
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig) powBlockHash2
+    b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
 
 assert_singleVoteUnknownPublicKey ::
   forall blk.
@@ -219,7 +217,7 @@ assert_singleVoteUnknownPublicKey = case newStateResult of
     newBlock = makeBlock (morphoTip currentState) [newVote]
     newStateResult = runExcept $ updateMorphoState testConfig newBlock currentState
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig) powBlockHash2
+    b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
 
 assert_singleVoteDuplicateVote ::
   forall blk.
@@ -242,7 +240,7 @@ assert_singleVoteDuplicateVote = case newStateResult of
     newBlock = makeBlock (morphoTip currentState) [newVote]
     newStateResult = runExcept $ updateMorphoState testConfig newBlock currentState
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig) powBlockHash2
+    b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
 
 assert_singleVoteInvalidHash ::
   forall blk.
@@ -265,31 +263,18 @@ assert_singleVoteInvalidHash = case newStateResult of
     newBlock = makeBlock (makePoint 6) [newVote]
     newStateResult = runExcept $ updateMorphoState testConfig newBlock currentState
     b1 = makeBlockRef 0 powBlockHash1
-    b2 = makeBlockRef (interval testConfig) powBlockHash2
+    b2 = makeBlockRef (checkpointingInterval testConfig) powBlockHash2
 
-testConfig :: FullBlockConfig (LedgerState TestBlock) TestBlock
+testConfig :: LedgerConfig TestBlock
 testConfig =
-  FullBlockConfig
-    { blockConfigLedger =
-        MorphoLedgerConfig
-          { checkpointingInterval = 4,
-            securityParam = SecurityParam 4,
-            requiredMajority = 3,
-            fedPubKeys = publicKeys,
-            nodeKeyPair = keyPairs !! 0,
-            slotLength = mkSlotLength 2000
-          },
-      blockConfigBlock =
-        MorphoBlockConfig
-          { systemStart = SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
-            networkMagic = NetworkMagic 12345,
-            protocolMagicId = ProtocolMagicId 12345
-          },
-      blockConfigCodec = MorphoCodecConfig ()
+  MorphoLedgerConfig
+    { checkpointingInterval = 4,
+      securityParam = SecurityParam 4,
+      requiredMajority = 3,
+      fedPubKeys = publicKeys,
+      nodeKeyPair = keyPairs !! 0,
+      slotLength = mkSlotLength 2000
     }
-
-interval :: FullBlockConfig (LedgerState TestBlock) TestBlock -> Int
-interval = checkpointingInterval . blockConfigLedger
 
 keyPairs :: [KeyPair]
 keyPairs =
@@ -351,11 +336,11 @@ makeVotes ref signers = makeVote ref <$> signers
 
 makePoint :: Int -> Point TestBlock
 makePoint slotNo =
-  Point $ block (SlotNo $ fromIntegral slotNo) (castHash $ hash slotNo)
+  Point $ block (SlotNo $ fromIntegral slotNo) (castHash $ hashWithSerialiser toCBOR slotNo)
 
 makeBlock :: Point TestBlock -> [Vote] -> TestBlock
 makeBlock point votes =
-  forgeMorpho testBftConfig (SlotNo slot) (BlockNo slot) (pointHash point) (mkMorphoGenTx . Tx <$> votes) ()
+  forgeMorpho testBftConfig (SlotNo slot) (BlockNo slot) (pointHash point) (mkMorphoGenTx . Tx <$> votes)
   where
     At (SlotNo slot') = pointSlot point
     slot = slot' + 1

@@ -22,7 +22,6 @@ module Morpho.Crypto.ECDSASignature
   )
 where
 
-import Cardano.Prelude (NoUnexpectedThunks)
 import Codec.Serialise (Serialise (..))
 import Control.Monad.Fail (fail)
 import Crypto.Secp256k1 (CompactRecSig (..), PubKey, RecSig, SecKey)
@@ -36,17 +35,18 @@ import GHC.Generics (Generic)
 import GHC.Word (Word8)
 import qualified Morpho.Common.Bytes as B
 import Morpho.Common.Conversions
+import NoThunks.Class
 import Prelude hiding (fail)
 
 newtype PublicKey = PublicKey B.Bytes
   deriving stock (Show, Eq, Generic, Ord)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 newtype PrivateKey = PrivateKey B.Bytes
   deriving stock (Show, Eq, Generic, Ord)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 instance FromJSON PublicKey where
   parseJSON (String str) =
@@ -83,7 +83,7 @@ data Signature = Signature
   }
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 instance ToJSON Signature
 
@@ -93,7 +93,7 @@ data KeyPair = KeyPair
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (Serialise)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 keyPairFromPrivate :: PrivateKey -> KeyPair
 keyPairFromPrivate d = KeyPair (toPublicKey $ EC.derivePubKey $ getSecKey d) d

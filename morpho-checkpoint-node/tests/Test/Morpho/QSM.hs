@@ -176,10 +176,10 @@ transition cfg Model {..} cmd _resp =
    in Model nodes chain' mElected
 
 precondition :: Model Symbolic -> Command Symbolic -> Logic
-precondition Model {..} _ = Top
+precondition Model {} _ = Top
 
 postcondition :: Config -> Model Concrete -> Command Concrete -> Response Concrete -> Logic
-postcondition cfg m@Model {..} cmd@SendPowBlock {} resp =
+postcondition cfg m@Model {} cmd@SendPowBlock {} resp =
   resp .== toMock cfg m cmd
 
 semantics :: Config -> Map Node MockNodeHandle -> Command Concrete -> IO (Response Concrete)

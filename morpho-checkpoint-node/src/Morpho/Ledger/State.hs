@@ -20,19 +20,15 @@ where
 
 import Cardano.Prelude
 import Codec.Serialise (Serialise)
-import Data.Map (Map)
 import qualified Data.Map as M
-import GHC.Generics (Generic)
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.PowTypes
+import NoThunks.Class
 import Ouroboros.Consensus.Block.Abstract hiding (blockNo)
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config.SecurityParam
 import Ouroboros.Network.Block
-  ( ChainHash,
-    Point,
-    StandardHash,
-    genesisPoint,
+  ( genesisPoint,
   )
 
 {-------------------------------------------------------------------------------
@@ -45,7 +41,7 @@ data MorphoState blk = MorphoState
     currentVotes :: !(Map PublicKey Vote),
     morphoTip :: !(Point blk)
   }
-  deriving (Show, Eq, Generic, NoUnexpectedThunks)
+  deriving (Show, Eq, Generic, NoThunks)
 
 deriving instance Serialise (HeaderHash l) => Serialise (MorphoState l)
 
@@ -55,7 +51,7 @@ data MorphoError blk
   | MorphoDuplicateVote Vote
   | MorphoUnknownPublicKey Vote
   | MorphoInvalidHash (ChainHash blk) (ChainHash blk)
-  deriving (Generic, NoUnexpectedThunks)
+  deriving (Generic, NoThunks)
 
 data MorphoLedgerConfig = MorphoLedgerConfig
   { checkpointingInterval :: Int,
@@ -69,7 +65,7 @@ data MorphoLedgerConfig = MorphoLedgerConfig
     nodeKeyPair :: !KeyPair
   }
   deriving stock (Show, Eq, Generic)
-  deriving (NoUnexpectedThunks)
+  deriving (NoThunks)
 
 deriving instance StandardHash blk => Show (MorphoError blk)
 
