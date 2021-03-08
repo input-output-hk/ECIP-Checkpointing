@@ -50,6 +50,7 @@ library
         aeson,
         async,
         base16-bytestring,
+        barbies,
         binary,
         bytestring,
         cardano-binary,

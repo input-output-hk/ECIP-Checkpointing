@@ -31,7 +31,6 @@ import Cardano.BM.Trace (Trace)
 import qualified Cardano.BM.Trace as Trace
 import Cardano.Prelude hiding (trace)
 import Cardano.Shell.Types (CardanoFeature (..))
-import Morpho.Config.Types
 
 -- | The LoggingLayer interface that we can expose.
 -- We want to do this since we want to be able to mock out any function tied to logging.
@@ -39,12 +38,11 @@ newtype LoggingLayer = LoggingLayer
   { llBasicTrace :: forall m. MonadIO m => Trace m Text
   }
 
-loggingFeatures :: FilePath -> NodeConfiguration -> IO (LoggingLayer, [CardanoFeature])
-loggingFeatures fp nc
-  | ncLoggingSwitch nc = do
-    (loggingLayer, logging) <- loggingFeatureWithConfigFile fp
-    return (loggingLayer, [logging])
-  | otherwise = return (LoggingLayer Trace.nullTracer, [])
+loggingFeatures :: FilePath -> Bool -> IO (LoggingLayer, [CardanoFeature])
+loggingFeatures _ False = return (LoggingLayer Trace.nullTracer, [])
+loggingFeatures fp True = do
+  (loggingLayer, logging) <- loggingFeatureWithConfigFile fp
+  return (loggingLayer, [logging])
 
 loggingFeatureWithConfigFile :: FilePath -> IO (LoggingLayer, CardanoFeature)
 loggingFeatureWithConfigFile fp = do

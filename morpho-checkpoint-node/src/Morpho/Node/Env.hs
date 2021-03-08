@@ -33,14 +33,14 @@ configurationToEnv ::
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
   LoggingLayer ->
-  NodeConfiguration ->
+  NodeConfiguration Identity ->
   IO (Env h c)
 configurationToEnv loggingLayer nc = do
-  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
+  start <- maybe (SystemStart <$> getCurrentTime) pure (runIdentity $ ncSystemStart nc)
 
-  mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
+  mprivKey <- liftIO . readPrivateKey $ runIdentity $ ncNodePrivKeyFile nc
   privKey <- case mprivKey of
-    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
+    Left err -> fail $ "Failed to import private key from " <> show (runIdentity $ ncNodePrivKeyFile nc) <> ": " <> show err
     Right pk -> return pk
 
   host <- getHostname
@@ -48,27 +48,27 @@ configurationToEnv loggingLayer nc = do
         setHostname host $
           appendName "node" (llBasicTrace loggingLayer)
 
-  tracers <- mkTracers (ncTraceOpts nc) basicTrace
+  tracers <- mkTracers (runIdentity $ ncTraceOpts nc) basicTrace
 
   return
     Env
-      { eNodeId = ncNodeId nc,
-        eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
-        eCheckpointingInterval = ncCheckpointInterval nc,
-        eRequiredMajority = ncRequiredMajority nc,
-        eFedPubKeys = ncFedPubKeys nc,
-        eTimeslotLength = ncTimeslotLength nc,
-        eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
-        eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
+      { eNodeId = runIdentity $ ncNodeId nc,
+        eNumCoreNodes = NumCoreNodes $ runIdentity $ ncNumCoreNodes nc,
+        eCheckpointingInterval = runIdentity $ ncCheckpointInterval nc,
+        eRequiredMajority = runIdentity $ ncRequiredMajority nc,
+        eFedPubKeys = runIdentity $ ncFedPubKeys nc,
+        eTimeslotLength = runIdentity $ ncTimeslotLength nc,
+        eNetworkMagic = NetworkMagic $ runIdentity $ ncNetworkMagic nc,
+        eSecurityParameter = SecurityParam $ runIdentity $ ncSecurityParameter nc,
         eSystemStart = start,
         ePrivateKey = privKey,
         eTracers = tracers,
-        ePrometheusPort = ncPrometheusPort nc,
+        ePrometheusPort = runIdentity $ ncPrometheusPort nc,
         eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
-        eSnapshotInterval = ncSnapshotInterval nc,
-        ePoWBlockFetchInterval = fromMaybe (1000 * 1000) $ ncPoWBlockFetchInterval nc,
-        ePoWNodeRpcUrl = ncPoWNodeRpcUrl nc,
-        eStableLedgerDepth = ncStableLedgerDepth nc
+        eSnapshotInterval = runIdentity $ ncSnapshotInterval nc,
+        ePoWBlockFetchInterval = fromMaybe (1000 * 1000) $ runIdentity $ ncPoWBlockFetchInterval nc,
+        ePoWNodeRpcUrl = runIdentity $ ncPoWNodeRpcUrl nc,
+        eStableLedgerDepth = runIdentity $ ncStableLedgerDepth nc
       }
 
 data Env h c = Env

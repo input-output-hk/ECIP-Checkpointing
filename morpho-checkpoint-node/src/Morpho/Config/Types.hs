@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -22,8 +24,10 @@ module Morpho.Config.Types
   )
 where
 
+import Barbies
 import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Prelude
+import Control.Monad.Fail
 import Data.Aeson
 import Data.Aeson.Types (Parser)
 import qualified Data.IP as IP
@@ -37,63 +41,69 @@ import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.NodeId (CoreNodeId (..))
 import qualified Prelude
 
-data NodeConfiguration = NodeConfiguration
-  { ncProtocol :: Protocol,
-    ncNodeId :: CoreNodeId,
-    ncNumCoreNodes :: Word64,
-    ncNetworkMagic :: Word32,
-    ncSystemStart :: Maybe SystemStart,
-    ncSecurityParameter :: Word64,
-    ncStableLedgerDepth :: Int,
-    ncLoggingSwitch :: Bool,
-    ncTraceOpts :: !TraceOptions,
-    ncTimeslotLength :: SlotLength,
-    ncSnapshotsOnDisk :: Int,
-    ncSnapshotInterval :: Word64,
-    ncPoWBlockFetchInterval :: Maybe Int,
-    ncPoWNodeRpcUrl :: Text,
-    ncPrometheusPort :: Int,
+data NodeConfiguration f = NodeConfiguration
+  { ncProtocol :: f Protocol,
+    ncNodeId :: f CoreNodeId,
+    ncNumCoreNodes :: f Word64,
+    ncNetworkMagic :: f Word32,
+    ncSystemStart :: f (Maybe SystemStart),
+    ncSecurityParameter :: f Word64,
+    ncStableLedgerDepth :: f Int,
+    ncLoggingSwitch :: f Bool,
+    ncTraceOpts :: f TraceOptions,
+    ncTimeslotLength :: f SlotLength,
+    ncSnapshotsOnDisk :: f Int,
+    ncSnapshotInterval :: f Word64,
+    ncPoWBlockFetchInterval :: f (Maybe Int),
+    ncPoWNodeRpcUrl :: f Text,
+    ncPrometheusPort :: f Int,
     -- FIXME: separate data type: CheckpointingConfiguration
-    ncCheckpointInterval :: Int,
-    ncRequiredMajority :: Int,
-    ncFedPubKeys :: [PublicKey],
-    ncNodePrivKeyFile :: FilePath
+    ncCheckpointInterval :: f Int,
+    ncRequiredMajority :: f Int,
+    ncFedPubKeys :: f [PublicKey],
+    ncNodePrivKeyFile :: f FilePath
   }
-  deriving (Show, Eq)
+  deriving (Generic)
 
-instance FromJSON NodeConfiguration where
+instance FunctorB NodeConfiguration
+
+instance ApplicativeB NodeConfiguration
+
+instance TraversableB NodeConfiguration
+
+instance FromJSON (NodeConfiguration Maybe) where
   parseJSON = withObject "NodeConfiguration" $ \v -> do
-    nId <- v .: "NodeId"
-    ptcl <- v .: "Protocol"
-    numCoreNode <- v .: "NumCoreNodes"
-    networkMagic <- v .: "NetworkMagic"
+    nId <- v .:? "NodeId"
+    ptcl <- v .:? "Protocol"
+    numCoreNode <- v .:? "NumCoreNodes"
+    networkMagic <- v .:? "NetworkMagic"
     systemStart <- v .:? "SystemStart"
-    securityParam <- v .: "SecurityParam"
-    stableLedgerDepth <- v .: "StableLedgerDepth"
+    securityParam <- v .:? "SecurityParam"
+    stableLedgerDepth <- v .:? "StableLedgerDepth"
     loggingSwitch <- v .: "TurnOnLogging"
     traceOptions <- traceConfigParser v
-    slotLength <- v .: "SlotDuration"
-    snapshotsOnDisk <- v .: "SnapshotsOnDisk"
-    snapshotInterval <- v .: "SnapshotInterval"
+    slotLength <- v .:? "SlotDuration"
+    snapshotsOnDisk <- v .:? "SnapshotsOnDisk"
+    snapshotInterval <- v .:? "SnapshotInterval"
     blockFetchInterval <- v .:? "PoWBlockFetchInterval"
-    powNodeRpcUrl <- v .: "PoWNodeRpcUrl"
-    promPort <- v .: "PrometheusPort"
+    powNodeRpcUrl <- v .:? "PoWNodeRpcUrl"
+    promPort <- v .:? "PrometheusPort"
     -- Checkpointing parameters
-    checkpointInterval <- v .: "CheckpointInterval"
-    requiredMajority <- v .: "RequiredMajority"
-    fedPubKeys <- v .: "FedPubKeys"
-    nodePrivKeyFile <- v .: "NodePrivKeyFile"
+    checkpointInterval <- v .:? "CheckpointInterval"
+    requiredMajority <- v .:? "RequiredMajority"
+    fedPubKeys <- v .:? "FedPubKeys"
+    nodePrivKeyFile <- v .:? "NodePrivKeyFile"
     pure $
       NodeConfiguration
         ptcl
-        (CoreNodeId nId)
+        (CoreNodeId <$> nId)
         numCoreNode
         networkMagic
         systemStart
         securityParam
         stableLedgerDepth
         loggingSwitch
-        traceOptions
+        (Just traceOptions)
         slotLength
         snapshotsOnDisk
         snapshotInterval
@@ -155,7 +165,7 @@ instance FromJSON TracingVerbosity where
     panic $
       "Parsing of TracingVerbosity failed due to type mismatch. "
         <> "Encountered: "
-        <> (T.pack $ Prelude.show invalid)
+        <> T.pack (Prelude.show invalid)
 
 instance FromJSON Protocol where
   parseJSON (String str) = case str of
@@ -171,13 +181,17 @@ instance FromJSON Protocol where
     panic $
       "Parsing of Protocol failed due to type mismatch. "
         <> "Encountered: "
-        <> (T.pack $ Prelude.show invalid)
+        <> T.pack (Prelude.show invalid)
 
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
-parseNodeConfiguration :: FilePath -> IO NodeConfiguration
-parseNodeConfiguration = decodeFileThrow
+parseNodeConfiguration :: FilePath -> IO (NodeConfiguration Identity)
+parseNodeConfiguration file = do
+  mconfig <- decodeFileThrow file
+  case bsequence' mconfig of
+    Nothing -> fail "Some field is missing"
+    Just config -> return config
 
 data NodeCLI = NodeCLI
   { mscFp :: !MiscellaneousFilepaths,

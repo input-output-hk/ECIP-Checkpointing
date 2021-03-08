@@ -15,7 +15,7 @@ main :: IO ()
 main = toplevelExceptionHandler $ do
   cli <- Opt.execParser opts
   nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
-  (loggingLayer, logging) <- loggingFeatures (unConfigPath $ configFp cli) nodeConfig
+  (loggingLayer, logging) <- loggingFeatures (unConfigPath $ configFp cli) (runIdentity $ ncLoggingSwitch nodeConfig)
   env <- configurationToEnv loggingLayer nodeConfig
   runCardanoApplicationWithFeatures logging $
     CardanoApplication $ run cli env
