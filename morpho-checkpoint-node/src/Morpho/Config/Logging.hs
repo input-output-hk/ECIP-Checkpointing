@@ -19,20 +19,15 @@ where
 
 import Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
-import Cardano.BM.Counters (readCounters)
-import Cardano.BM.Data.Counter
 import Cardano.BM.Data.LogItem
   ( LOContent (..),
     LOMeta (..),
     LoggerName,
-    PrivacyAnnotation (..),
     mkLOMeta,
   )
-import Cardano.BM.Data.Observable
 import Cardano.BM.Data.Severity (Severity (..))
-import Cardano.BM.Data.SubTrace
 import Cardano.BM.Setup (setupTrace_, shutdown)
-import Cardano.BM.Trace (Trace, appendName, traceNamedObject)
+import Cardano.BM.Trace (Trace)
 import qualified Cardano.BM.Trace as Trace
 import Cardano.Prelude hiding (trace)
 import Cardano.Shell.Types (CardanoFeature (..))
@@ -48,8 +43,7 @@ loggingFeatures :: NodeCLI -> NodeConfiguration -> IO (LoggingLayer, [CardanoFea
 loggingFeatures nCli nc
   | ncLoggingSwitch nc = do
     (loggingLayer, logging) <- loggingFeatureWithConfigFile $ unConfigPath $ configFp nCli
-    let metrics = metricsFeature (llBasicTrace loggingLayer)
-    return (loggingLayer, [logging, metrics])
+    return (loggingLayer, [logging])
   | otherwise = return (LoggingLayer Trace.nullTracer, [])
 
 loggingFeatureWithConfigFile :: FilePath -> IO (LoggingLayer, CardanoFeature)
@@ -64,27 +58,3 @@ loggingFeatureWithConfigFile fp = do
             featureShutdown = liftIO $ shutdown switchboard
           }
   return (loggingLayer, feature)
-
-metricsFeature :: (forall m. MonadIO m => Trace m Text) -> CardanoFeature
-metricsFeature trace =
-  CardanoFeature
-    { featureName = "Metrics",
-      featureStart = startCapturingMetrics trace,
-      featureShutdown = return ()
-    }
-
-startCapturingMetrics :: forall m. MonadIO m => Trace m Text -> m ()
-startCapturingMetrics trace0 = do
-  let trace = appendName "node-metrics" trace0
-      counters = [MemoryStats, ProcessStats, NetStats, IOStats]
-  forever $ do
-    cts <- liftIO $ readCounters (ObservableTraceSelf counters)
-    traceCounters trace cts
-    liftIO $ threadDelay 30000000 -- 30 seconds
-  where
-    traceCounters :: Trace m a -> [Counter] -> m ()
-    traceCounters _tr [] = return ()
-    traceCounters tr (c@(Counter _ct cn cv) : cs) = do
-      mle <- mkLOMeta Notice Confidential
-      traceNamedObject tr (mle, LogValue (nameCounter c <> "." <> cn) cv)
-      traceCounters tr cs

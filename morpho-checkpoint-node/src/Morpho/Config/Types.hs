@@ -47,7 +47,6 @@ data NodeConfiguration = NodeConfiguration
     ncStableLedgerDepth :: Int,
     ncLoggingSwitch :: Bool,
     ncTraceOpts :: !TraceOptions,
-    ncLogMetrics :: Bool,
     ncTimeslotLength :: SlotLength,
     ncSnapshotsOnDisk :: Int,
     ncSnapshotInterval :: Word64,
@@ -73,7 +72,6 @@ instance FromJSON NodeConfiguration where
     stableLedgerDepth <- v .: "StableLedgerDepth"
     loggingSwitch <- v .: "TurnOnLogging"
     traceOptions <- traceConfigParser v
-    logMetrics <- v .: "TurnOnLogMetrics"
     slotLength <- v .: "SlotDuration"
     snapshotsOnDisk <- v .: "SnapshotsOnDisk"
     snapshotInterval <- v .: "SnapshotInterval"
@@ -96,7 +94,6 @@ instance FromJSON NodeConfiguration where
         stableLedgerDepth
         loggingSwitch
         traceOptions
-        logMetrics
         slotLength
         snapshotsOnDisk
         snapshotInterval

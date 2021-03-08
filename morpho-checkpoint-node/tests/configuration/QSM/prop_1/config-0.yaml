@@ -10,7 +10,6 @@ NetworkMagic : 12345
 SecurityParam : 5
 StableLedgerDepth : 3
 TurnOnLogging: True
-TurnOnLogMetrics: False
 SlotDuration: 1
 SnapshotsOnDisk: 60
 SnapshotInterval: 60

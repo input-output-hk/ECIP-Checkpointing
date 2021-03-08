@@ -187,7 +187,6 @@ exampleNodeConfig =
       ncStableLedgerDepth = 2,
       ncLoggingSwitch = True,
       ncTraceOpts = exampleTraceOptions,
-      ncLogMetrics = True,
       ncTimeslotLength = mkSlotLength 5,
       ncSnapshotsOnDisk = 60,
       ncSnapshotInterval = 60,
