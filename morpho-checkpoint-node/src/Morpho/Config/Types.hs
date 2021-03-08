@@ -29,7 +29,7 @@ import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Prelude
 import Control.Monad.Fail
 import Data.Aeson
-import Data.Aeson.Types (Parser)
+import Data.Aeson.Types (Parser, parse)
 import qualified Data.IP as IP
 import qualified Data.Text as T
 import Data.Time ()
@@ -71,49 +71,29 @@ instance ApplicativeB NodeConfiguration
 
 instance TraversableB NodeConfiguration
 
-instance FromJSON (NodeConfiguration Maybe) where
-  parseJSON = withObject "NodeConfiguration" $ \v -> do
-    nId <- v .:? "NodeId"
-    ptcl <- v .:? "Protocol"
-    numCoreNode <- v .:? "NumCoreNodes"
-    networkMagic <- v .:? "NetworkMagic"
-    systemStart <- v .:? "SystemStart"
-    securityParam <- v .:? "SecurityParam"
-    stableLedgerDepth <- v .:? "StableLedgerDepth"
-    loggingSwitch <- v .: "TurnOnLogging"
-    traceOptions <- traceConfigParser v
-    slotLength <- v .:? "SlotDuration"
-    snapshotsOnDisk <- v .:? "SnapshotsOnDisk"
-    snapshotInterval <- v .:? "SnapshotInterval"
-    blockFetchInterval <- v .:? "PoWBlockFetchInterval"
-    powNodeRpcUrl <- v .:? "PoWNodeRpcUrl"
-    promPort <- v .:? "PrometheusPort"
-    -- Checkpointing parameters
-    checkpointInterval <- v .:? "CheckpointInterval"
-    requiredMajority <- v .:? "RequiredMajority"
-    fedPubKeys <- v .:? "FedPubKeys"
-    nodePrivKeyFile <- v .:? "NodePrivKeyFile"
-    pure $
-      NodeConfiguration
-        ptcl
-        (CoreNodeId <$> nId)
-        numCoreNode
-        networkMagic
-        systemStart
-        securityParam
-        stableLedgerDepth
-        loggingSwitch
-        (Just traceOptions)
-        slotLength
-        snapshotsOnDisk
-        snapshotInterval
-        blockFetchInterval
-        powNodeRpcUrl
-        promPort
-        checkpointInterval
-        requiredMajority
-        fedPubKeys
-        nodePrivKeyFile
+parseConfigFile :: Object -> NodeConfiguration Parser
+parseConfigFile v =
+  NodeConfiguration
+    { ncProtocol = v .: "Protocol",
+      ncNodeId = CoreNodeId <$> v .: "NodeId",
+      ncNumCoreNodes = v .: "NumCoreNodes",
+      ncNetworkMagic = v .: "NetworkMagic",
+      ncSystemStart = v .:? "SystemStart",
+      ncSecurityParameter = v .: "SecurityParam",
+      ncStableLedgerDepth = v .: "StableLedgerDepth",
+      ncLoggingSwitch = v .: "TurnOnLogging",
+      ncTraceOpts = traceConfigParser v,
+      ncTimeslotLength = v .: "SlotDuration",
+      ncSnapshotsOnDisk = v .: "SnapshotsOnDisk",
+      ncSnapshotInterval = v .: "SnapshotInterval",
+      ncPoWBlockFetchInterval = v .:? "PoWBlockFetchInterval",
+      ncPoWNodeRpcUrl = v .: "PoWNodeRpcUrl",
+      ncPrometheusPort = v .: "PrometheusPort",
+      ncCheckpointInterval = v .: "CheckpointInterval",
+      ncRequiredMajority = v .: "RequiredMajority",
+      ncFedPubKeys = v .: "FedPubKeys",
+      ncNodePrivKeyFile = v .: "NodePrivKeyFile"
+    }
 
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
@@ -188,10 +168,10 @@ data Protocol = MockedBFT
 
 parseNodeConfiguration :: FilePath -> IO (NodeConfiguration Identity)
 parseNodeConfiguration file = do
-  mconfig <- decodeFileThrow file
-  case bsequence' mconfig of
-    Nothing -> fail "Some field is missing"
-    Just config -> return config
+  value <- decodeFileThrow file
+  case parse (withObject "NodeConfiguration" (bsequence' . parseConfigFile)) value of
+    Error err -> fail err
+    Success config -> return config
 
 data NodeCLI = NodeCLI
   { mscFp :: !MiscellaneousFilepaths,
