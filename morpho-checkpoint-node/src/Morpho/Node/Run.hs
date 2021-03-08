@@ -90,7 +90,7 @@ runNode loggingLayer env nCli = do
 
   let pInfo = protocolInfoMorpho env
   tracers <- mkTracers (eTraceOpts env) trace
-  handleSimpleNode pInfo trace tracers nCli env
+  handleSimpleNode pInfo tracers nCli env
   where
     hostname = do
       hn0 <- pack <$> getHostName
@@ -103,15 +103,13 @@ handleSimpleNode ::
   forall blk h c.
   (RunNode blk, blk ~ MorphoBlock h c, MorphoStateDefaultConstraints h c) =>
   ProtocolInfo IO blk ->
-  Trace IO Text -> -- (LogObject Text)
   Tracers RemoteConnectionId LocalConnectionId h c ->
   NodeCLI ->
   Env ->
   IO ()
-handleSimpleNode pInfo trace nodeTracers nCli env = do
+handleSimpleNode pInfo nodeTracers nCli env = do
   NetworkTopology nodeSetups <-
     either error id <$> readTopologyFile (unTopology . topFile $ mscFp nCli)
-  let tracer = contramap pack $ toLogObject trace
   let producers' = case List.lookup nid $
         map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) nodeSetups of
         Just ps -> ps
@@ -122,7 +120,7 @@ handleSimpleNode pInfo trace nodeTracers nCli env = do
               <> ", Node Id "
               <> show nid
               <> " not found in topology"
-  traceWith tracer $
+  traceWith (mainTracer nodeTracers) $
     unlines
       [ "",
         "**************************************",
@@ -194,7 +192,7 @@ handleSimpleNode pInfo trace nodeTracers nCli env = do
           }
   dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ mscFp nCli)
   when (validateDB nCli) $
-    traceWith tracer "Performing DB validation"
+    traceWith (mainTracer nodeTracers) "Performing DB validation"
   (metrics, irs) <- setupPrometheus
   let kernelHook ::
         ResourceRegistry IO ->
@@ -206,7 +204,7 @@ handleSimpleNode pInfo trace nodeTracers nCli env = do
           forkLinkedThread registry "PrometheusMetrics" $
             catch
               (serveMetrics (ePrometheusPort env) ["metrics"] irs)
-              (\e -> traceWith tracer $ show (e :: IOException))
+              (\e -> traceWith (mainTracer nodeTracers) $ show (e :: IOException))
         -- Watch the tip of the chain and store it in @varTip@ so we can include
         -- it in trace messages.
         let chainDB = getChainDB nodeKernel
