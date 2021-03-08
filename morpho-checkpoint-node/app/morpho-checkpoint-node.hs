@@ -14,7 +14,7 @@ import Prelude (String)
 main :: IO ()
 main = toplevelExceptionHandler $ do
   cli <- Opt.execParser opts
-  nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
+  nodeConfig <- getConfiguration $ unConfigPath (configFp cli)
   (loggingLayer, logging) <- loggingFeatures (unConfigPath $ configFp cli) (runIdentity $ ncLoggingSwitch nodeConfig)
   env <- configurationToEnv loggingLayer nodeConfig
   runCardanoApplicationWithFeatures logging $

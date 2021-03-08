@@ -20,7 +20,7 @@ module Morpho.Config.Types
     NodeAddress (..),
     NodeHostAddress (..),
     nodeAddressToSockAddr,
-    parseNodeConfiguration,
+    getConfiguration,
   )
 where
 
@@ -29,7 +29,7 @@ import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Prelude
 import Control.Monad.Fail
 import Data.Aeson
-import Data.Aeson.Types (Parser, parse)
+import Data.Aeson.Types (Parser, parse, parserCatchError)
 import qualified Data.IP as IP
 import qualified Data.Text as T
 import Data.Time ()
@@ -54,7 +54,7 @@ data NodeConfiguration f = NodeConfiguration
     ncTimeslotLength :: f SlotLength,
     ncSnapshotsOnDisk :: f Int,
     ncSnapshotInterval :: f Word64,
-    ncPoWBlockFetchInterval :: f (Maybe Int),
+    ncPoWBlockFetchInterval :: f Int,
     ncPoWNodeRpcUrl :: f Text,
     ncPrometheusPort :: f Int,
     -- FIXME: separate data type: CheckpointingConfiguration
@@ -86,13 +86,23 @@ parseConfigFile v =
       ncTimeslotLength = v .: "SlotDuration",
       ncSnapshotsOnDisk = v .: "SnapshotsOnDisk",
       ncSnapshotInterval = v .: "SnapshotInterval",
-      ncPoWBlockFetchInterval = v .:? "PoWBlockFetchInterval",
+      ncPoWBlockFetchInterval = v .: "PoWBlockFetchInterval",
       ncPoWNodeRpcUrl = v .: "PoWNodeRpcUrl",
       ncPrometheusPort = v .: "PrometheusPort",
       ncCheckpointInterval = v .: "CheckpointInterval",
       ncRequiredMajority = v .: "RequiredMajority",
       ncFedPubKeys = v .: "FedPubKeys",
       ncNodePrivKeyFile = v .: "NodePrivKeyFile"
+    }
+
+defaultConfiguration :: NodeConfiguration Maybe
+defaultConfiguration =
+  (bpure Nothing)
+    { ncSystemStart = Just Nothing,
+      ncLoggingSwitch = Just True,
+      ncSnapshotsOnDisk = Just 60,
+      ncSnapshotInterval = Just 60,
+      ncPoWBlockFetchInterval = Just 1000000
     }
 
 instance FromJSON SystemStart where
@@ -166,12 +176,19 @@ instance FromJSON Protocol where
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
-parseNodeConfiguration :: FilePath -> IO (NodeConfiguration Identity)
-parseNodeConfiguration file = do
+getConfiguration :: FilePath -> IO (NodeConfiguration Identity)
+getConfiguration file = do
   value <- decodeFileThrow file
-  case parse (withObject "NodeConfiguration" (bsequence' . parseConfigFile)) value of
+  case parse parser value of
     Error err -> fail err
     Success config -> return config
+  where
+    parser =
+      withObject "NodeConfiguration" $ \v ->
+        bsequence' $ bzipWith defaultFallback (parseConfigFile v) defaultConfiguration
+    defaultFallback :: Parser a -> Maybe a -> Parser a
+    defaultFallback p Nothing = p
+    defaultFallback p (Just def) = parserCatchError p (\_ _ -> return def)
 
 data NodeCLI = NodeCLI
   { mscFp :: !MiscellaneousFilepaths,

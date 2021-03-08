@@ -66,7 +66,7 @@ configurationToEnv loggingLayer nc = do
         ePrometheusPort = runIdentity $ ncPrometheusPort nc,
         eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
         eSnapshotInterval = runIdentity $ ncSnapshotInterval nc,
-        ePoWBlockFetchInterval = fromMaybe (1000 * 1000) $ runIdentity $ ncPoWBlockFetchInterval nc,
+        ePoWBlockFetchInterval = runIdentity $ ncPoWBlockFetchInterval nc,
         ePoWNodeRpcUrl = runIdentity $ ncPoWNodeRpcUrl nc,
         eStableLedgerDepth = runIdentity $ ncStableLedgerDepth nc
       }
