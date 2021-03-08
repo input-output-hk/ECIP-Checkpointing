@@ -7,23 +7,21 @@ import Cardano.Crypto.DSIGN
 import Cardano.Prelude
 import Cardano.Slotting.Slot (WithOrigin (..))
 import qualified Data.Map as Map
-import Morpho.Config.Types
-import Morpho.Crypto.ECDSASignature (PrivateKey, keyPairFromPrivate)
+import Morpho.Crypto.ECDSASignature (keyPairFromPrivate)
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge (morphoBlockForging)
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
-import Ouroboros.Consensus.BlockchainTime.WallClock.Types
+import Morpho.Node.Env
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
 import Ouroboros.Consensus.Protocol.BFT
-import Ouroboros.Network.Magic
 
-protocolInfoMorpho :: Monad m => NodeConfiguration -> PrivateKey -> SystemStart -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
-protocolInfoMorpho nc privKey start =
+protocolInfoMorpho :: Monad m => Env -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
+protocolInfoMorpho env =
   ProtocolInfo
     { pInfoConfig =
         TopLevelConfig
@@ -38,38 +36,38 @@ protocolInfoMorpho nc privKey start =
           { ledgerState = genesisMorphoLedgerState,
             headerState = HeaderState Origin ()
           },
-      pInfoBlockForging = return [morphoBlockForging (ncNodeId nc)]
+      pInfoBlockForging = return [morphoBlockForging (eNodeId env)]
     }
   where
     ledgerConfig =
       MorphoLedgerConfig
-        { checkpointingInterval = ncCheckpointInterval nc,
+        { checkpointingInterval = eCheckpointingInterval env,
           securityParam = secParam,
-          requiredMajority = ncRequiredMajority nc,
-          fedPubKeys = ncFedPubKeys nc,
-          slotLength = ncTimeslotLength nc,
-          nodeKeyPair = keyPairFromPrivate privKey
+          requiredMajority = eRequiredMajority env,
+          fedPubKeys = eFedPubKeys env,
+          slotLength = eTimeslotLength env,
+          nodeKeyPair = keyPairFromPrivate (ePrivateKey env)
         }
     blockConfig =
       MorphoBlockConfig
-        { systemStart = start,
-          networkMagic = NetworkMagic (ncNetworkMagic nc)
+        { systemStart = eSystemStart env,
+          networkMagic = eNetworkMagic env
         }
-    secParam = SecurityParam $ ncSecurityParameter nc
+    secParam = eSecurityParameter env
     bftConfig =
       BftConfig
         { bftParams =
             BftParams
               { bftSecurityParam = secParam,
-                bftNumNodes = NumCoreNodes $ ncNumCoreNodes nc
+                bftNumNodes = eNumCoreNodes env
               },
           bftSignKey = SignKeyMockDSIGN nId,
           bftVerKeys =
             Map.fromList
               [ (CoreId n, verKey n)
-                | n <- enumCoreNodes (NumCoreNodes $ ncNumCoreNodes nc)
+                | n <- enumCoreNodes (eNumCoreNodes env)
               ]
         }
-    CoreNodeId nId = ncNodeId nc
+    CoreNodeId nId = eNodeId env
     verKey :: CoreNodeId -> VerKeyDSIGN MockDSIGN
     verKey (CoreNodeId n) = VerKeyMockDSIGN n
