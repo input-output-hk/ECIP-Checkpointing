@@ -28,7 +28,6 @@ import qualified Data.List as List
 import Data.Map.Strict (size)
 import Data.Text (breakOn, pack, take)
 import Morpho.Common.Socket
-import Morpho.Config.Logging (loggingFeatures)
 import Morpho.Config.Logging hiding (hostname)
 import Morpho.Config.Topology
 import Morpho.Config.Types
@@ -56,7 +55,6 @@ import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
 import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, run, tracers)
 import qualified Ouroboros.Consensus.Node as Node (runWith)
-import Ouroboros.Consensus.Node.Run (RunNode)
 import Ouroboros.Consensus.NodeId
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import Ouroboros.Consensus.Storage.LedgerDB.DiskPolicy

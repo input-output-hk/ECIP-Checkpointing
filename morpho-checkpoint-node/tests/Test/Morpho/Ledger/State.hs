@@ -33,6 +33,7 @@ import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Block hiding (castHash)
 import Ouroboros.Network.Point
+import Test.Morpho.Common.Utils
 import Test.Tasty
 import Test.Tasty.HUnit
 import Prelude hiding (show)
@@ -188,7 +189,7 @@ assert_singleVoteInvalidSignature = case newStateResult of
           currentVotes = M.empty,
           morphoTip = makePoint 5
         }
-    invalidSig = Signature (bytesFromHex $ T.pack "cafebabe") (bytesFromHex $ T.pack "deadbeef") 42
+    invalidSig = Signature (fromRight' $ bytesFromHex $ T.pack "cafebabe") (fromRight' $ bytesFromHex $ T.pack "deadbeef") 42
     newVote = Vote b2 invalidSig
     newBlock = makeBlock (morphoTip currentState) [newVote]
     newStateResult = runExcept $ updateMorphoState testConfig newBlock currentState
@@ -212,7 +213,7 @@ assert_singleVoteUnknownPublicKey = case newStateResult of
           currentVotes = M.empty,
           morphoTip = makePoint 5
         }
-    unknownPrivKey = fromJust $ importPrivateKey $ bytesFromHex $ T.pack "76c1e0e16c61b3ea3baa86eea46a7638d47bf6b8a554ac360d533d9b12c45a0a"
+    unknownPrivKey = fromRight' $ importPrivateKey $ fromRight' $ bytesFromHex $ T.pack "76c1e0e16c61b3ea3baa86eea46a7638d47bf6b8a554ac360d533d9b12c45a0a"
     newVote = makeVote b2 unknownPrivKey
     newBlock = makeBlock (morphoTip currentState) [newVote]
     newStateResult = runExcept $ updateMorphoState testConfig newBlock currentState
@@ -282,8 +283,8 @@ keyPairs =
   where
     hex2kp (prvHex, pubHex) =
       KeyPair
-        (fromJust $ importPublicKey $ bytesFromHex $ T.pack pubHex)
-        (fromJust $ importPrivateKey $ bytesFromHex $ T.pack prvHex)
+        (fromRight' $ importPublicKey $ fromRight' $ bytesFromHex $ T.pack pubHex)
+        (fromRight' $ importPrivateKey $ fromRight' $ bytesFromHex $ T.pack prvHex)
     hexes =
       [ ( "00956fd0071623bf977b14304217c5d2464e6ef0b2258a5ebd5cdc7c05d2b29b26",
           "d1674834d2dc547614a0fafabfeea9f6c22e0564c8157ce533dccc5b72b2287603e74d7bd8a12ae707d0be5b85a8d53f14f9dc230a2eb77cdaa37f029de3c1ff"
@@ -309,13 +310,13 @@ privateKeys :: [PrivateKey]
 privateKeys = (\(KeyPair _ prv) -> prv) <$> keyPairs
 
 powBlockHash1 :: PowBlockHash
-powBlockHash1 = PowBlockHash $ bytesFromHex $ T.pack "e3ebd8423056f8faec726c203923a65fce908392e49f15e4cfd5e03169d03156"
+powBlockHash1 = PowBlockHash $ fromRight' $ bytesFromHex $ T.pack "e3ebd8423056f8faec726c203923a65fce908392e49f15e4cfd5e03169d03156"
 
 powBlockHash2 :: PowBlockHash
-powBlockHash2 = PowBlockHash $ bytesFromHex $ T.pack "d4f8bcfa6b8a451b2a450562c647117aa852fa451613d4e09184919466dbb679"
+powBlockHash2 = PowBlockHash $ fromRight' $ bytesFromHex $ T.pack "d4f8bcfa6b8a451b2a450562c647117aa852fa451613d4e09184919466dbb679"
 
 powBlockHash3 :: PowBlockHash
-powBlockHash3 = PowBlockHash $ bytesFromHex $ T.pack "93c5ec3f50b1bf1b99ee8218f8eadb78d1e880afeffd810e328e7e461cde27c5"
+powBlockHash3 = PowBlockHash $ fromRight' $ bytesFromHex $ T.pack "93c5ec3f50b1bf1b99ee8218f8eadb78d1e880afeffd810e328e7e461cde27c5"
 
 makeBlockRef :: Int -> PowBlockHash -> PowBlockRef
 makeBlockRef n = PowBlockRef (PowBlockNo n)

@@ -10,9 +10,8 @@ import Cardano.Slotting.Slot (WithOrigin (..))
 import Control.Monad (fail)
 import Control.Monad.Class.MonadTime
 import qualified Data.Map as Map
-import Morpho.Common.Conversions
 import Morpho.Config.Types
-import Morpho.Crypto.ECDSASignature (importPrivateKey, keyPairFromPrivate)
+import Morpho.Crypto.ECDSASignature (keyPairFromPrivate, readPrivateKey)
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge (morphoBlockForging)
 import Morpho.Ledger.State
@@ -31,11 +30,11 @@ protocolInfoMorpho ::
   NodeConfiguration ->
   m (ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto))
 protocolInfoMorpho nc = do
-  privKeyStr <- liftIO . readFile $ ncNodePrivKeyFile nc
   start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
-  privKey <- case importPrivateKey $ bytesFromHex privKeyStr of
-    Nothing -> fail $ "Invalid private key in: " <> show (ncNodePrivKeyFile nc)
-    Just pk -> return pk
+  mprivKey <- liftIO $ readPrivateKey (ncNodePrivKeyFile nc)
+  privKey <- case mprivKey of
+    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
+    Right pk -> return pk
   let ledgerConfig =
         MorphoLedgerConfig
           { checkpointingInterval = ncCheckpointInterval nc,

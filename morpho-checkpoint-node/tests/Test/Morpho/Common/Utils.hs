@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Morpho.Common.Utils
   ( utilsTestsIO,
+    fromRight',
   )
 where
 
-import Control.Exception (evaluate)
 import qualified Data.Text as T
 import qualified Morpho.Common.Bytes as B
 import Morpho.Common.Conversions
@@ -51,7 +52,7 @@ spec_integerFromHex =
         ("ffffffffffffffff", -1),
         ("ffffffff", 0xffffffff)
       ]
-      (\h n -> integerFromHex h == (n :: Int))
+      (\h n -> integerFromHex h == Right (n :: Int))
     byExample
       ("valid hex", "Integer")
       [ ("1234", 0x1234),
@@ -59,11 +60,11 @@ spec_integerFromHex =
           0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
         )
       ]
-      (\h n -> integerFromHex h == (n :: Integer))
+      (\h n -> integerFromHex h == Right (n :: Integer))
     byExample1Col
       "invalid hex resulting in error"
       ["hello", "0x12"]
-      (\h -> evaluate (integerFromHex h :: Int) `shouldThrow` anyException)
+      (\h -> (integerFromHex h :: Either T.Text Int) == Left ("Not a valid hex string: " <> h))
 
 spec_integerToHex :: Spec
 spec_integerToHex =
@@ -99,11 +100,11 @@ spec_bytesFromHex =
         ("12121212121212121212121212121212", replicate 16 0x12),
         ("", [])
       ]
-      (\h b -> bytesFromHex h == B.pack b)
+      (\h b -> bytesFromHex h == Right (B.pack b))
     byExample1Col
       "invalid hex resulting in error"
       ["hello", "0xdeadbeef"]
-      (\h -> evaluate (bytesFromHex h) `shouldThrow` anyException)
+      (\h -> bytesFromHex h == Left ("Not a valid hex string: " <> h))
 
 spec_bytesToHex :: Spec
 spec_bytesToHex =
@@ -148,8 +149,10 @@ prop_roundTripConversionsInt =
     roundTrip :: Int -> Int
     roundTrip =
       integerFromBytes
+        . fromRight'
         . bytesFromHex
         . (integerToHex 8 :: Int -> T.Text)
+        . fromRight'
         . integerFromHex
         . bytesToHex
         . integerToBytes 8
@@ -164,8 +167,14 @@ prop_roundTripConversionsHex =
     roundTrip =
       integerToHex 8
         . (integerFromBytes :: B.Bytes -> Int)
+        . fromRight'
         . bytesFromHex
         . bytesToHex
         . (integerToBytes 8 :: Int -> B.Bytes)
+        . fromRight'
         . integerFromHex
     hexes = T.pack <$> vectorOf 16 (elements (['0' .. '9'] <> ['a' .. 'f']))
+
+fromRight' :: Either T.Text b -> b
+fromRight' (Left err) = error $ T.unpack err
+fromRight' (Right value) = value

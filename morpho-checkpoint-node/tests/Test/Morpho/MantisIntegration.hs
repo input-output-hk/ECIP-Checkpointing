@@ -7,7 +7,6 @@ where
 
 import Cardano.Prelude
 import qualified Data.ByteString as BS
-import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Morpho.Common.Bytes
 import Morpho.Common.Conversions
@@ -17,6 +16,7 @@ import Test.QuickCheck hiding (reason)
 import Test.QuickCheck.Property
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
+import Prelude (error, id)
 
 {-
    Mantis Integration Tests:
@@ -63,7 +63,7 @@ generateKP :: Gen KeyPair
 generateKP =
   keyPairFromPrivate <$> prvKey
   where
-    prvKey = fromJust . importPrivateKey . integerToBytes 32 <$> d
+    prvKey = either (error . T.unpack) id . importPrivateKey . integerToBytes 32 <$> d
     -- the `n` parameter of secp256k1 curve
     n = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141 :: Integer
     d = choose (1, n - 1)

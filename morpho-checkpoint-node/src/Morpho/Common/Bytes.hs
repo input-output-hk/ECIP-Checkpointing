@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module Morpho.Common.Bytes
   ( Bytes (..),
@@ -17,8 +16,9 @@ import Codec.Serialise (Serialise)
 import Data.Aeson
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import qualified Data.HexString as Hex
+import qualified Data.ByteString.Base16 as B16
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Data.Word
 import GHC.Generics (Generic)
 import NoThunks.Class
@@ -30,7 +30,7 @@ newtype Bytes = Bytes {unBytes :: ByteString}
   deriving anyclass (Serialise, NoThunks)
 
 instance Show Bytes where
-  show (Bytes bs) = T.unpack $ Hex.toText $ Hex.fromBytes bs
+  show (Bytes bs) = T.unpack $ TE.decodeUtf8 $ B16.encode bs
 
 instance ToJSON Bytes where
   toJSON = toJSON . show
