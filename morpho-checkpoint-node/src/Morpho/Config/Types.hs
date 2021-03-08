@@ -10,7 +10,6 @@ module Morpho.Config.Types
     DelegationCertFile (..),
     GenesisFile (..),
     MiscellaneousFilepaths (..),
-    NodeCLI (..),
     NodeConfiguration (..),
     Protocol (..),
     SigningKeyFile (..),
@@ -29,7 +28,7 @@ import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Prelude
 import Control.Monad.Fail
 import Data.Aeson
-import Data.Aeson.Types (Parser, parse, parserCatchError)
+import Data.Aeson.Types
 import qualified Data.IP as IP
 import qualified Data.Text as T
 import Data.Time ()
@@ -61,7 +60,13 @@ data NodeConfiguration f = NodeConfiguration
     ncCheckpointInterval :: f Int,
     ncRequiredMajority :: f Int,
     ncFedPubKeys :: f [PublicKey],
-    ncNodePrivKeyFile :: f FilePath
+    ncNodePrivKeyFile :: f FilePath,
+    ncTopologyFile :: f TopologyFile,
+    ncDatabaseDir :: f DbFile,
+    ncSocketFile :: f SocketFile,
+    ncNodeHost :: f NodeHostAddress,
+    ncNodePort :: f PortNumber,
+    ncValidateDb :: f Bool
   }
   deriving (Generic)
 
@@ -92,7 +97,14 @@ parseConfigFile v =
       ncCheckpointInterval = v .: "CheckpointInterval",
       ncRequiredMajority = v .: "RequiredMajority",
       ncFedPubKeys = v .: "FedPubKeys",
-      ncNodePrivKeyFile = v .: "NodePrivKeyFile"
+      ncNodePrivKeyFile = v .: "NodePrivKeyFile",
+      ncTopologyFile = TopologyFile <$> v .: "TopologyFile",
+      ncDatabaseDir = DbFile <$> v .: "DatabaseDirectory",
+      -- TODO: Remove
+      ncSocketFile = SocketFile <$> v .: "SocketFile",
+      ncNodeHost = NodeHostAddress . readMaybe . T.unpack <$> v .: "NodeHost",
+      ncNodePort = (fromIntegral :: Int -> PortNumber) <$> v .: "NodePort",
+      ncValidateDb = v .: "ValidateDatabase"
     }
 
 defaultConfiguration :: NodeConfiguration Maybe
@@ -102,7 +114,9 @@ defaultConfiguration =
       ncLoggingSwitch = Just True,
       ncSnapshotsOnDisk = Just 60,
       ncSnapshotInterval = Just 60,
-      ncPoWBlockFetchInterval = Just 1000000
+      ncPoWBlockFetchInterval = Just 1000000,
+      ncNodeHost = Just (NodeHostAddress Nothing),
+      ncValidateDb = Just False
     }
 
 instance FromJSON SystemStart where
@@ -176,8 +190,8 @@ instance FromJSON Protocol where
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
-getConfiguration :: FilePath -> IO (NodeConfiguration Identity)
-getConfiguration file = do
+getConfiguration :: FilePath -> NodeConfiguration Maybe -> IO (NodeConfiguration Identity)
+getConfiguration file cliConfig = do
   value <- decodeFileThrow file
   case parse parser value of
     Error err -> fail err
@@ -185,19 +199,11 @@ getConfiguration file = do
   where
     parser =
       withObject "NodeConfiguration" $ \v ->
-        bsequence' $ bzipWith defaultFallback (parseConfigFile v) defaultConfiguration
-    defaultFallback :: Parser a -> Maybe a -> Parser a
-    defaultFallback p Nothing = p
-    defaultFallback p (Just def) = parserCatchError p (\_ _ -> return def)
-
-data NodeCLI = NodeCLI
-  { mscFp :: !MiscellaneousFilepaths,
-    -- TODO Use genesis file.
-    nodeAddr :: !NodeAddress,
-    configFp :: !ConfigYamlFilePath,
-    validateDB :: !Bool
-  }
-  deriving (Show)
+        bsequence' $ bzipWith3 combine cliConfig (parseConfigFile v) defaultConfiguration
+    combine :: Maybe a -> Parser a -> Maybe a -> Parser a
+    combine (Just v) _ _ = return v
+    combine _ p Nothing = p
+    combine _ p (Just def) = parserCatchError p (\_ _ -> return def)
 
 data MiscellaneousFilepaths = MiscellaneousFilepaths
   { topFile :: !TopologyFile,

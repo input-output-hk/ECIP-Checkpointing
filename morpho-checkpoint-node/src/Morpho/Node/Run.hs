@@ -58,13 +58,12 @@ import Ouroboros.Consensus.Util.STM
 import Ouroboros.Network.Block
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
-import System.Directory
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
-run :: NodeCLI -> Env MorphoMockHash ConsensusMockCrypto -> IO ()
-run cli env = handleSimpleNode (protocolInfoMorpho env) (eTracers env) cli env
+run :: Env MorphoMockHash ConsensusMockCrypto -> IO ()
+run env = handleSimpleNode (protocolInfoMorpho env) (eTracers env) env
 
 -- | Sets up a simple node, which will run the chain sync protocol and block
 -- fetch protocol, and, if core, will also look at the mempool when trying to
@@ -74,19 +73,17 @@ handleSimpleNode ::
   (RunNode blk, blk ~ MorphoBlock h c, MorphoStateDefaultConstraints h c) =>
   ProtocolInfo IO blk ->
   Tracers RemoteConnectionId LocalConnectionId h c ->
-  NodeCLI ->
   Env h c ->
   IO ()
-handleSimpleNode pInfo nodeTracers nCli env = do
-  NetworkTopology nodeSetups <-
-    either error id <$> readTopologyFile (unTopology . topFile $ mscFp nCli)
-  let producers' = case List.lookup nid $
+handleSimpleNode pInfo nodeTracers env = do
+  let NetworkTopology nodeSetups = eTopology env
+      producers' = case List.lookup nid $
         map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) nodeSetups of
         Just ps -> ps
         Nothing ->
           error $
             "handleSimpleNode: own address "
-              <> show (nodeAddr nCli)
+              <> show (eNodeAddress env)
               <> ", Node Id "
               <> show nid
               <> " not found in topology"
@@ -94,15 +91,15 @@ handleSimpleNode pInfo nodeTracers nCli env = do
     unlines
       [ "",
         "**************************************",
-        "I am Node " <> show (nodeAddr nCli) <> " Id: " <> show nid,
+        "I am Node " <> show (eNodeAddress env) <> " Id: " <> show nid,
         "My producers are " <> show producers',
         "**************************************"
       ]
   -- Socket directory TODO
-  addresses <- nodeAddressInfo (nodeAddr nCli)
+  addresses <- nodeAddressInfo (eNodeAddress env)
   let ipv4Address = find ((== AF_INET) . addrFamily) addresses
       ipv6Address = find ((== AF_INET6) . addrFamily) addresses
-      localSocketPath = unSocket . socketFile $ mscFp nCli
+      localSocketPath = eSocketFile env
   removeStaleLocalSocket localSocketPath
   let ipProducerAddrs :: [NodeAddress]
       dnsProducerAddrs :: [RemoteAddress]
@@ -160,8 +157,7 @@ handleSimpleNode pInfo nodeTracers nCli env = do
                 },
             daDiffusionMode = InitiatorAndResponderDiffusionMode
           }
-  dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ mscFp nCli)
-  when (validateDB nCli) $
+  when (eValidateDb env) $
     traceWith (mainTracer nodeTracers) "Performing DB validation"
   (metrics, irs) <- setupPrometheus
   let kernelHook ::
@@ -243,8 +239,8 @@ handleSimpleNode pInfo nodeTracers nCli env = do
         StdRunNodeArgs
           { srnBfcMaxConcurrencyBulkSync = Nothing,
             srnBfcMaxConcurrencyDeadline = Nothing,
-            srcChainDbValidateOverride = validateDB nCli,
-            srnDatabasePath = dbPath,
+            srcChainDbValidateOverride = eValidateDb env,
+            srnDatabasePath = eDatabaseDir env,
             srnDiffusionArguments = diffusionArguments,
             srnDiffusionTracers = diffusionTracers,
             srnTraceChainDB = chainDBTracer nodeTracers

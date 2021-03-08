@@ -8,6 +8,7 @@ import Control.Monad.Fail
 import qualified Data.Text as T
 import Data.Time
 import Morpho.Config.Logging
+import Morpho.Config.Topology
 import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
@@ -22,6 +23,8 @@ import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode
+import System.Directory
+import Prelude (error, id)
 
 getHostname :: IO Text
 getHostname = do
@@ -50,6 +53,11 @@ configurationToEnv loggingLayer nc = do
 
   tracers <- mkTracers (runIdentity $ ncTraceOpts nc) basicTrace
 
+  topology <-
+    either error id <$> readTopologyFile (unTopology $ runIdentity $ ncTopologyFile nc)
+
+  databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ runIdentity $ ncDatabaseDir nc)
+
   return
     Env
       { eNodeId = runIdentity $ ncNodeId nc,
@@ -68,7 +76,12 @@ configurationToEnv loggingLayer nc = do
         eSnapshotInterval = runIdentity $ ncSnapshotInterval nc,
         ePoWBlockFetchInterval = runIdentity $ ncPoWBlockFetchInterval nc,
         ePoWNodeRpcUrl = runIdentity $ ncPoWNodeRpcUrl nc,
-        eStableLedgerDepth = runIdentity $ ncStableLedgerDepth nc
+        eStableLedgerDepth = runIdentity $ ncStableLedgerDepth nc,
+        eTopology = topology,
+        eDatabaseDir = databaseDir,
+        eSocketFile = unSocket $ runIdentity $ ncSocketFile nc,
+        eNodeAddress = NodeAddress (runIdentity $ ncNodeHost nc) (runIdentity $ ncNodePort nc),
+        eValidateDb = runIdentity $ ncValidateDb nc
       }
 
 data Env h c = Env
@@ -88,5 +101,10 @@ data Env h c = Env
     eSnapshotInterval :: Word64,
     ePoWBlockFetchInterval :: Int,
     ePoWNodeRpcUrl :: Text,
-    eStableLedgerDepth :: Int
+    eStableLedgerDepth :: Int,
+    eTopology :: NetworkTopology,
+    eDatabaseDir :: FilePath,
+    eSocketFile :: FilePath,
+    eNodeAddress :: NodeAddress,
+    eValidateDb :: Bool
   }
