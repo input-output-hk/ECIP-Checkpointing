@@ -1,7 +1,10 @@
 import Cardano.Prelude
+import Cardano.Shell.Lib
 import Morpho.Common.Parsers
 import Morpho.Common.TopHandler
+import Morpho.Config.Logging
 import Morpho.Config.Types
+import Morpho.Node.Env
 import Morpho.Node.Run
 import qualified Options.Applicative as Opt
 import Options.Applicative.Help ((<$$>))
@@ -11,7 +14,11 @@ import Prelude (String)
 main :: IO ()
 main = toplevelExceptionHandler $ do
   cli <- Opt.execParser opts
-  run cli
+  nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
+  (loggingLayer, logging) <- loggingFeatures (unConfigPath $ configFp cli) nodeConfig
+  env <- configurationToEnv loggingLayer nodeConfig
+  runCardanoApplicationWithFeatures logging $
+    CardanoApplication $ run cli env
   where
     opts :: Opt.ParserInfo NodeCLI
     opts =

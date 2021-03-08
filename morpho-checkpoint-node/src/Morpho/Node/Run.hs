@@ -12,23 +12,18 @@
 
 module Morpho.Node.Run
   ( run,
-    runNode,
   )
 where
 
 import Cardano.BM.Data.Tracer
-import Cardano.BM.Data.Transformers (setHostname)
-import Cardano.BM.Tracing
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
-import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import Data.Map.Strict (size)
-import Data.Text (breakOn, pack, take)
+import Data.Text (pack)
 import Morpho.Common.Socket
-import Morpho.Config.Logging hiding (hostname)
 import Morpho.Config.Topology
 import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
@@ -48,7 +43,6 @@ import Morpho.Tracing.Tracers
 import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
-import Network.HostName (getHostName)
 import Network.Socket
 import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
@@ -69,32 +63,8 @@ import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
-run :: NodeCLI -> IO ()
-run cli = do
-  nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
-  env <- configurationToEnv nodeConfig
-  (loggingLayer, logging) <- loggingFeatures (unConfigPath (configFp cli)) nodeConfig
-  runCardanoApplicationWithFeatures logging $
-    CardanoApplication $ runNode loggingLayer env cli
-
-runNode ::
-  LoggingLayer ->
-  Env ->
-  NodeCLI ->
-  IO ()
-runNode loggingLayer env nCli = do
-  hn <- hostname
-  let trace =
-        setHostname hn $
-          appendName "node" (llBasicTrace loggingLayer)
-
-  let pInfo = protocolInfoMorpho env
-  tracers <- mkTracers (eTraceOpts env) trace
-  handleSimpleNode pInfo tracers nCli env
-  where
-    hostname = do
-      hn0 <- pack <$> getHostName
-      return $ take 8 $ fst $ breakOn "." hn0
+run :: NodeCLI -> Env MorphoMockHash ConsensusMockCrypto -> IO ()
+run cli env = handleSimpleNode (protocolInfoMorpho env) (eTracers env) cli env
 
 -- | Sets up a simple node, which will run the chain sync protocol and block
 -- fetch protocol, and, if core, will also look at the mempool when trying to
@@ -105,7 +75,7 @@ handleSimpleNode ::
   ProtocolInfo IO blk ->
   Tracers RemoteConnectionId LocalConnectionId h c ->
   NodeCLI ->
-  Env ->
+  Env h c ->
   IO ()
 handleSimpleNode pInfo nodeTracers nCli env = do
   NetworkTopology nodeSetups <-
@@ -303,7 +273,7 @@ requestCurrentBlock ::
   MorphoStateDefaultConstraints h c =>
   Tracer IO PoWNodeRpcTrace ->
   NodeKernel IO peer localPeer (MorphoBlock h c) ->
-  Env ->
+  Env h c ->
   Tracers peer localPeer h c ->
   MorphoMetrics ->
   IO ()
@@ -335,7 +305,7 @@ requestCurrentBlock tr kernel env nodeTracers metrics = forever $ do
 publishStableCheckpoint ::
   forall blk h c peer localpeer.
   (blk ~ MorphoBlock h c, RunNode blk) =>
-  Env ->
+  Env h c ->
   Tracers peer localpeer h c ->
   MorphoMetrics ->
   ChainDB.ChainDB IO blk ->

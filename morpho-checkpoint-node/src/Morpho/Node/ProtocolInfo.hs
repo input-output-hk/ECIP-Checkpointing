@@ -20,7 +20,7 @@ import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
 import Ouroboros.Consensus.Protocol.BFT
 
-protocolInfoMorpho :: Monad m => Env -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
+protocolInfoMorpho :: Monad m => Env MorphoMockHash ConsensusMockCrypto -> ProtocolInfo m (MorphoBlock MorphoMockHash ConsensusMockCrypto)
 protocolInfoMorpho env =
   ProtocolInfo
     { pInfoConfig =

@@ -1,24 +1,54 @@
 module Morpho.Node.Env where
 
+import Cardano.BM.Data.Transformers
+import Cardano.BM.Trace
+import Cardano.Crypto.DSIGN
 import Cardano.Prelude
 import Control.Monad.Fail
+import qualified Data.Text as T
 import Data.Time
+import Morpho.Config.Logging
 import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
+import Morpho.Ledger.Block
+import Morpho.Ledger.Update
+import Morpho.Tracing.Tracers
+import Network.HostName
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.NodeId
+import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
+import Ouroboros.Network.NodeToClient
+import Ouroboros.Network.NodeToNode
 
-configurationToEnv :: NodeConfiguration -> IO Env
-configurationToEnv nc = do
+getHostname :: IO Text
+getHostname = do
+  hn0 <- T.pack <$> getHostName
+  return $ T.take 8 $ fst $ T.breakOn "." hn0
+
+configurationToEnv ::
+  ( MorphoStateDefaultConstraints h c,
+    Signable (BftDSIGN c) (MorphoStdHeader h c)
+  ) =>
+  LoggingLayer ->
+  NodeConfiguration ->
+  IO (Env h c)
+configurationToEnv loggingLayer nc = do
   start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
 
   mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
   privKey <- case mprivKey of
     Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
     Right pk -> return pk
+
+  host <- getHostname
+  let basicTrace =
+        setHostname host $
+          appendName "node" (llBasicTrace loggingLayer)
+
+  tracers <- mkTracers (ncTraceOpts nc) basicTrace
 
   return
     Env
@@ -32,7 +62,7 @@ configurationToEnv nc = do
         eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
         eSystemStart = start,
         ePrivateKey = privKey,
-        eTraceOpts = ncTraceOpts nc,
+        eTracers = tracers,
         ePrometheusPort = ncPrometheusPort nc,
         eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
         eSnapshotInterval = ncSnapshotInterval nc,
@@ -41,7 +71,7 @@ configurationToEnv nc = do
         eStableLedgerDepth = ncStableLedgerDepth nc
       }
 
-data Env = Env
+data Env h c = Env
   { eNodeId :: CoreNodeId,
     eNumCoreNodes :: NumCoreNodes,
     eCheckpointingInterval :: Int,
@@ -52,7 +82,7 @@ data Env = Env
     eSecurityParameter :: SecurityParam,
     eSystemStart :: SystemStart,
     ePrivateKey :: PrivateKey,
-    eTraceOpts :: TraceOptions,
+    eTracers :: Tracers RemoteConnectionId LocalConnectionId h c,
     ePrometheusPort :: Int,
     eSnapshotsOnDisk :: Word,
     eSnapshotInterval :: Word64,
