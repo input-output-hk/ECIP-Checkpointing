@@ -73,7 +73,7 @@ run :: NodeCLI -> IO ()
 run cli = do
   nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
   env <- configurationToEnv nodeConfig
-  (loggingLayer, logging) <- loggingFeatures cli nodeConfig
+  (loggingLayer, logging) <- loggingFeatures (unConfigPath (configFp cli)) nodeConfig
   runCardanoApplicationWithFeatures logging $
     CardanoApplication $ runNode loggingLayer env cli
 
