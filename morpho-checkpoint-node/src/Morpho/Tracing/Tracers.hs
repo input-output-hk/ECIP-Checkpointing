@@ -172,7 +172,7 @@ mkTracers ::
     Signable (BftDSIGN c) (MorphoStdHeader h c),
     LedgerSupportsProtocol blk
   ) =>
-  TraceOptions Identity ->
+  TraceOptions ->
   Trace IO Text ->
   IO (Tracers peer localPeer h c)
 mkTracers traceOptions tracer = do
@@ -204,59 +204,59 @@ mkTracers traceOptions tracer = do
             toLogObject' tracingVerbosity $
               appendName "Main" tracer,
         chainDBTracer =
-          tracerOnOff (runIdentity $ traceChainDB traceOptions) $
+          tracerOnOff (traceChainDB traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "ChainDB" tracer,
         consensusTracers =
           mkConsensusTracers forgeTracers traceOptions,
         ipSubscriptionTracer =
-          tracerOnOff (runIdentity $ traceIpSubscription traceOptions) $
+          tracerOnOff (traceIpSubscription traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "IpSubscription" tracer,
         dnsSubscriptionTracer =
-          tracerOnOff (runIdentity $ traceDnsSubscription traceOptions) $
+          tracerOnOff (traceDnsSubscription traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "DnsSubscription" tracer,
         dnsResolverTracer =
-          tracerOnOff (runIdentity $ traceDnsResolver traceOptions) $
+          tracerOnOff (traceDnsResolver traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "DnsResolver" tracer,
         muxTracer =
-          tracerOnOff (runIdentity $ traceMux traceOptions) $
+          tracerOnOff (traceMux traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "Mux" tracer,
         muxLocalTracer =
-          tracerOnOff (runIdentity $ traceMux traceOptions) $
+          tracerOnOff (traceMux traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "LocalMux" tracer,
         errorPolicyTracer =
-          tracerOnOff (runIdentity $ traceErrorPolicy traceOptions) $
+          tracerOnOff (traceErrorPolicy traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "ErrorPolicy" tracer,
         extractStateTracer =
-          tracerOnOff (runIdentity $ traceLedgerState traceOptions) $
+          tracerOnOff (traceLedgerState traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "ExtractState" tracer,
         powNodeRpcTracer =
-          tracerOnOff (runIdentity $ tracePoWNodeRpc traceOptions) $
+          tracerOnOff (tracePoWNodeRpc traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "PoWNodeRpc" tracer,
         timeTravelErrorTracer =
-          tracerOnOff (runIdentity $ traceTimeTravelError traceOptions) $
+          tracerOnOff (traceTimeTravelError traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "TimeTravelError" tracer,
         chainTipTracer =
-          tracerOnOff (runIdentity $ traceTimeTravelError traceOptions) $
+          tracerOnOff (traceTimeTravelError traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "chainTipTracer" tracer,
@@ -265,39 +265,39 @@ mkTracers traceOptions tracer = do
         nodeToClientTracers =
           nodeToClientTracers' traceOptions tracer,
         handshakeTracer =
-          tracerOnOff (runIdentity $ traceHandshake traceOptions) $
+          tracerOnOff (traceHandshake traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "Handshake" tracer,
         handshakeLocalTracer =
-          tracerOnOff (runIdentity $ traceHandshake traceOptions) $
+          tracerOnOff (traceHandshake traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "HandshakeLocal" tracer,
         localErrorPolicyTracer =
-          tracerOnOff (runIdentity $ traceErrorPolicy traceOptions) $
+          tracerOnOff (traceErrorPolicy traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "Handshake" tracer,
         acceptPolicyTracer =
-          tracerOnOff (runIdentity $ traceErrorPolicy traceOptions) $
+          tracerOnOff (traceErrorPolicy traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "Handshake" tracer,
         diffusionInitializationTracer =
-          tracerOnOff (runIdentity $ traceErrorPolicy traceOptions) $
+          tracerOnOff (traceErrorPolicy traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "DiffusionInitialization" tracer,
         ledgerPeersTracer =
-          tracerOnOff (runIdentity $ traceErrorPolicy traceOptions) $
+          tracerOnOff (traceErrorPolicy traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $
                 appendName "LedgerPeers" tracer
       }
   where
     tracingVerbosity :: TracingVerbosity
-    tracingVerbosity = runIdentity $ traceVerbosity traceOptions
+    tracingVerbosity = traceVerbosity traceOptions
     teeTraceBlockFetchDecision ::
       TracingVerbosity ->
       Trace IO Text ->
@@ -336,14 +336,14 @@ mkTracers traceOptions tracer = do
       traceWith (mpTracer tr) ev
     mpTracer :: Trace IO Text -> Tracer IO (TraceEventMempool blk)
     mpTracer tr = annotateSeverity $ toLogObject' tracingVerbosity tr
-    forgeTracer :: ForgeTracers -> TraceOptions Identity -> Tracer IO (Consensus.TraceLabelCreds (Consensus.TraceForgeEvent blk))
+    forgeTracer :: ForgeTracers -> TraceOptions -> Tracer IO (Consensus.TraceLabelCreds (Consensus.TraceForgeEvent blk))
     forgeTracer forgeTracers traceOpts = Tracer $ \(Consensus.TraceLabelCreds _ ev) -> do
       traceWith (measureTxsEnd tracer) ev
       traceWith consensusForgeTracer ev
       where
         -- The consensus tracer.
         consensusForgeTracer =
-          tracerOnOff (runIdentity $ traceForge traceOpts) $
+          tracerOnOff (traceForge traceOpts) $
             annotateSeverity $
               teeForge forgeTracers tracingVerbosity $
                 appendName "Forge" tracer
@@ -414,48 +414,48 @@ mkTracers traceOptions tracer = do
               LogValue "ledgerView" $ PureI $ fromIntegral $ unSlotNo slot
             Consensus.TraceForgeStateUpdateError slot _ ->
               LogValue "forgeStateUpdateError" $ PureI $ fromIntegral $ unSlotNo slot
-    mkConsensusTracers :: ForgeTracers -> TraceOptions Identity -> Consensus.Tracers IO peer localPeer blk
+    mkConsensusTracers :: ForgeTracers -> TraceOptions -> Consensus.Tracers IO peer localPeer blk
     mkConsensusTracers forgeTracers traceOpts =
       Consensus.Tracers
         { Consensus.chainSyncClientTracer =
-            tracerOnOff (runIdentity $ traceChainSyncClient traceOpts) $
+            tracerOnOff (traceChainSyncClient traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "ChainSyncClient" tracer,
           Consensus.chainSyncServerHeaderTracer =
-            tracerOnOff (runIdentity $ traceChainSyncHeaderServer traceOpts) $
+            tracerOnOff (traceChainSyncHeaderServer traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "ChainSyncHeaderServer" tracer,
           Consensus.chainSyncServerBlockTracer =
-            tracerOnOff (runIdentity $ traceChainSyncBlockServer traceOpts) $
+            tracerOnOff (traceChainSyncBlockServer traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "ChainSyncBlockServer" tracer,
           Consensus.blockFetchDecisionTracer =
-            tracerOnOff (runIdentity $ traceBlockFetchDecisions traceOpts) $
+            tracerOnOff (traceBlockFetchDecisions traceOpts) $
               annotateSeverity $
                 teeTraceBlockFetchDecision tracingVerbosity $
                   appendName "BlockFetchDecision" tracer,
           Consensus.blockFetchClientTracer =
-            tracerOnOff (runIdentity $ traceBlockFetchClient traceOpts) $
+            tracerOnOff (traceBlockFetchClient traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "BlockFetchClient" tracer,
           Consensus.blockFetchServerTracer =
-            tracerOnOff (runIdentity $ traceBlockFetchServer traceOpts) $
+            tracerOnOff (traceBlockFetchServer traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "BlockFetchServer" tracer,
           Consensus.txInboundTracer =
-            tracerOnOff (runIdentity $ traceTxInbound traceOpts) $
+            tracerOnOff (traceTxInbound traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "TxInbound" tracer,
           Consensus.txOutboundTracer =
-            tracerOnOff (runIdentity $ traceTxOutbound traceOpts) $
+            tracerOnOff (traceTxOutbound traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "TxOutbound" tracer,
           Consensus.localTxSubmissionServerTracer =
-            tracerOnOff (runIdentity $ traceLocalTxSubmissionServer traceOpts) $
+            tracerOnOff (traceLocalTxSubmissionServer traceOpts) $
               toLogObject' tracingVerbosity $
                 appendName "LocalTxSubmissionServer" tracer,
           Consensus.mempoolTracer =
-            tracerOnOff (runIdentity $ traceMempool traceOpts) mempoolTracer,
+            tracerOnOff (traceMempool traceOpts) mempoolTracer,
           Consensus.forgeTracer =
             forgeTracer forgeTracers traceOpts,
           Consensus.blockchainTimeTracer = Tracer $ \ev ->
@@ -534,39 +534,39 @@ nodeToNodeTracers' ::
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c
   ) =>
-  TraceOptions Identity ->
+  TraceOptions ->
   Trace IO Text ->
   NodeToNode.Tracers' peer blk DeserialiseFailure (Tracer IO)
 nodeToNodeTracers' traceOptions tracer =
-  let tVerb = runIdentity $ traceVerbosity traceOptions
+  let tVerb = traceVerbosity traceOptions
    in NodeToNode.Tracers
         { NodeToNode.tChainSyncTracer =
-            tracerOnOff (runIdentity $ traceChainSyncProtocol traceOptions) $
+            tracerOnOff (traceChainSyncProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "ChainSyncProtocol" tracer,
           NodeToNode.tChainSyncSerialisedTracer =
-            tracerOnOff (runIdentity $ traceChainSyncProtocol traceOptions) $
+            tracerOnOff (traceChainSyncProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "ChainSyncProtocolSerialised" tracer,
           NodeToNode.tBlockFetchTracer =
-            tracerOnOff (runIdentity $ traceBlockFetchProtocol traceOptions) $
+            tracerOnOff (traceBlockFetchProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "BlockFetchProtocol" tracer,
           NodeToNode.tBlockFetchSerialisedTracer =
             showOnOff
-              (runIdentity $ traceBlockFetchProtocolSerialised traceOptions)
+              (traceBlockFetchProtocolSerialised traceOptions)
               "BlockFetchProtocolSerialised"
               tracer,
           NodeToNode.tTxSubmissionTracer =
-            tracerOnOff (runIdentity $ traceTxSubmissionProtocol traceOptions) $
+            tracerOnOff (traceTxSubmissionProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "TxSubmissionProtocol" tracer,
           NodeToNode.tTxSubmission2Tracer =
-            tracerOnOff (runIdentity $ traceTxSubmissionProtocol traceOptions) $
+            tracerOnOff (traceTxSubmissionProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "TxSubmission2Protocol" tracer
@@ -576,24 +576,24 @@ nodeToClientTracers' ::
   ( Show peer,
     blk ~ MorphoBlock h c
   ) =>
-  TraceOptions Identity ->
+  TraceOptions ->
   Trace IO Text ->
   NodeToClient.Tracers' peer blk DeserialiseFailure (Tracer IO)
 nodeToClientTracers' traceOptions tracer =
-  let tVerb = runIdentity $ traceVerbosity traceOptions
+  let tVerb = traceVerbosity traceOptions
    in NodeToClient.Tracers
         { NodeToClient.tChainSyncTracer =
-            tracerOnOff (runIdentity $ traceLocalChainSyncProtocol traceOptions) $
+            tracerOnOff (traceLocalChainSyncProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "LocalChainSyncProtocol" tracer,
           NodeToClient.tTxSubmissionTracer =
-            tracerOnOff (runIdentity $ traceLocalTxSubmissionProtocol traceOptions) $
+            tracerOnOff (traceLocalTxSubmissionProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "LocalTxSubmissionProtocol" tracer,
           NodeToClient.tStateQueryTracer =
-            tracerOnOff (runIdentity $ traceLocalStateQueryProtocol traceOptions) $
+            tracerOnOff (traceLocalStateQueryProtocol traceOptions) $
               annotateSeverity $
                 toLogObject' tVerb $
                   appendName "LocalStateQueryProtocol" tracer

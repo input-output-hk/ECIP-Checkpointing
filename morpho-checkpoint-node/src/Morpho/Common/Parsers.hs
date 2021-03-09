@@ -8,6 +8,7 @@ module Morpho.Common.Parsers
 where
 
 import Barbies
+import Barbies.Bare
 import Cardano.Prelude hiding (option)
 import Data.Functor.Compose
 import Morpho.Config.Types
@@ -20,10 +21,10 @@ import Prelude (String)
 parser :: Parser a -> Compose Parser Maybe a
 parser p = Compose $ fmap Just p <|> pure Nothing
 
-runCLI :: IO (FilePath, NodeConfiguration Maybe)
+runCLI :: IO (FilePath, NodeConfiguration_ Covered Maybe)
 runCLI = execParser opts
   where
-    opts :: ParserInfo (FilePath, NodeConfiguration Maybe)
+    opts :: ParserInfo (FilePath, NodeConfiguration_ Covered Maybe)
     opts =
       info
         ( nodeCliParser
@@ -61,7 +62,7 @@ renderHelpDoc :: Int -> OptI.Doc -> String
 renderHelpDoc cols =
   (`OptI.displayS` "") . OptI.renderPretty 1.0 cols
 
-nodeCliParser :: Parser (FilePath, NodeConfiguration Maybe)
+nodeCliParser :: Parser (FilePath, NodeConfiguration_ Covered Maybe)
 nodeCliParser = (,) <$> parseConfigFile <*> bsequence parseConfiguration
   where
     parseConfiguration =

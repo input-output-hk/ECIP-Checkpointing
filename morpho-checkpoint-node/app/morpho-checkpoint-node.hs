@@ -11,7 +11,7 @@ main :: IO ()
 main = toplevelExceptionHandler $ do
   (file, cliConfig) <- runCLI
   nodeConfig <- getConfiguration file cliConfig
-  (loggingLayer, logging) <- loggingFeatures file (runIdentity $ ncLoggingSwitch nodeConfig)
+  (loggingLayer, logging) <- loggingFeatures file (ncLoggingSwitch nodeConfig)
   env <- configurationToEnv loggingLayer nodeConfig
   runCardanoApplicationWithFeatures logging $
     CardanoApplication $ run env

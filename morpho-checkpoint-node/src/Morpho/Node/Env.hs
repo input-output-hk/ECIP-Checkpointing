@@ -36,14 +36,14 @@ configurationToEnv ::
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
   LoggingLayer ->
-  NodeConfiguration Identity ->
+  NodeConfiguration ->
   IO (Env h c)
 configurationToEnv loggingLayer nc = do
-  start <- maybe (SystemStart <$> getCurrentTime) pure (runIdentity $ ncSystemStart nc)
+  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
 
-  mprivKey <- liftIO . readPrivateKey $ runIdentity $ ncNodePrivKeyFile nc
+  mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
   privKey <- case mprivKey of
-    Left err -> fail $ "Failed to import private key from " <> show (runIdentity $ ncNodePrivKeyFile nc) <> ": " <> show err
+    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
     Right pk -> return pk
 
   host <- getHostname
@@ -54,34 +54,34 @@ configurationToEnv loggingLayer nc = do
   tracers <- mkTracers (ncTraceOpts nc) basicTrace
 
   topology <-
-    either error id <$> readTopologyFile (unTopology $ runIdentity $ ncTopologyFile nc)
+    either error id <$> readTopologyFile (unTopology $ ncTopologyFile nc)
 
-  databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ runIdentity $ ncDatabaseDir nc)
+  databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
   return
     Env
-      { eNodeId = runIdentity $ ncNodeId nc,
-        eNumCoreNodes = NumCoreNodes $ runIdentity $ ncNumCoreNodes nc,
-        eCheckpointingInterval = runIdentity $ ncCheckpointInterval nc,
-        eRequiredMajority = runIdentity $ ncRequiredMajority nc,
-        eFedPubKeys = runIdentity $ ncFedPubKeys nc,
-        eTimeslotLength = runIdentity $ ncTimeslotLength nc,
-        eNetworkMagic = NetworkMagic $ runIdentity $ ncNetworkMagic nc,
-        eSecurityParameter = SecurityParam $ runIdentity $ ncSecurityParameter nc,
+      { eNodeId = ncNodeId nc,
+        eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
+        eCheckpointingInterval = ncCheckpointInterval nc,
+        eRequiredMajority = ncRequiredMajority nc,
+        eFedPubKeys = ncFedPubKeys nc,
+        eTimeslotLength = ncTimeslotLength nc,
+        eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
+        eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
         eSystemStart = start,
         ePrivateKey = privKey,
         eTracers = tracers,
-        ePrometheusPort = runIdentity $ ncPrometheusPort nc,
+        ePrometheusPort = ncPrometheusPort nc,
         eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
-        eSnapshotInterval = runIdentity $ ncSnapshotInterval nc,
-        ePoWBlockFetchInterval = runIdentity $ ncPoWBlockFetchInterval nc,
-        ePoWNodeRpcUrl = runIdentity $ ncPoWNodeRpcUrl nc,
-        eStableLedgerDepth = runIdentity $ ncStableLedgerDepth nc,
+        eSnapshotInterval = ncSnapshotInterval nc,
+        ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
+        ePoWNodeRpcUrl = ncPoWNodeRpcUrl nc,
+        eStableLedgerDepth = ncStableLedgerDepth nc,
         eTopology = topology,
         eDatabaseDir = databaseDir,
-        eSocketFile = unSocket $ runIdentity $ ncSocketFile nc,
-        eNodeAddress = NodeAddress (runIdentity $ ncNodeHost nc) (runIdentity $ ncNodePort nc),
-        eValidateDb = runIdentity $ ncValidateDb nc
+        eSocketFile = unSocket $ ncSocketFile nc,
+        eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
+        eValidateDb = ncValidateDb nc
       }
 
 data Env h c = Env
