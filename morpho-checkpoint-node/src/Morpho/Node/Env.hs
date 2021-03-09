@@ -51,7 +51,7 @@ configurationToEnv loggingLayer nc = do
         setHostname host $
           appendName "node" (llBasicTrace loggingLayer)
 
-  tracers <- mkTracers (runIdentity $ ncTraceOpts nc) basicTrace
+  tracers <- mkTracers (ncTraceOpts nc) basicTrace
 
   topology <-
     either error id <$> readTopologyFile (unTopology $ runIdentity $ ncTopologyFile nc)

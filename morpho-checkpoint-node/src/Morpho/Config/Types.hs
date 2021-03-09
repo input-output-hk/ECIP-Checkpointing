@@ -49,7 +49,7 @@ data NodeConfiguration f = NodeConfiguration
     ncSecurityParameter :: f Word64,
     ncStableLedgerDepth :: f Int,
     ncLoggingSwitch :: f Bool,
-    ncTraceOpts :: f TraceOptions,
+    ncTraceOpts :: TraceOptions f,
     ncTimeslotLength :: f SlotLength,
     ncSnapshotsOnDisk :: f Int,
     ncSnapshotInterval :: f Word64,
@@ -115,6 +115,7 @@ defaultConfiguration =
       ncSnapshotsOnDisk = Just 60,
       ncSnapshotInterval = Just 60,
       ncPoWBlockFetchInterval = Just 1000000,
+      ncTraceOpts = bmap (Just . runIdentity) defaultTraceOptions,
       ncNodeHost = Just (NodeHostAddress Nothing),
       ncValidateDb = Just False
     }
@@ -122,38 +123,73 @@ defaultConfiguration =
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
 
-traceConfigParser :: Object -> Parser TraceOptions
+defaultTraceOptions :: TraceOptions Identity
+defaultTraceOptions =
+  TraceOptions
+    { traceVerbosity = Identity NormalVerbosity,
+      traceChainDB = Identity True,
+      traceChainSyncClient = Identity True,
+      traceChainSyncHeaderServer = Identity True,
+      traceChainSyncBlockServer = Identity True,
+      traceBlockFetchDecisions = Identity True,
+      traceBlockFetchClient = Identity True,
+      traceBlockFetchServer = Identity True,
+      traceTxInbound = Identity True,
+      traceTxOutbound = Identity True,
+      traceLocalTxSubmissionServer = Identity True,
+      traceMempool = Identity True,
+      traceForge = Identity True,
+      traceChainSyncProtocol = Identity True,
+      traceBlockFetchProtocol = Identity True,
+      traceBlockFetchProtocolSerialised = Identity True,
+      traceTxSubmissionProtocol = Identity True,
+      traceLocalChainSyncProtocol = Identity True,
+      traceLocalTxSubmissionProtocol = Identity True,
+      traceLocalStateQueryProtocol = Identity True,
+      traceIpSubscription = Identity True,
+      traceDnsSubscription = Identity True,
+      traceDnsResolver = Identity True,
+      traceErrorPolicy = Identity True,
+      traceMux = Identity True,
+      traceHandshake = Identity True,
+      traceLedgerState = Identity True,
+      tracePoWNodeRpc = Identity True,
+      traceTimeTravelError = Identity True
+    }
+
+traceConfigParser :: Object -> TraceOptions Parser
 traceConfigParser v =
   TraceOptions
-    <$> v .:? "TracingVerbosity" .!= NormalVerbosity
-    <*> v .:? "TraceChainDb" .!= True
-    <*> v .:? "TraceChainSyncClient" .!= True
-    <*> v .:? "TraceChainSyncHeaderServer" .!= True
-    <*> v .:? "TraceChainSyncBlockServer" .!= True
-    <*> v .:? "TraceBlockFetchDecisions" .!= True
-    <*> v .:? "TraceBlockFetchServer" .!= True
-    <*> v .:? "TraceBlockFetchClient" .!= True
-    <*> v .:? "TraceTxInbound" .!= True
-    <*> v .:? "TraceTxOutbound" .!= True
-    <*> v .:? "TraceLocalTxSubmissionServer" .!= True
-    <*> v .:? "TraceMempool" .!= True
-    <*> v .:? "TraceForge" .!= True
-    <*> v .:? "TraceChainSyncProtocol" .!= True
-    <*> v .:? "TraceBlockFetchProtocol" .!= True
-    <*> v .:? "TraceBlockFetchProtocolSerialised" .!= True
-    <*> v .:? "TraceTxSubmissionProtocol" .!= True
-    <*> v .:? "TraceLocalChainSyncProtocol" .!= True
-    <*> v .:? "TraceLocalTxSubmissionProtocol" .!= True
-    <*> v .:? "traceLocalStateQueryProtocol" .!= True
-    <*> v .:? "TraceIpSubscription" .!= True
-    <*> v .:? "TraceDNSSubscription" .!= True
-    <*> v .:? "TraceDNSResolver" .!= True
-    <*> v .:? "TraceErrorPolicy" .!= True
-    <*> v .:? "TraceMux" .!= True
-    <*> v .:? "TraceHandshake" .!= True
-    <*> v .:? "TraceLedgerState" .!= True
-    <*> v .:? "TracePoWNodeRpc" .!= True
-    <*> v .:? "TraceTimeTravelError" .!= True
+    { traceVerbosity = v .: "TracingVerbosity",
+      traceChainDB = v .: "TraceChainDb",
+      traceChainSyncClient = v .: "TraceChainSyncClient",
+      traceChainSyncHeaderServer = v .: "TraceChainSyncHeaderServer",
+      traceChainSyncBlockServer = v .: "TraceChainSyncBlockServer",
+      traceBlockFetchDecisions = v .: "TraceBlockFetchDecisions",
+      traceBlockFetchClient = v .: "TraceBlockFetchServer",
+      traceBlockFetchServer = v .: "TraceBlockFetchClient",
+      traceTxInbound = v .: "TraceTxInbound",
+      traceTxOutbound = v .: "TraceTxOutbound",
+      traceLocalTxSubmissionServer = v .: "TraceLocalTxSubmissionServer",
+      traceMempool = v .: "TraceMempool",
+      traceForge = v .: "TraceForge",
+      traceChainSyncProtocol = v .: "TraceChainSyncProtocol",
+      traceBlockFetchProtocol = v .: "TraceBlockFetchProtocol",
+      traceBlockFetchProtocolSerialised = v .: "TraceBlockFetchProtocolSerialised",
+      traceTxSubmissionProtocol = v .: "TraceTxSubmissionProtocol",
+      traceLocalChainSyncProtocol = v .: "TraceLocalChainSyncProtocol",
+      traceLocalTxSubmissionProtocol = v .: "TraceLocalTxSubmissionProtocol",
+      traceLocalStateQueryProtocol = v .: "traceLocalStateQueryProtocol",
+      traceIpSubscription = v .: "TraceIpSubscription",
+      traceDnsSubscription = v .: "TraceDNSSubscription",
+      traceDnsResolver = v .: "TraceDNSResolver",
+      traceErrorPolicy = v .: "TraceErrorPolicy",
+      traceMux = v .: "TraceMux",
+      traceHandshake = v .: "TraceHandshake",
+      traceLedgerState = v .: "TraceLedgerState",
+      tracePoWNodeRpc = v .: "TracePoWNodeRpc",
+      traceTimeTravelError = v .: "TraceTimeTravelError"
+    }
 
 instance FromJSON TracingVerbosity where
   parseJSON (String str) = case str of
@@ -245,48 +281,54 @@ nodeAddressToSockAddr (NodeAddress addr port) =
 
 -- | Detailed tracing options. Each option enables a tracer
 --   which verbosity to the log output.
-data TraceOptions = TraceOptions
-  { traceVerbosity :: !TracingVerbosity,
+data TraceOptions f = TraceOptions
+  { traceVerbosity :: f TracingVerbosity,
     -- | By default we use 'readableChainDB' tracer, if on this it will use
     -- more verbose tracer
-    traceChainDB :: !Bool,
+    traceChainDB :: f Bool,
     -- Consensus Tracers --
-    traceChainSyncClient :: !Bool,
-    traceChainSyncHeaderServer :: !Bool,
-    traceChainSyncBlockServer :: !Bool,
-    traceBlockFetchDecisions :: !Bool,
-    traceBlockFetchClient :: !Bool,
-    traceBlockFetchServer :: !Bool,
-    traceTxInbound :: !Bool,
-    traceTxOutbound :: !Bool,
-    traceLocalTxSubmissionServer :: !Bool,
-    traceMempool :: !Bool,
-    traceForge :: !Bool,
+    traceChainSyncClient :: f Bool,
+    traceChainSyncHeaderServer :: f Bool,
+    traceChainSyncBlockServer :: f Bool,
+    traceBlockFetchDecisions :: f Bool,
+    traceBlockFetchClient :: f Bool,
+    traceBlockFetchServer :: f Bool,
+    traceTxInbound :: f Bool,
+    traceTxOutbound :: f Bool,
+    traceLocalTxSubmissionServer :: f Bool,
+    traceMempool :: f Bool,
+    traceForge :: f Bool,
     -----------------------
 
     -- Protocol Tracers --
-    traceChainSyncProtocol :: !Bool,
+    traceChainSyncProtocol :: f Bool,
     -- There's two variants of the block fetch tracer and for now
     -- at least we'll set them both together from the same flags.
-    traceBlockFetchProtocol :: !Bool,
-    traceBlockFetchProtocolSerialised :: !Bool,
-    traceTxSubmissionProtocol :: !Bool,
-    traceLocalChainSyncProtocol :: !Bool,
-    traceLocalTxSubmissionProtocol :: !Bool,
-    traceLocalStateQueryProtocol :: !Bool,
-    traceIpSubscription :: !Bool,
+    traceBlockFetchProtocol :: f Bool,
+    traceBlockFetchProtocolSerialised :: f Bool,
+    traceTxSubmissionProtocol :: f Bool,
+    traceLocalChainSyncProtocol :: f Bool,
+    traceLocalTxSubmissionProtocol :: f Bool,
+    traceLocalStateQueryProtocol :: f Bool,
+    traceIpSubscription :: f Bool,
     -----------------------
 
-    traceDnsSubscription :: !Bool,
-    traceDnsResolver :: !Bool,
-    traceErrorPolicy :: !Bool,
-    traceMux :: !Bool,
-    traceHandshake :: Bool,
-    traceLedgerState :: !Bool,
-    tracePoWNodeRpc :: !Bool,
-    traceTimeTravelError :: !Bool
+    traceDnsSubscription :: f Bool,
+    traceDnsResolver :: f Bool,
+    traceErrorPolicy :: f Bool,
+    traceMux :: f Bool,
+    traceHandshake :: f Bool,
+    traceLedgerState :: f Bool,
+    tracePoWNodeRpc :: f Bool,
+    traceTimeTravelError :: f Bool
   }
-  deriving (Eq, Show)
+  deriving (Generic)
+
+instance FunctorB TraceOptions
+
+instance ApplicativeB TraceOptions
+
+instance TraversableB TraceOptions
 
 newtype ConfigYamlFilePath = ConfigYamlFilePath
   {unConfigPath :: FilePath}
