@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Morpho.Config.Types
@@ -22,6 +24,7 @@ module Morpho.Config.Types
     NodeHostAddress (..),
     nodeAddressToSockAddr,
     getConfiguration,
+    emptyConfiguration,
   )
 where
 
@@ -79,7 +82,21 @@ instance ApplicativeB (NodeConfiguration_ Covered)
 
 instance TraversableB (NodeConfiguration_ Covered)
 
+instance ConstraintsB (NodeConfiguration_ Covered)
+
+deriving instance AllBF Eq f (NodeConfiguration_ Covered) => Eq (NodeConfiguration_ Covered f)
+
+deriving instance AllBF Show f (NodeConfiguration_ Covered) => Show (NodeConfiguration_ Covered f)
+
 instance BareB NodeConfiguration_
+
+instance FunctorB (NodeConfiguration_ Bare)
+
+instance ConstraintsB (NodeConfiguration_ Bare)
+
+deriving instance AllBF Eq f (NodeConfiguration_ Bare) => Eq (NodeConfiguration_ Bare f)
+
+deriving instance AllBF Show f (NodeConfiguration_ Bare) => Show (NodeConfiguration_ Bare f)
 
 type NodeConfiguration = NodeConfiguration_ Bare Identity
 
@@ -114,9 +131,12 @@ parseConfigFile v =
       ncValidateDb = v .: "ValidateDatabase"
     }
 
+emptyConfiguration :: NodeConfiguration_ Covered Maybe
+emptyConfiguration = bpure Nothing
+
 defaultConfiguration :: NodeConfiguration_ Covered Maybe
 defaultConfiguration =
-  (bpure Nothing)
+  emptyConfiguration
     { ncSystemStart = Just Nothing,
       ncLoggingSwitch = Just True,
       ncSnapshotsOnDisk = Just 60,
@@ -257,11 +277,11 @@ data MiscellaneousFilepaths = MiscellaneousFilepaths
 
 newtype TopologyFile = TopologyFile
   {unTopology :: FilePath}
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype DbFile = DbFile
   {unDB :: FilePath}
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype GenesisFile = GenesisFile
   {unGenesisFile :: FilePath}
@@ -273,7 +293,7 @@ newtype DelegationCertFile = DelegationCertFile
 
 newtype SocketFile = SocketFile
   {unSocket :: FilePath}
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype SigningKeyFile = SigningKeyFile
   {unSigningKey :: FilePath}
@@ -337,7 +357,21 @@ instance ApplicativeB (TraceOptions_ Covered)
 
 instance TraversableB (TraceOptions_ Covered)
 
+instance ConstraintsB (TraceOptions_ Covered)
+
+deriving instance AllBF Eq f (TraceOptions_ Covered) => Eq (TraceOptions_ Covered f)
+
+deriving instance AllBF Show f (TraceOptions_ Covered) => Show (TraceOptions_ Covered f)
+
 instance BareB TraceOptions_
+
+instance FunctorB (TraceOptions_ Bare)
+
+instance ConstraintsB (TraceOptions_ Bare)
+
+deriving instance AllBF Eq f (TraceOptions_ Bare) => Eq (TraceOptions_ Bare f)
+
+deriving instance AllBF Show f (TraceOptions_ Bare) => Show (TraceOptions_ Bare f)
 
 type TraceOptions = TraceOptions_ Bare Identity
 

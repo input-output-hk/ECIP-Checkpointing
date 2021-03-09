@@ -208,6 +208,7 @@ test-suite state-machine-tests
         QuickCheck,
         async,
         bytestring,
+        cardano-shell,
         cardano-crypto-class,
         cborg,
         containers,

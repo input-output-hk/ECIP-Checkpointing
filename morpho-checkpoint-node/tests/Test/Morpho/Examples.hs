@@ -13,7 +13,6 @@ import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
-import Cardano.Crypto.ProtocolMagic
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Maybe
@@ -190,13 +189,19 @@ exampleNodeConfig =
       ncTimeslotLength = mkSlotLength 5,
       ncSnapshotsOnDisk = 60,
       ncSnapshotInterval = 60,
-      ncPoWBlockFetchInterval = Just 5000000,
+      ncPoWBlockFetchInterval = 5000000,
       ncPoWNodeRpcUrl = "http://127.0.0.1:8546",
       ncPrometheusPort = 13788,
       ncCheckpointInterval = 4,
       ncRequiredMajority = 1,
       ncFedPubKeys = [publicKey],
-      ncNodePrivKeyFile = "abc"
+      ncNodePrivKeyFile = "abc",
+      ncTopologyFile = TopologyFile "/path/to/topo.json",
+      ncDatabaseDir = DbFile "/path/to/db",
+      ncSocketFile = SocketFile "/path/to/socket",
+      ncNodeHost = NodeHostAddress (Just "127.0.0.1"),
+      ncNodePort = 1234,
+      ncValidateDb = True
     }
   where
     hex = fromJust $ normalizeHex "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167"

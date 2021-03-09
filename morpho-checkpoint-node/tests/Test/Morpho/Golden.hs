@@ -8,6 +8,7 @@ module Test.Morpho.Golden
 where
 
 import Cardano.Crypto.Hash
+import Cardano.Prelude
 import Morpho.Common.Conversions
 import Morpho.Config.Topology
 import Morpho.Config.Types
@@ -18,7 +19,6 @@ import Test.Morpho.Examples
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Util.Serialisation.Golden
-import Prelude
 
 instance ToGoldenDirectory MorphoNodeToNodeVersion
 
@@ -41,7 +41,7 @@ goldenTests =
 
 test_golden_parseNodeConfiguration :: Assertion
 test_golden_parseNodeConfiguration = do
-  cfg <- parseNodeConfiguration "tests/configuration/Golden/Config.yaml"
+  cfg <- getConfiguration "tests/configuration/Golden/Config.yaml" emptyConfiguration
   assertEqual "NodeConfiguration" cfg exampleNodeConfig
 
 test_golden_parseTopology :: Assertion
