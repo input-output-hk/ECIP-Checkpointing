@@ -67,7 +67,9 @@ configurationToEnv configFile nc = do
 
   databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
-  (metrics, metricFeatures) <- prometheusMetrics (mainTracer tracers) (ncPrometheusPort nc)
+  (metrics, metricFeatures) <- case ncPrometheusPort nc of
+    Nothing -> return (nullTracer, [])
+    Just port -> prometheusMetrics (mainTracer tracers) port
 
   return
     ( Env

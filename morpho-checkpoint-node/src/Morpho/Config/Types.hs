@@ -69,7 +69,7 @@ data NodeConfiguration_ w f = NodeConfiguration
     ncSnapshotInterval :: Wear w f Word64,
     ncPoWBlockFetchInterval :: Wear w f Int,
     ncPoWNodeRpcUrl :: Wear w f Text,
-    ncPrometheusPort :: Wear w f Int,
+    ncPrometheusPort :: Wear w f (Maybe Int),
     -- FIXME: separate data type: CheckpointingConfiguration
     ncCheckpointInterval :: Wear w f Int,
     ncRequiredMajority :: Wear w f Int,
@@ -150,6 +150,7 @@ defaultConfiguration =
       ncSnapshotsOnDisk = Just 60,
       ncSnapshotInterval = Just 60,
       ncPoWBlockFetchInterval = Just 1000000,
+      ncPrometheusPort = Just Nothing,
       ncTraceOpts = bcoverWith Just defaultTraceOptions,
       ncNodeHost = Just (NodeHostAddress Nothing),
       ncValidateDb = Just False
