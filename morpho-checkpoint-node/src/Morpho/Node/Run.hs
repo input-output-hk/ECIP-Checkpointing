@@ -58,7 +58,6 @@ import Ouroboros.Consensus.Util.STM
 import Ouroboros.Network.Block
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
-import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
@@ -159,18 +158,11 @@ handleSimpleNode pInfo nodeTracers env = do
           }
   when (eValidateDb env) $
     traceWith (mainTracer nodeTracers) "Performing DB validation"
-  (metrics, irs) <- setupPrometheus
   let kernelHook ::
         ResourceRegistry IO ->
         NodeKernel IO RemoteConnectionId LocalConnectionId blk ->
         IO ()
       kernelHook registry nodeKernel = do
-        -- Start the prometheus HTTP server
-        void $
-          forkLinkedThread registry "PrometheusMetrics" $
-            catch
-              (serveMetrics (ePrometheusPort env) ["metrics"] irs)
-              (\e -> traceWith (mainTracer nodeTracers) $ show (e :: IOException))
         -- Track morpho chain tip
         let chainDB = getChainDB nodeKernel
         lastBlockTsVar <- atomically (newTVar Nothing)
@@ -184,9 +176,9 @@ handleSimpleNode pInfo nodeTracers env = do
                 wReader = ChainDB.getCurrentTip chainDB,
                 wNotify = \tip -> do
                   traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity $ getTipPoint tip)
-                  setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
+                  setTimeDiff lastBlockTsVar (mMorphoBlockTime (eMorphoMetrics env))
                   let mb = withOriginToMaybe $ getTipBlockNo tip
-                  set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
+                  set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber (eMorphoMetrics env)
               }
         --  Check if we need to push a checkpoint to the PoW node
         void $
@@ -198,10 +190,10 @@ handleSimpleNode pInfo nodeTracers env = do
                 wInitial = Nothing,
                 wReader = ledgerState <$> ChainDB.getCurrentLedger chainDB,
                 wNotify =
-                  publishStableCheckpoint env nodeTracers metrics chainDB
+                  publishStableCheckpoint env nodeTracers (eMorphoMetrics env) chainDB
               }
         -- Fetch the current stable PoW block
-        void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel env nodeTracers metrics
+        void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel env nodeTracers (eMorphoMetrics env)
         -- Track the nb of connected peers
         void $
           forkLinkedWatcher
@@ -212,7 +204,7 @@ handleSimpleNode pInfo nodeTracers env = do
                 wInitial = Nothing,
                 wReader = size <$> readTVar (getNodeCandidates nodeKernel),
                 wNotify =
-                  \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers metrics
+                  \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers (eMorphoMetrics env)
               }
   let args =
         RunNodeArgs

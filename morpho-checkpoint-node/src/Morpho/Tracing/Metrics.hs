@@ -11,13 +11,16 @@ where
 import Cardano.BM.Counters.Common
 import Cardano.BM.Data.Aggregated
 import Cardano.BM.Data.Counter
+import Cardano.BM.Data.Tracer
 import Cardano.Prelude hiding (atomically)
+import Cardano.Shell.Types
 import qualified Control.Concurrent.Async as Async
 import Control.Monad.Class.MonadSTM.Strict
 import Data.Time
 import System.Metrics.Prometheus.Concurrent.RegistryT
+import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge hiding (sample)
-import System.Metrics.Prometheus.Registry (RegistrySample)
+import Prelude (String)
 
 data MorphoMetrics = MorphoMetrics
   { mLatestPowBlock :: Gauge,
@@ -30,8 +33,8 @@ data MorphoMetrics = MorphoMetrics
     mNbPeers :: Gauge
   }
 
-setupPrometheus :: IO (MorphoMetrics, IO RegistrySample)
-setupPrometheus = runRegistryT $ do
+setupPrometheus :: Tracer IO String -> Int -> IO (MorphoMetrics, [CardanoFeature])
+setupPrometheus mainTracer port = runRegistryT $ do
   mLatestPowBlock <- registerGauge "morpho_latest_pow_block_number" mempty
   mMorphoStateStableCheckpoint <- registerGauge "morpho_checkpoint_stable_state_pow_block_number" mempty
   mMorphoStateUnstableCheckpoint <- registerGauge "morpho_checkpoint_unstable_state_pow_block_number" mempty
@@ -54,7 +57,20 @@ setupPrometheus = runRegistryT $ do
           mNbVotesLastCheckpoint,
           mNbPeers
         },
-      rs
+      [ CardanoFeature
+          { featureName = "PrometheusServer",
+            featureStart =
+              liftIO $
+                serveMetrics port ["metrics"] rs
+                  `catch` (\e -> traceWith mainTracer $ show (e :: IOException)),
+            featureShutdown = return ()
+          },
+        CardanoFeature
+          { featureName = "MetricCollector",
+            featureStart = liftIO $ startMemoryCapturing mLiveBytes,
+            featureShutdown = return ()
+          }
+      ]
     )
 
 startMemoryCapturing :: Gauge -> IO ()

@@ -14,6 +14,7 @@ import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
 import Morpho.Ledger.Update
+import Morpho.Tracing.Metrics
 import Morpho.Tracing.Tracers
 import Network.HostName
 import Ouroboros.Consensus.BlockchainTime
@@ -65,6 +66,8 @@ configurationToEnv configFile nc = do
 
   databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
+  (metrics, metricFeatures) <- setupPrometheus (mainTracer tracers) (ncPrometheusPort nc)
+
   return
     ( Env
         { eNodeId = ncNodeId nc,
@@ -78,7 +81,7 @@ configurationToEnv configFile nc = do
           eSystemStart = start,
           ePrivateKey = privKey,
           eTracers = tracers,
-          ePrometheusPort = ncPrometheusPort nc,
+          eMorphoMetrics = metrics,
           eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
           eSnapshotInterval = ncSnapshotInterval nc,
           ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
@@ -90,7 +93,7 @@ configurationToEnv configFile nc = do
           eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
           eValidateDb = ncValidateDb nc
         },
-      loggingFeats
+      loggingFeats ++ metricFeatures
     )
 
 -- | The application environment, a read-only structure that configures how
@@ -109,7 +112,7 @@ data Env h c = Env
     eSystemStart :: SystemStart,
     ePrivateKey :: PrivateKey,
     eTracers :: Tracers RemoteConnectionId LocalConnectionId h c,
-    ePrometheusPort :: Int,
+    eMorphoMetrics :: MorphoMetrics,
     eSnapshotsOnDisk :: Word,
     eSnapshotInterval :: Word64,
     ePoWBlockFetchInterval :: Int,
