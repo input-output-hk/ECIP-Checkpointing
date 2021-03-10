@@ -4,6 +4,7 @@ import Cardano.BM.Data.Transformers
 import Cardano.BM.Trace
 import Cardano.Crypto.DSIGN
 import Cardano.Prelude
+import Cardano.Shell.Types
 import Control.Monad.Fail
 import qualified Data.Text as T
 import Data.Time
@@ -38,10 +39,10 @@ configurationToEnv ::
   ( MorphoStateDefaultConstraints h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
-  LoggingLayer ->
+  FilePath ->
   NodeConfiguration ->
-  IO (Env h c)
-configurationToEnv loggingLayer nc = do
+  IO (Env h c, [CardanoFeature])
+configurationToEnv configFile nc = do
   start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
 
   mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
@@ -50,6 +51,9 @@ configurationToEnv loggingLayer nc = do
     Right pk -> return pk
 
   host <- getHostname
+
+  (loggingLayer, loggingFeats) <- loggingFeatures configFile (ncLoggingSwitch nc)
+
   let basicTrace =
         setHostname host $
           appendName "node" (llBasicTrace loggingLayer)
@@ -62,30 +66,32 @@ configurationToEnv loggingLayer nc = do
   databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
   return
-    Env
-      { eNodeId = ncNodeId nc,
-        eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
-        eCheckpointingInterval = ncCheckpointInterval nc,
-        eRequiredMajority = ncRequiredMajority nc,
-        eFedPubKeys = ncFedPubKeys nc,
-        eTimeslotLength = ncTimeslotLength nc,
-        eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
-        eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
-        eSystemStart = start,
-        ePrivateKey = privKey,
-        eTracers = tracers,
-        ePrometheusPort = ncPrometheusPort nc,
-        eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
-        eSnapshotInterval = ncSnapshotInterval nc,
-        ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
-        ePoWNodeRpcUrl = ncPoWNodeRpcUrl nc,
-        eStableLedgerDepth = ncStableLedgerDepth nc,
-        eTopology = topology,
-        eDatabaseDir = databaseDir,
-        eSocketFile = unSocket $ ncSocketFile nc,
-        eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
-        eValidateDb = ncValidateDb nc
-      }
+    ( Env
+        { eNodeId = ncNodeId nc,
+          eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
+          eCheckpointingInterval = ncCheckpointInterval nc,
+          eRequiredMajority = ncRequiredMajority nc,
+          eFedPubKeys = ncFedPubKeys nc,
+          eTimeslotLength = ncTimeslotLength nc,
+          eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
+          eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
+          eSystemStart = start,
+          ePrivateKey = privKey,
+          eTracers = tracers,
+          ePrometheusPort = ncPrometheusPort nc,
+          eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
+          eSnapshotInterval = ncSnapshotInterval nc,
+          ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
+          ePoWNodeRpcUrl = ncPoWNodeRpcUrl nc,
+          eStableLedgerDepth = ncStableLedgerDepth nc,
+          eTopology = topology,
+          eDatabaseDir = databaseDir,
+          eSocketFile = unSocket $ ncSocketFile nc,
+          eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
+          eValidateDb = ncValidateDb nc
+        },
+      loggingFeats
+    )
 
 -- | The application environment, a read-only structure that configures how
 -- morpho should run. This structure can abstract over interface details such

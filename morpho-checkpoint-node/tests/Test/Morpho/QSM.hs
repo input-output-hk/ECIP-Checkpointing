@@ -27,7 +27,6 @@ import qualified Data.Map as M
 import Data.Maybe
 import GHC.Generics (Generic, Generic1)
 import Morpho.Common.Bytes (Bytes)
-import Morpho.Config.Logging
 import Morpho.Config.Types
 import Morpho.Ledger.PowTypes hiding (Checkpoint (..))
 import Morpho.Node.Env
@@ -365,9 +364,8 @@ runDualNode createDir testId nodeId = do
       configFile = configDir ++ "/config-" ++ show nodeId ++ ".yaml"
   mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
 
-  (loggingLayer, features) <- loggingFeatures configFile True
   nodeConfig <- getConfiguration configFile cliConfig
-  env <- configurationToEnv loggingLayer nodeConfig
+  (env, features) <- configurationToEnv configFile nodeConfig
   node <-
     async $
       runCardanoApplicationWithFeatures features $
