@@ -3,6 +3,7 @@
 module Test.Morpho.Examples
   ( morphoExamples,
     exampleNodeConfig,
+    minimalConfig,
     exampleTopology,
     TestBlock,
     G.Examples (..),
@@ -174,33 +175,94 @@ exampleAnnTip =
 exampleApplyTxErr :: MorphoError TestBlock
 exampleApplyTxErr = MorphoInvalidSignature exampleVote
 
-exampleNodeConfig :: NodeConfiguration
-exampleNodeConfig =
+minimalConfig :: NodeConfiguration
+minimalConfig =
   NodeConfiguration
     { ncProtocol = MockedBFT,
       ncNodeId = CoreNodeId 0,
       ncNumCoreNodes = 1,
       ncNetworkMagic = 12345,
-      ncSystemStart = Just $ SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
+      ncSystemStart = Nothing,
       ncSecurityParameter = 3,
       ncStableLedgerDepth = 2,
       ncLoggingSwitch = True,
-      ncTraceOpts = exampleTraceOptions,
+      ncTraceOpts =
+        TraceOptions
+          { traceVerbosity = NormalVerbosity,
+            traceChainDB = True,
+            traceChainSyncClient = True,
+            traceChainSyncHeaderServer = True,
+            traceChainSyncBlockServer = True,
+            traceBlockFetchDecisions = True,
+            traceBlockFetchClient = True,
+            traceBlockFetchServer = True,
+            traceTxInbound = True,
+            traceTxOutbound = True,
+            traceLocalTxSubmissionServer = True,
+            traceMempool = True,
+            traceForge = True,
+            traceChainSyncProtocol = True,
+            traceBlockFetchProtocol = True,
+            traceBlockFetchProtocolSerialised = True,
+            traceTxSubmissionProtocol = True,
+            traceLocalChainSyncProtocol = True,
+            traceLocalTxSubmissionProtocol = True,
+            traceLocalStateQueryProtocol = True,
+            traceIpSubscription = True,
+            traceDnsSubscription = True,
+            traceDnsResolver = True,
+            traceErrorPolicy = True,
+            traceMux = True,
+            traceHandshake = True,
+            traceLedgerState = True,
+            tracePoWNodeRpc = True,
+            traceTimeTravelError = True
+          },
       ncTimeslotLength = mkSlotLength 5,
       ncSnapshotsOnDisk = 60,
       ncSnapshotInterval = 60,
-      ncPoWBlockFetchInterval = 5000000,
+      ncPoWBlockFetchInterval = 1000000,
       ncPoWNodeRpcUrl = "http://127.0.0.1:8546",
       ncPrometheusPort = 13788,
       ncCheckpointInterval = 4,
       ncRequiredMajority = 1,
-      ncFedPubKeys = [publicKey],
+      ncFedPubKeys = [],
       ncNodePrivKeyFile = "abc",
       ncTopologyFile = TopologyFile "/path/to/topo.json",
       ncDatabaseDir = DbFile "/path/to/db",
       ncSocketFile = SocketFile "/path/to/socket",
-      ncNodeHost = NodeHostAddress (Just "127.0.0.1"),
+      ncNodeHost = NodeHostAddress Nothing,
       ncNodePort = 1234,
+      ncValidateDb = False
+    }
+
+exampleNodeConfig :: NodeConfiguration
+exampleNodeConfig =
+  NodeConfiguration
+    { ncProtocol = MockedBFT,
+      ncNodeId = CoreNodeId 3,
+      ncNumCoreNodes = 5,
+      ncNetworkMagic = 3254,
+      ncSystemStart = Just $ SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
+      ncSecurityParameter = 123,
+      ncStableLedgerDepth = 6,
+      ncLoggingSwitch = False,
+      ncTraceOpts = exampleTraceOptions,
+      ncTimeslotLength = mkSlotLength 2,
+      ncSnapshotsOnDisk = 10,
+      ncSnapshotInterval = 10,
+      ncPoWBlockFetchInterval = 5000000,
+      ncPoWNodeRpcUrl = "http://example.com:1234",
+      ncPrometheusPort = 6543,
+      ncCheckpointInterval = 6,
+      ncRequiredMajority = 3,
+      ncFedPubKeys = [publicKey],
+      ncNodePrivKeyFile = "/path/to/private/key",
+      ncTopologyFile = TopologyFile "/path/to/topo.json",
+      ncDatabaseDir = DbFile "/path/to/db",
+      ncSocketFile = SocketFile "/path/to/socket",
+      ncNodeHost = NodeHostAddress (Just "127.0.0.1"),
+      ncNodePort = 2345,
       ncValidateDb = True
     }
   where
