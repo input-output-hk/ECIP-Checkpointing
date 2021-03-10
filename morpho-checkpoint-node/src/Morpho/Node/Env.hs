@@ -31,6 +31,9 @@ getHostname = do
   hn0 <- T.pack <$> getHostName
   return $ T.take 8 $ fst $ T.breakOn "." hn0
 
+-- | Turns the user configuration (which can be provided by the CLI, config
+-- files or from defaults) into an application environment. This function takes
+-- care of initializing/checking values provided by the config
 configurationToEnv ::
   ( MorphoStateDefaultConstraints h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c)
@@ -84,6 +87,10 @@ configurationToEnv loggingLayer nc = do
         eValidateDb = ncValidateDb nc
       }
 
+-- | The application environment, a read-only structure that configures how
+-- morpho should run. This structure can abstract over interface details such
+-- as logging, rpc, where configuration is read from, etc.
+-- Essentially no initialization should be needed by morpho with such a value
 data Env h c = Env
   { eNodeId :: CoreNodeId,
     eNumCoreNodes :: NumCoreNodes,

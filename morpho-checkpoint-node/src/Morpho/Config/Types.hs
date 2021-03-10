@@ -46,6 +46,14 @@ import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.NodeId (CoreNodeId (..))
 import qualified Prelude
 
+-- For configuration, we use the approach described by
+-- https://chrispenner.ca/posts/hkd-options, making heavy use of the barbies
+-- library.
+-- See https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies.html
+-- for an introduction
+-- See https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies-Bare.html
+-- to see what's up with the Wear thing
+
 data NodeConfiguration_ w f = NodeConfiguration
   { ncProtocol :: Wear w f Protocol,
     ncNodeId :: Wear w f CoreNodeId,
@@ -253,6 +261,11 @@ instance FromJSON Protocol where
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
+-- | Returns the finalized configuration, given a config file, and a partial
+-- configuration from the CLI. Values from the CLI config take priority,
+-- overriding values from the config file, which override defaults.
+-- If a configuration field hasn't been provided in the CLI/file/defaults, an
+-- error is thrown.
 getConfiguration :: FilePath -> NodeConfiguration_ Covered Maybe -> IO NodeConfiguration
 getConfiguration file cliConfig = do
   value <- decodeFileThrow file
@@ -263,9 +276,16 @@ getConfiguration file cliConfig = do
     parser =
       withObject "NodeConfiguration" $ \v ->
         bsequence' $ bzipWith3 combine cliConfig (parseConfigFile v) defaultConfiguration
+    -- Used for combining every configuration value from three sources, CLI,
+    -- file and defaults, earlier ones taking precedence
     combine :: Maybe a -> Parser a -> Maybe a -> Parser a
+    -- Providing a value on the CLI overrides anything else
     combine (Just v) _ _ = return v
+    -- No CLI value, and no default means that the parser of the config file
+    -- must succeed
     combine _ p Nothing = p
+    -- No CLI value but a default, means that if the config file parser fails
+    -- we can use the default instead
     combine _ p (Just def) = parserCatchError p (\_ _ -> return def)
 
 data MiscellaneousFilepaths = MiscellaneousFilepaths
