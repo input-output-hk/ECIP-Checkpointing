@@ -171,8 +171,7 @@ handleSimpleNode pInfo nodeTracers env = do
             catch
               (serveMetrics (ePrometheusPort env) ["metrics"] irs)
               (\e -> traceWith (mainTracer nodeTracers) $ show (e :: IOException))
-        -- Watch the tip of the chain and store it in @varTip@ so we can include
-        -- it in trace messages.
+        -- Track morpho chain tip
         let chainDB = getChainDB nodeKernel
         lastBlockTsVar <- atomically (newTVar Nothing)
         void $
@@ -182,24 +181,12 @@ handleSimpleNode pInfo nodeTracers env = do
             Watcher
               { wFingerprint = id,
                 wInitial = Nothing,
-                wReader = ChainDB.getTipPoint chainDB,
+                wReader = ChainDB.getCurrentTip chainDB,
                 wNotify = \tip -> do
-                  traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
+                  traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity $ getTipPoint tip)
                   setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
-              }
-        --  Track current block number
-        void $
-          forkLinkedWatcher
-            registry
-            "TrackBlockNumberMetric"
-            Watcher
-              { wFingerprint = id,
-                wInitial = Nothing,
-                wReader = ChainDB.getTipBlockNo chainDB,
-                wNotify =
-                  \ob -> do
-                    let mb = withOriginToMaybe ob
-                    set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
+                  let mb = withOriginToMaybe $ getTipBlockNo tip
+                  set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber metrics
               }
         --  Check if we need to push a checkpoint to the PoW node
         void $
