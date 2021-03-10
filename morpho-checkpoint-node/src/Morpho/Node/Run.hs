@@ -18,7 +18,7 @@ where
 import Cardano.BM.Data.Tracer
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
-import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
+import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import Data.Map.Strict (size)
@@ -44,7 +44,6 @@ import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
 import Network.Socket
-import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
@@ -58,7 +57,6 @@ import Ouroboros.Consensus.Util.STM
 import Ouroboros.Network.Block
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
-import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
 run :: Env MorphoMockHash ConsensusMockCrypto -> IO ()
@@ -165,7 +163,6 @@ handleSimpleNode pInfo nodeTracers env = do
       kernelHook registry nodeKernel = do
         -- Track morpho chain tip
         let chainDB = getChainDB nodeKernel
-        lastBlockTsVar <- atomically (newTVar Nothing)
         void $
           forkLinkedWatcher
             registry
@@ -176,9 +173,7 @@ handleSimpleNode pInfo nodeTracers env = do
                 wReader = ChainDB.getCurrentTip chainDB,
                 wNotify = \tip -> do
                   traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity $ getTipPoint tip)
-                  setTimeDiff lastBlockTsVar (mMorphoBlockTime (eMorphoMetrics env))
-                  let mb = withOriginToMaybe $ getTipBlockNo tip
-                  set (maybe 0 blockNoToDouble mb) $ mMorphoBlockNumber (eMorphoMetrics env)
+                  traceWith (eMetrics env) $ MetricNewTip tip
               }
         --  Check if we need to push a checkpoint to the PoW node
         void $
@@ -190,10 +185,10 @@ handleSimpleNode pInfo nodeTracers env = do
                 wInitial = Nothing,
                 wReader = ledgerState <$> ChainDB.getCurrentLedger chainDB,
                 wNotify =
-                  publishStableCheckpoint env nodeTracers (eMorphoMetrics env) chainDB
+                  publishStableCheckpoint env nodeTracers chainDB
               }
         -- Fetch the current stable PoW block
-        void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel env nodeTracers (eMorphoMetrics env)
+        void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel env nodeTracers
         -- Track the nb of connected peers
         void $
           forkLinkedWatcher
@@ -204,7 +199,7 @@ handleSimpleNode pInfo nodeTracers env = do
                 wInitial = Nothing,
                 wReader = size <$> readTVar (getNodeCandidates nodeKernel),
                 wNotify =
-                  \nbPeers -> set (fromIntegral nbPeers) $ mNbPeers (eMorphoMetrics env)
+                  traceWith (eMetrics env) . MetricPeerCount
               }
   let args =
         RunNodeArgs
@@ -232,7 +227,6 @@ handleSimpleNode pInfo nodeTracers env = do
 
   Node.runWith args customizedLowLevelArgs
   where
-    blockNoToDouble = realToFrac . unBlockNo
     nid = eNodeId env
     customiseChainDbArgs cdbArgs =
       cdbArgs
@@ -250,9 +244,8 @@ requestCurrentBlock ::
   NodeKernel IO peer localPeer (MorphoBlock h c) ->
   Env h c ->
   Tracers peer localPeer h c ->
-  MorphoMetrics ->
   IO ()
-requestCurrentBlock tr kernel env nodeTracers metrics = forever $ do
+requestCurrentBlock tr kernel env nodeTracers = forever $ do
   threadDelay (ePoWBlockFetchInterval env)
   handle (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers) $ do
     er <- getLatestPoWBlock (ePoWNodeRpcUrl env) (eCheckpointingInterval env)
@@ -264,7 +257,7 @@ requestCurrentBlock tr kernel env nodeTracers metrics = forever $ do
     processResponse :: PoWNodeRPCResponse PowBlockRef -> IO ()
     processResponse resp = do
       let blockRef = responseResult resp
-      set (fromIntegral . powBlockNo $ blockRef) $ mLatestPowBlock metrics
+      traceWith (eMetrics env) $ MetricLatestPowBlock blockRef
       (traceWith tr . RpcLatestPoWBlock) resp
       st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
       let maybeVote = voteBlockRef (configLedger $ getTopLevelConfig kernel) st blockRef
@@ -282,19 +275,18 @@ publishStableCheckpoint ::
   (blk ~ MorphoBlock h c, RunNode blk) =>
   Env h c ->
   Tracers peer localpeer h c ->
-  MorphoMetrics ->
   ChainDB.ChainDB IO blk ->
   LedgerState blk ->
   IO ()
-publishStableCheckpoint env nodeTracers metrics chainDB ledgerState = do
+publishStableCheckpoint env nodeTracers chainDB ledgerState = do
   traceWith (extractStateTracer nodeTracers) (MorphoStateTrace $ morphoLedgerState ledgerState)
-  set (ledgerStateToBlockNum ledgerState) $ mMorphoStateUnstableCheckpoint metrics
+  traceWith (eMetrics env) $ MetricUnstableCheckpoint (lastCheckpoint . morphoLedgerState $ ledgerState)
   mst <- getLatestStableLedgerState chainDB (eStableLedgerDepth env)
   case mst of
     Left err -> traceWith (timeTravelErrorTracer nodeTracers) err
     Right stableLedgerState -> do
       let morphoState = morphoLedgerState stableLedgerState
-      set (ledgerStateToBlockNum stableLedgerState) $ mMorphoStateStableCheckpoint metrics
+      traceWith (eMetrics env) $ MetricStableCheckpoint (lastCheckpoint . morphoLedgerState $ stableLedgerState)
       case checkpointToPush morphoState of
         Left err -> traceWith (extractStateTracer nodeTracers) $ WontPushCheckpointTrace err
         Right chkp -> do
@@ -318,11 +310,8 @@ publishStableCheckpoint env nodeTracers metrics chainDB ledgerState = do
         (traceWith tr . RpcResponseParseError PushCheckpoint)
         (traceWith tr . RpcPushedCheckpoint)
         er
-    updatePushedCheckpointMetrics st = do
-      set (ledgerStateToBlockNum st) $ mPushedCheckpoint metrics
-      set (ledgerStateToNbVotes st) $ mNbVotesLastCheckpoint metrics
-    ledgerStateToBlockNum = fromIntegral . powBlockNo . checkpointedBlock . lastCheckpoint . morphoLedgerState
-    ledgerStateToNbVotes = fromIntegral . length . chkpSignatures . lastCheckpoint . morphoLedgerState
+    updatePushedCheckpointMetrics st =
+      traceWith (eMetrics env) $ MetricPushedCheckpoint (lastCheckpoint $ morphoLedgerState st)
 
 httpExceptionHandler :: PoWNodeRpcOperation -> Tracer IO PoWNodeRpcTrace -> HttpException -> IO ()
 httpExceptionHandler op t he = traceWith t . RpcNetworkError op $ displayException he

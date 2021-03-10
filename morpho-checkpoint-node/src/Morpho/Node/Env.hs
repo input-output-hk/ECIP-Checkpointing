@@ -1,5 +1,6 @@
 module Morpho.Node.Env where
 
+import Cardano.BM.Data.Tracer
 import Cardano.BM.Data.Transformers
 import Cardano.BM.Trace
 import Cardano.Crypto.DSIGN
@@ -66,7 +67,7 @@ configurationToEnv configFile nc = do
 
   databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
-  (metrics, metricFeatures) <- setupPrometheus (mainTracer tracers) (ncPrometheusPort nc)
+  (metrics, metricFeatures) <- prometheusMetrics (mainTracer tracers) (ncPrometheusPort nc)
 
   return
     ( Env
@@ -81,7 +82,7 @@ configurationToEnv configFile nc = do
           eSystemStart = start,
           ePrivateKey = privKey,
           eTracers = tracers,
-          eMorphoMetrics = metrics,
+          eMetrics = metrics,
           eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
           eSnapshotInterval = ncSnapshotInterval nc,
           ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
@@ -112,7 +113,7 @@ data Env h c = Env
     eSystemStart :: SystemStart,
     ePrivateKey :: PrivateKey,
     eTracers :: Tracers RemoteConnectionId LocalConnectionId h c,
-    eMorphoMetrics :: MorphoMetrics,
+    eMetrics :: Tracer IO (Metric h c),
     eSnapshotsOnDisk :: Word,
     eSnapshotInterval :: Word64,
     ePoWBlockFetchInterval :: Int,
