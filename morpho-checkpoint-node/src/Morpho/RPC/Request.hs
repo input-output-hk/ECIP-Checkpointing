@@ -15,10 +15,12 @@ getLatestPoWBlock :: Text -> Int -> IO (Either Text LatestPoWBlockResponse)
 getLatestPoWBlock rpcUrl k = do
   r <- request
   m <- morphoManager
-  parseResponse . BL.toStrict . responseBody <$> httpLbs r m
+  parseResponse . responseBody <$> httpLbs r m
   where
-    parseResponse :: ByteString -> Either Text LatestPoWBlockResponse
-    parseResponse = first T.pack . eitherDecode' . BL.fromStrict
+    parseResponse :: BL.ByteString -> Either Text LatestPoWBlockResponse
+    parseResponse bytes = case eitherDecode' bytes of
+      Left err -> Left $ "Error trying to decode rpc response " <> decodeUtf8 (BL.toStrict bytes) <> ": " <> T.pack err
+      Right result -> Right result
     request :: IO Request
     request = do
       initReq <- parseRequest $ T.unpack rpcUrl -- "http://127.0.0.1:8546"
@@ -33,10 +35,12 @@ pushPoWNodeCheckpoint :: Text -> PoWBlockchainCheckpoint -> IO (Either Text PoWN
 pushPoWNodeCheckpoint rpcUrl mc = do
   r <- request
   m <- morphoManager
-  parseResponse . BL.toStrict . responseBody <$> httpLbs r m
+  parseResponse . responseBody <$> httpLbs r m
   where
-    parseResponse :: ByteString -> Either Text PoWNodeCheckpointResponse
-    parseResponse = first T.pack . eitherDecode' . BL.fromStrict
+    parseResponse :: BL.ByteString -> Either Text PoWNodeCheckpointResponse
+    parseResponse bytes = case eitherDecode' bytes of
+      Left err -> Left $ "Error trying to decode rpc response " <> decodeUtf8 (BL.toStrict bytes) <> ": " <> T.pack err
+      Right result -> Right result
     request :: IO Request
     request = do
       initReq <- parseRequest $ T.unpack rpcUrl
