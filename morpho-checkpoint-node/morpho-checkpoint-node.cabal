@@ -55,6 +55,7 @@ library
         cardano-crypto-class,
         cardano-crypto-wrapper,
         cardano-slotting,
+        lobemo-backend-editor,
         cardano-prelude,
         cardano-shell,
         cborg,

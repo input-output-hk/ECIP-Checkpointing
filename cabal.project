@@ -147,6 +147,7 @@ source-repository-package
     plugins/scribe-systemd
     plugins/backend-aggregation
     plugins/backend-ekg
+    plugins/backend-editor
     plugins/backend-monitoring
     plugins/backend-trace-forwarder
     tracer-transformers

@@ -17,6 +17,7 @@ module Morpho.Config.Logging
   )
 where
 
+import qualified Cardano.BM.Backend.Editor as Editor
 import Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
 import Cardano.BM.Counters (readCounters)
@@ -31,6 +32,7 @@ import Cardano.BM.Data.LogItem
 import Cardano.BM.Data.Observable
 import Cardano.BM.Data.Severity (Severity (..))
 import Cardano.BM.Data.SubTrace
+import Cardano.BM.Plugin
 import Cardano.BM.Setup (setupTrace_, shutdown)
 import Cardano.BM.Trace (Trace, appendName, traceNamedObject)
 import qualified Cardano.BM.Trace as Trace
@@ -56,6 +58,7 @@ loggingFeatureWithConfigFile :: FilePath -> IO (LoggingLayer, CardanoFeature)
 loggingFeatureWithConfigFile fp = do
   config <- Config.setup fp
   (baseTrace, switchboard) <- setupTrace_ config "morpho-checkpoint"
+  Editor.plugin config baseTrace switchboard >>= loadPlugin switchboard
   let loggingLayer = LoggingLayer $ Trace.natTrace liftIO baseTrace
       feature =
         CardanoFeature
