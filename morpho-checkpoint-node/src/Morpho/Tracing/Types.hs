@@ -19,6 +19,7 @@ data PoWNodeRpcOperation = FetchLatestPoWBlock | PushCheckpoint
 data PoWNodeRpcTrace
   = RpcPushedCheckpoint PoWNodeCheckpointResponse
   | RpcLatestPoWBlock LatestPoWBlockResponse
+  | RpcNoLatestPoWBlock
   | RpcNetworkError PoWNodeRpcOperation String
   | RpcResponseParseError PoWNodeRpcOperation Text
   deriving (Eq, Show)

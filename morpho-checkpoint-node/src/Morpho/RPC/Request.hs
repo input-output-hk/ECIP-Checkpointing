@@ -8,17 +8,20 @@ import Cardano.Prelude
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
+import Morpho.Ledger.PowTypes
 import Morpho.RPC.Types
 import Network.HTTP.Client
 
-getLatestPoWBlock :: Text -> Int -> IO (Either Text LatestPoWBlockResponse)
-getLatestPoWBlock rpcUrl k = do
+getLatestPoWBlock :: Text -> Int -> PowBlockRef -> IO (Either Text LatestPoWBlockResponse)
+getLatestPoWBlock rpcUrl k lastCheckpointedBlock = do
   r <- request
   m <- morphoManager
-  parseResponse . BL.toStrict . responseBody <$> httpLbs r m
+  parseResponse . responseBody <$> httpLbs r m
   where
-    parseResponse :: ByteString -> Either Text LatestPoWBlockResponse
-    parseResponse = first T.pack . eitherDecode' . BL.fromStrict
+    parseResponse :: BL.ByteString -> Either Text LatestPoWBlockResponse
+    parseResponse bytes = case eitherDecode' bytes of
+      Left err -> Left $ "Error trying to decode rpc response " <> decodeUtf8 (BL.toStrict bytes) <> ": " <> T.pack err
+      Right result -> Right result
     request :: IO Request
     request = do
       initReq <- parseRequest $ T.unpack rpcUrl -- "http://127.0.0.1:8546"
@@ -26,17 +29,19 @@ getLatestPoWBlock rpcUrl k = do
         initReq
           { method = "POST",
             requestHeaders = [("content-type", "application/json")],
-            requestBody = RequestBodyLBS $ encode $ mkLatestBlockRequest k
+            requestBody = RequestBodyLBS $ encode $ mkLatestBlockRequest k (powBlockHash lastCheckpointedBlock)
           }
 
 pushPoWNodeCheckpoint :: Text -> PoWBlockchainCheckpoint -> IO (Either Text PoWNodeCheckpointResponse)
 pushPoWNodeCheckpoint rpcUrl mc = do
   r <- request
   m <- morphoManager
-  parseResponse . BL.toStrict . responseBody <$> httpLbs r m
+  parseResponse . responseBody <$> httpLbs r m
   where
-    parseResponse :: ByteString -> Either Text PoWNodeCheckpointResponse
-    parseResponse = first T.pack . eitherDecode' . BL.fromStrict
+    parseResponse :: BL.ByteString -> Either Text PoWNodeCheckpointResponse
+    parseResponse bytes = case eitherDecode' bytes of
+      Left err -> Left $ "Error trying to decode rpc response " <> decodeUtf8 (BL.toStrict bytes) <> ": " <> T.pack err
+      Right result -> Right result
     request :: IO Request
     request = do
       initReq <- parseRequest $ T.unpack rpcUrl

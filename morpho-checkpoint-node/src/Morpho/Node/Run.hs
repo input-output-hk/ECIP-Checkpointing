@@ -273,18 +273,21 @@ requestCurrentBlock ::
   Tracers peer localPeer h c ->
   MorphoMetrics ->
   IO ()
-requestCurrentBlock tr kernel env nodeTracers metrics = forever $ do
-  threadDelay (ePoWBlockFetchInterval env)
+requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
+  threadDelay (ePoWBlockFetchInterval nc)
+  st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
+  let lastCheckpointedBlock = checkpointedBlock $ lastCheckpoint st
   handle (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers) $ do
-    er <- getLatestPoWBlock (ePoWNodeRpcUrl env) (eCheckpointingInterval env)
+    er <- getLatestPoWBlock (ePoWNodeRpcUrl nc) (eCheckpointingInterval nc) lastCheckpointedBlock
     either
       (traceWith tr . RpcResponseParseError FetchLatestPoWBlock)
       processResponse
       er
   where
-    processResponse :: PoWNodeRPCResponse PowBlockRef -> IO ()
-    processResponse resp = do
-      let blockRef = responseResult resp
+    processResponse :: PoWNodeRPCResponse LatestBlockResponse -> IO ()
+    processResponse PoWNodeRPCResponse {responseResult = LatestBlockResponse Nothing} =
+      traceWith tr RpcNoLatestPoWBlock
+    processResponse resp@PoWNodeRPCResponse {responseResult = LatestBlockResponse (Just blockRef)} = do
       set (fromIntegral . powBlockNo $ blockRef) $ mLatestPowBlock metrics
       (traceWith tr . RpcLatestPoWBlock) resp
       st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
