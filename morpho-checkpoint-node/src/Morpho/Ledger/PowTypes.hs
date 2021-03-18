@@ -8,6 +8,7 @@ module Morpho.Ledger.PowTypes
   ( PowBlockNo (..),
     PowBlockHash (..),
     PowBlockRef (..),
+    LatestBlockResponse (..),
     Vote (..),
     Checkpoint (..),
     genesisCheckpoint,
@@ -55,6 +56,12 @@ data PowBlockRef = PowBlockRef
   deriving stock (Show, Eq, Ord, Generic)
   deriving anyclass (Serialise)
   deriving anyclass (NoThunks)
+
+newtype LatestBlockResponse = LatestBlockResponse
+  { block :: Maybe PowBlockRef
+  }
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance ToJSON PowBlockRef where
   toJSON PowBlockRef {..} =

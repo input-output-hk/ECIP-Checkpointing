@@ -310,16 +310,19 @@ requestCurrentBlock ::
   IO ()
 requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
   threadDelay (fromMaybe (1000 * 1000) $ ncPoWBlockFetchInterval nc)
+  st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
+  let lastCheckpointedBlock = checkpointedBlock $ lastCheckpoint st
   handle (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers) $ do
-    er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc)
+    er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc) lastCheckpointedBlock
     either
       (traceWith tr . RpcResponseParseError FetchLatestPoWBlock)
       processResponse
       er
   where
-    processResponse :: PoWNodeRPCResponse PowBlockRef -> IO ()
-    processResponse resp = do
-      let blockRef = responseResult resp
+    processResponse :: PoWNodeRPCResponse LatestBlockResponse -> IO ()
+    processResponse PoWNodeRPCResponse {responseResult = LatestBlockResponse Nothing} =
+      traceWith tr RpcNoLatestPoWBlock
+    processResponse resp@PoWNodeRPCResponse {responseResult = LatestBlockResponse (Just blockRef)} = do
       set (fromIntegral . powBlockNo $ blockRef) $ mLatestPowBlock metrics
       (traceWith tr . RpcLatestPoWBlock) resp
       st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
