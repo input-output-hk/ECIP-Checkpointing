@@ -17,6 +17,7 @@ library
         Morpho.Common.Parsers
         Morpho.Common.Bytes
         Morpho.Common.Conversions
+        Morpho.Config.Combined
         Morpho.Config.Logging
         Morpho.Config.Orphans
         Morpho.Config.Topology
@@ -90,6 +91,8 @@ library
         tracer-transformers,
         transformers,
         transformers-except,
+        unordered-containers,
+        validation,
         vector,
         yaml,
         wai,
@@ -152,6 +155,7 @@ test-suite test
     build-depends:
         base >=4.12.0.0,
         QuickCheck,
+        barbies,
         bytestring,
         cardano-crypto-class,
         cardano-crypto-wrapper,

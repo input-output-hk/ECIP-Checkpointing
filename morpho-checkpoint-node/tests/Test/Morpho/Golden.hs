@@ -8,9 +8,12 @@ module Test.Morpho.Golden
   )
 where
 
+import Barbies
 import Cardano.Crypto.Hash
 import Cardano.Prelude
 import Morpho.Common.Conversions
+import Morpho.Common.Parsers
+import Morpho.Config.Combined
 import Morpho.Config.Topology
 import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
@@ -48,32 +51,32 @@ goldenTests =
 
 test_golden_parseNodeConfiguration :: Assertion
 test_golden_parseNodeConfiguration = do
-  cfg <- getConfiguration "tests/configuration/Golden/Config.yaml" emptyConfiguration
+  cfg <- getConfiguration "tests/configuration/Golden/Config.yaml" (bpure $ Left CliNoParser)
   assertEqual "NodeConfiguration" cfg exampleNodeConfig
 
 testMinimalConfig :: Assertion
 testMinimalConfig = do
   -- Checks that the defaults are properly inferred
-  cfg <- getConfiguration "tests/configuration/Golden/minimal.yaml" emptyConfiguration
+  cfg <- getConfiguration "tests/configuration/Golden/minimal.yaml" (bpure $ Left CliNoParser)
   assertEqual "minimalConfig" minimalConfig cfg
 
 testCLIConfig :: Assertion
 testCLIConfig = do
   let overriding =
-        emptyConfiguration
-          { ncPoWBlockFetchInterval = Just 2000000,
-            ncPrometheusPort = Just 7665
+        (bpure $ Left CliNoParser)
+          { ncPoWBlockFetchInterval = Right 2000000,
+            ncPrometheusPort = Right 7665
           }
   cfg <- getConfiguration "tests/configuration/Golden/minimal.yaml" overriding
   -- CLI should override fields from the defaults
-  assertEqual "ConfigOverride.ncPoWBlockFetchInterval" (ncPoWBlockFetchInterval overriding) (Just $ ncPoWBlockFetchInterval cfg)
+  assertEqual "ConfigOverride.ncPoWBlockFetchInterval" (ncPoWBlockFetchInterval overriding) (Right $ ncPoWBlockFetchInterval cfg)
   -- CLI should override fields from the config
-  assertEqual "ConfigOverride.ncPoWBlockFetchInterval" (ncPrometheusPort overriding) (Just $ ncPrometheusPort cfg)
+  assertEqual "ConfigOverride.ncPoWBlockFetchInterval" (ncPrometheusPort overriding) (Right $ ncPrometheusPort cfg)
 
 testConfigMissing :: Assertion
 testConfigMissing = do
   cfg <-
-    (Right <$> getConfiguration "tests/configuration/Golden/missing-interval.yaml" emptyConfiguration)
+    (Right <$> getConfiguration "tests/configuration/Golden/missing-interval.yaml" (bpure $ Left CliNoParser))
       `catch` \(e :: SomeException) -> return (Left (displayException e))
   assertEqual "ConfigParseFailure" (Left "user error (key \"CheckpointInterval\" not found)") cfg
 

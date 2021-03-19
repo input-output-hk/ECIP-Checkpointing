@@ -1,8 +1,10 @@
+{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -25,8 +27,9 @@ module Morpho.Config.Types
     NodeAddress (..),
     NodeHostAddress (..),
     nodeAddressToSockAddr,
-    getConfiguration,
-    emptyConfiguration,
+    configFieldName,
+    configFieldParser,
+    configFieldDefault,
   )
 where
 
@@ -34,13 +37,11 @@ import Barbies
 import Barbies.Bare
 import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Prelude
-import Control.Monad.Fail
 import Data.Aeson
-import Data.Aeson.Types
+import Data.Functor.Compose
 import qualified Data.IP as IP
 import qualified Data.Text as T
 import Data.Time ()
-import Data.Yaml (decodeFileThrow)
 import Morpho.Config.Orphans ()
 import Morpho.Crypto.ECDSASignature
 import Network.Socket
@@ -48,14 +49,13 @@ import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.NodeId (CoreNodeId (..))
 import qualified Prelude
 
--- For configuration, we use the approach described by
--- https://chrispenner.ca/posts/hkd-options, making heavy use of the barbies
+-- | For configuration, we use the approach described by
+-- <https://chrispenner.ca/posts/hkd-options>, making heavy use of the barbies
 -- library.
--- See https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies.html
+-- See <https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies.html>
 -- for an introduction
--- See https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies-Bare.html
--- to see what's up with the Wear thing
-
+-- See <https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies-Bare.html>
+-- to see what's up with the 'Wear' thing
 data NodeConfiguration_ w f = NodeConfiguration
   { ncProtocol :: Wear w f Protocol,
     ncNodeId :: Wear w f CoreNodeId,
@@ -86,11 +86,11 @@ data NodeConfiguration_ w f = NodeConfiguration
   }
   deriving (Generic)
 
--- A convenience type alias for a NodeConfiguration where every field is
+-- | A convenience type alias for a 'NodeConfiguration' where every field is
 -- covered with a functor
 type NodeConfigurationFunctor = NodeConfiguration_ Covered
 
--- A convenience type alias for a NodeConfiguration where every field is
+-- | A convenience type alias for a 'NodeConfiguration' where every field is
 -- bare, not covered by any functor
 type NodeConfiguration = NodeConfiguration_ Bare Identity
 
@@ -116,43 +116,142 @@ deriving instance AllBF Eq f (NodeConfiguration_ Bare) => Eq (NodeConfiguration_
 
 deriving instance AllBF Show f (NodeConfiguration_ Bare) => Show (NodeConfiguration_ Bare f)
 
-parseConfigJSON :: Object -> NodeConfigurationFunctor Parser
-parseConfigJSON v =
+-- | Determines the mapping from configuration file field to 'NodeConfiguration'
+configFieldName :: NodeConfigurationFunctor (Const Text)
+configFieldName =
   NodeConfiguration
-    { ncProtocol = v .: "Protocol",
-      ncNodeId = CoreNodeId <$> v .: "NodeId",
-      ncNumCoreNodes = v .: "NumCoreNodes",
-      ncNetworkMagic = v .: "NetworkMagic",
-      ncSystemStart = v .:? "SystemStart",
-      ncSecurityParameter = v .: "SecurityParam",
-      ncStableLedgerDepth = v .: "StableLedgerDepth",
-      ncLoggingSwitch = v .: "TurnOnLogging",
-      ncTraceOpts = traceConfigParser v,
-      ncTimeslotLength = v .: "SlotDuration",
-      ncSnapshotsOnDisk = v .: "SnapshotsOnDisk",
-      ncSnapshotInterval = v .: "SnapshotInterval",
-      ncPoWBlockFetchInterval = v .: "PoWBlockFetchInterval",
-      ncPoWNodeRpcUrl = v .: "PoWNodeRpcUrl",
-      ncPrometheusPort = v .: "PrometheusPort",
-      ncCheckpointInterval = v .: "CheckpointInterval",
-      ncRequiredMajority = v .: "RequiredMajority",
-      ncFedPubKeys = v .: "FedPubKeys",
-      ncNodePrivKeyFile = v .: "NodePrivKeyFile",
-      ncTopologyFile = TopologyFile <$> v .: "TopologyFile",
-      ncDatabaseDir = DbFile <$> v .: "DatabaseDirectory",
-      -- TODO: Remove
-      ncSocketFile = SocketFile <$> v .: "SocketFile",
-      ncNodeHost = NodeHostAddress . readMaybe . T.unpack <$> v .: "NodeHost",
-      ncNodePort = (fromIntegral :: Int -> PortNumber) <$> v .: "NodePort",
-      ncValidateDb = v .: "ValidateDatabase"
+    { ncProtocol = "Protocol",
+      ncNodeId = "NodeId",
+      ncNumCoreNodes = "NumCoreNodes",
+      ncNetworkMagic = "NetworkMagic",
+      ncSystemStart = "SystemStart",
+      ncSecurityParameter = "SecurityParam",
+      ncStableLedgerDepth = "StableLedgerDepth",
+      ncLoggingSwitch = "TurnOnLogging",
+      ncTraceOpts =
+        TraceOptions
+          { traceVerbosity = "TracingVerbosity",
+            traceChainDB = "TraceChainDb",
+            traceChainSyncClient = "TraceChainSyncClient",
+            traceChainSyncHeaderServer = "TraceChainSyncHeaderServer",
+            traceChainSyncBlockServer = "TraceChainSyncBlockServer",
+            traceBlockFetchDecisions = "TraceBlockFetchDecisions",
+            traceBlockFetchClient = "TraceBlockFetchServer",
+            traceBlockFetchServer = "TraceBlockFetchClient",
+            traceTxInbound = "TraceTxInbound",
+            traceTxOutbound = "TraceTxOutbound",
+            traceLocalTxSubmissionServer = "TraceLocalTxSubmissionServer",
+            traceMempool = "TraceMempool",
+            traceForge = "TraceForge",
+            traceChainSyncProtocol = "TraceChainSyncProtocol",
+            traceBlockFetchProtocol = "TraceBlockFetchProtocol",
+            traceBlockFetchProtocolSerialised = "TraceBlockFetchProtocolSerialised",
+            traceTxSubmissionProtocol = "TraceTxSubmissionProtocol",
+            traceLocalChainSyncProtocol = "TraceLocalChainSyncProtocol",
+            traceLocalTxSubmissionProtocol = "TraceLocalTxSubmissionProtocol",
+            traceLocalStateQueryProtocol = "traceLocalStateQueryProtocol",
+            traceIpSubscription = "TraceIpSubscription",
+            traceDnsSubscription = "TraceDNSSubscription",
+            traceDnsResolver = "TraceDNSResolver",
+            traceErrorPolicy = "TraceErrorPolicy",
+            traceMux = "TraceMux",
+            traceHandshake = "TraceHandshake",
+            traceLedgerState = "TraceLedgerState",
+            tracePoWNodeRpc = "TracePoWNodeRpc",
+            traceTimeTravelError = "TraceTimeTravelError"
+          },
+      ncTimeslotLength = "SlotDuration",
+      ncSnapshotsOnDisk = "SnapshotsOnDisk",
+      ncSnapshotInterval = "SnapshotInterval",
+      ncPoWBlockFetchInterval = "PoWBlockFetchInterval",
+      ncPoWNodeRpcUrl = "PoWNodeRpcUrl",
+      ncPrometheusPort = "PrometheusPort",
+      ncCheckpointInterval = "CheckpointInterval",
+      ncRequiredMajority = "RequiredMajority",
+      ncFedPubKeys = "FedPubKeys",
+      ncNodePrivKeyFile = "NodePrivKeyFile",
+      ncTopologyFile = "TopologyFile",
+      ncDatabaseDir = "DatabaseDirectory",
+      ncSocketFile = "SocketFile",
+      ncNodeHost = "NodeHost",
+      ncNodePort = "NodePort",
+      ncValidateDb = "ValidateDatabase"
     }
 
-emptyConfiguration :: NodeConfigurationFunctor Maybe
-emptyConfiguration = bpure Nothing
+-- | Determines how each configuration field should be parsed
+-- The type argument @(->) Value `Compose` Result@ means that each field has
+-- type @Value -> Result a@, which given a JSON 'Value' of the field, returns
+-- a 'Result' containing the parsed value
+configFieldParser :: NodeConfigurationFunctor ((->) Value `Compose` Result)
+configFieldParser =
+  -- TODO: Change the NodeConfiguration type to something where each field
+  -- can be fromJSON'd directly. Then try to derive all of these values to
+  -- 'Compose fromJSON'
+  NodeConfiguration
+    { ncProtocol = Compose fromJSON,
+      ncNodeId = CoreNodeId <$> Compose fromJSON,
+      ncNumCoreNodes = Compose fromJSON,
+      ncNetworkMagic = Compose fromJSON,
+      ncSystemStart = Compose fromJSON,
+      ncSecurityParameter = Compose fromJSON,
+      ncStableLedgerDepth = Compose fromJSON,
+      ncLoggingSwitch = Compose fromJSON,
+      ncTraceOpts =
+        TraceOptions
+          { traceVerbosity = Compose fromJSON,
+            traceChainDB = Compose fromJSON,
+            traceChainSyncClient = Compose fromJSON,
+            traceChainSyncHeaderServer = Compose fromJSON,
+            traceChainSyncBlockServer = Compose fromJSON,
+            traceBlockFetchDecisions = Compose fromJSON,
+            traceBlockFetchClient = Compose fromJSON,
+            traceBlockFetchServer = Compose fromJSON,
+            traceTxInbound = Compose fromJSON,
+            traceTxOutbound = Compose fromJSON,
+            traceLocalTxSubmissionServer = Compose fromJSON,
+            traceMempool = Compose fromJSON,
+            traceForge = Compose fromJSON,
+            traceChainSyncProtocol = Compose fromJSON,
+            traceBlockFetchProtocol = Compose fromJSON,
+            traceBlockFetchProtocolSerialised = Compose fromJSON,
+            traceTxSubmissionProtocol = Compose fromJSON,
+            traceLocalChainSyncProtocol = Compose fromJSON,
+            traceLocalTxSubmissionProtocol = Compose fromJSON,
+            traceLocalStateQueryProtocol = Compose fromJSON,
+            traceIpSubscription = Compose fromJSON,
+            traceDnsSubscription = Compose fromJSON,
+            traceDnsResolver = Compose fromJSON,
+            traceErrorPolicy = Compose fromJSON,
+            traceMux = Compose fromJSON,
+            traceHandshake = Compose fromJSON,
+            traceLedgerState = Compose fromJSON,
+            tracePoWNodeRpc = Compose fromJSON,
+            traceTimeTravelError = Compose fromJSON
+          },
+      ncTimeslotLength = Compose fromJSON,
+      ncSnapshotsOnDisk = Compose fromJSON,
+      ncSnapshotInterval = Compose fromJSON,
+      ncPoWBlockFetchInterval = Compose fromJSON,
+      ncPoWNodeRpcUrl = Compose fromJSON,
+      ncPrometheusPort = Compose fromJSON,
+      ncCheckpointInterval = Compose fromJSON,
+      ncRequiredMajority = Compose fromJSON,
+      ncFedPubKeys = Compose fromJSON,
+      ncNodePrivKeyFile = Compose fromJSON,
+      ncTopologyFile = TopologyFile <$> Compose fromJSON,
+      ncDatabaseDir = DbFile <$> Compose fromJSON,
+      -- TODO: Remove
+      ncSocketFile = SocketFile <$> Compose fromJSON,
+      ncNodeHost = NodeHostAddress . readMaybe . T.unpack <$> Compose fromJSON,
+      ncNodePort = (fromIntegral :: Int -> PortNumber) <$> Compose fromJSON,
+      ncValidateDb = Compose fromJSON
+    }
 
-defaultConfiguration :: NodeConfigurationFunctor Maybe
-defaultConfiguration =
-  emptyConfiguration
+-- | The configuration defaults for each field. Gets overridden by CLI and
+-- config file
+configFieldDefault :: NodeConfigurationFunctor Maybe
+configFieldDefault =
+  (bpure Nothing)
     { ncSystemStart = Just Nothing,
       ncLoggingSwitch = Just True,
       ncSnapshotsOnDisk = Just 60,
@@ -200,40 +299,6 @@ defaultTraceOptions =
       traceTimeTravelError = True
     }
 
-traceConfigParser :: Object -> TraceOptionsFunctor Parser
-traceConfigParser v =
-  TraceOptions
-    { traceVerbosity = v .: "TracingVerbosity",
-      traceChainDB = v .: "TraceChainDb",
-      traceChainSyncClient = v .: "TraceChainSyncClient",
-      traceChainSyncHeaderServer = v .: "TraceChainSyncHeaderServer",
-      traceChainSyncBlockServer = v .: "TraceChainSyncBlockServer",
-      traceBlockFetchDecisions = v .: "TraceBlockFetchDecisions",
-      traceBlockFetchClient = v .: "TraceBlockFetchServer",
-      traceBlockFetchServer = v .: "TraceBlockFetchClient",
-      traceTxInbound = v .: "TraceTxInbound",
-      traceTxOutbound = v .: "TraceTxOutbound",
-      traceLocalTxSubmissionServer = v .: "TraceLocalTxSubmissionServer",
-      traceMempool = v .: "TraceMempool",
-      traceForge = v .: "TraceForge",
-      traceChainSyncProtocol = v .: "TraceChainSyncProtocol",
-      traceBlockFetchProtocol = v .: "TraceBlockFetchProtocol",
-      traceBlockFetchProtocolSerialised = v .: "TraceBlockFetchProtocolSerialised",
-      traceTxSubmissionProtocol = v .: "TraceTxSubmissionProtocol",
-      traceLocalChainSyncProtocol = v .: "TraceLocalChainSyncProtocol",
-      traceLocalTxSubmissionProtocol = v .: "TraceLocalTxSubmissionProtocol",
-      traceLocalStateQueryProtocol = v .: "traceLocalStateQueryProtocol",
-      traceIpSubscription = v .: "TraceIpSubscription",
-      traceDnsSubscription = v .: "TraceDNSSubscription",
-      traceDnsResolver = v .: "TraceDNSResolver",
-      traceErrorPolicy = v .: "TraceErrorPolicy",
-      traceMux = v .: "TraceMux",
-      traceHandshake = v .: "TraceHandshake",
-      traceLedgerState = v .: "TraceLedgerState",
-      tracePoWNodeRpc = v .: "TracePoWNodeRpc",
-      traceTimeTravelError = v .: "TraceTimeTravelError"
-    }
-
 instance FromJSON TracingVerbosity where
   parseJSON (String str) = case str of
     "MinimalVerbosity" -> pure MinimalVerbosity
@@ -268,33 +333,6 @@ instance FromJSON Protocol where
 
 data Protocol = MockedBFT
   deriving (Eq, Show)
-
--- | Returns the finalized configuration, given a config file, and a partial
--- configuration from the CLI. Values from the CLI config take priority,
--- overriding values from the config file, which override defaults.
--- If a configuration field hasn't been provided in the CLI/file/defaults, an
--- error is thrown.
-getConfiguration :: FilePath -> NodeConfigurationFunctor Maybe -> IO NodeConfiguration
-getConfiguration file cliConfig = do
-  value <- decodeFileThrow file
-  case parse parser value of
-    Error err -> fail err
-    Success config -> return $ bstrip config
-  where
-    parser =
-      withObject "NodeConfiguration" $ \v ->
-        bsequence' $ bzipWith3 combine cliConfig (parseConfigJSON v) defaultConfiguration
-    -- Used for combining every configuration value from three sources, CLI,
-    -- file and defaults, earlier ones taking precedence
-    combine :: Maybe a -> Parser a -> Maybe a -> Parser a
-    -- Providing a value on the CLI overrides anything else
-    combine (Just v) _ _ = return v
-    -- No CLI value, and no default means that the parser of the config file
-    -- must succeed
-    combine _ p Nothing = p
-    -- No CLI value but a default, means that if the config file parser fails
-    -- we can use the default instead
-    combine _ p (Just def) = parserCatchError p (\_ _ -> return def)
 
 data MiscellaneousFilepaths = MiscellaneousFilepaths
   { topFile :: !TopologyFile,
