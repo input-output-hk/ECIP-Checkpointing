@@ -38,26 +38,15 @@ configurationToEnv ::
   NodeConfiguration ->
   IO (Env h c, [CardanoFeature])
 configurationToEnv configFile nc = do
-  -- Set current time as system start if not provided
-  start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
+  start <- initSystemStart nc
 
-  -- Read and import private key
-  mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
-  privKey <- case mprivKey of
-    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
-    Right pk -> return pk
+  privKey <- initPrivateKey nc
 
-  -- Set up tracers from logging config
-  host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
-  (loggingLayer, loggingFeats) <- loggingFeatures configFile (ncLoggingSwitch nc)
-  let basicTrace = setHostname host $ appendName "node" (llBasicTrace loggingLayer)
-  tracers <- mkTracers (ncTraceOpts nc) basicTrace
+  (tracers, loggingFeats) <- initTracers configFile nc
 
-  -- Read and import topology file
-  topology <- either error id <$> readTopologyFile (unTopology $ ncTopologyFile nc)
+  topology <- initTopology nc
 
-  -- Make database path absolute
-  databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
+  databaseDir <- initDatabaseDir nc
 
   return
     ( Env
@@ -86,6 +75,41 @@ configurationToEnv configFile nc = do
         },
       loggingFeats
     )
+
+-- Set current time as system start if not provided
+initSystemStart :: NodeConfiguration -> IO SystemStart
+initSystemStart nc = maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
+
+-- Read and import private key
+initPrivateKey :: NodeConfiguration -> IO PrivateKey
+initPrivateKey nc = do
+  mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
+  case mprivKey of
+    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
+    Right pk -> return pk
+
+-- Set up tracers from logging config
+initTracers ::
+  ( MorphoStateDefaultConstraints h c,
+    Signable (BftDSIGN c) (MorphoStdHeader h c)
+  ) =>
+  FilePath ->
+  NodeConfiguration ->
+  IO (Tracers RemoteConnectionId LocalConnectionId h c, [CardanoFeature])
+initTracers configFile nc = do
+  host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
+  (loggingLayer, loggingFeats) <- loggingFeatures configFile (ncLoggingSwitch nc)
+  let basicTrace = setHostname host $ appendName "node" (llBasicTrace loggingLayer)
+  tracers <- mkTracers (ncTraceOpts nc) basicTrace
+  return (tracers, loggingFeats)
+
+-- Read and import topology file
+initTopology :: NodeConfiguration -> IO NetworkTopology
+initTopology nc = either error id <$> readTopologyFile (unTopology $ ncTopologyFile nc)
+
+-- Make database path absolute
+initDatabaseDir :: NodeConfiguration -> IO FilePath
+initDatabaseDir nc = canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
 -- | The application environment, a read-only structure that configures how
 -- morpho should run. This structure can abstract over interface details such
