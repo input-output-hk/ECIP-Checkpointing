@@ -27,11 +27,6 @@ import Ouroboros.Network.NodeToNode
 import System.Directory
 import Prelude (error, id)
 
-getHostname :: IO Text
-getHostname = do
-  hn0 <- T.pack <$> getHostName
-  return $ T.take 8 $ fst $ T.breakOn "." hn0
-
 -- | Turns the user configuration (which can be provided by the CLI, config
 -- files or from defaults) into an application environment. This function takes
 -- care of initializing/checking values provided by the config
@@ -43,26 +38,25 @@ configurationToEnv ::
   NodeConfiguration ->
   IO (Env h c, [CardanoFeature])
 configurationToEnv configFile nc = do
+  -- Set current time as system start if not provided
   start <- maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
 
+  -- Read and import private key
   mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
   privKey <- case mprivKey of
     Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
     Right pk -> return pk
 
-  host <- getHostname
-
+  -- Set up tracers from logging config
+  host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
   (loggingLayer, loggingFeats) <- loggingFeatures configFile (ncLoggingSwitch nc)
-
-  let basicTrace =
-        setHostname host $
-          appendName "node" (llBasicTrace loggingLayer)
-
+  let basicTrace = setHostname host $ appendName "node" (llBasicTrace loggingLayer)
   tracers <- mkTracers (ncTraceOpts nc) basicTrace
 
-  topology <-
-    either error id <$> readTopologyFile (unTopology $ ncTopologyFile nc)
+  -- Read and import topology file
+  topology <- either error id <$> readTopologyFile (unTopology $ ncTopologyFile nc)
 
+  -- Make database path absolute
   databaseDir <- canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
   return

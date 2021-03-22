@@ -108,8 +108,8 @@ deriving instance AllBF Show f (NodeConfiguration_ Bare) => Show (NodeConfigurat
 
 type NodeConfiguration = NodeConfiguration_ Bare Identity
 
-parseConfigFile :: Object -> NodeConfiguration_ Covered Parser
-parseConfigFile v =
+parseConfigJSON :: Object -> NodeConfiguration_ Covered Parser
+parseConfigJSON v =
   NodeConfiguration
     { ncProtocol = v .: "Protocol",
       ncNodeId = CoreNodeId <$> v .: "NodeId",
@@ -275,7 +275,7 @@ getConfiguration file cliConfig = do
   where
     parser =
       withObject "NodeConfiguration" $ \v ->
-        bsequence' $ bzipWith3 combine cliConfig (parseConfigFile v) defaultConfiguration
+        bsequence' $ bzipWith3 combine cliConfig (parseConfigJSON v) defaultConfiguration
     -- Used for combining every configuration value from three sources, CLI,
     -- file and defaults, earlier ones taking precedence
     combine :: Maybe a -> Parser a -> Maybe a -> Parser a

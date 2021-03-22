@@ -18,9 +18,6 @@ import Options.Applicative.Help ((<$$>))
 import qualified Options.Applicative.Help as OptI
 import Prelude (String)
 
-parser :: Parser a -> Compose Parser Maybe a
-parser p = Compose $ fmap Just p <|> pure Nothing
-
 runCLI :: IO (FilePath, NodeConfiguration_ Covered Maybe)
 runCLI = execParser opts
   where
@@ -116,6 +113,8 @@ nodeCliParser = (,) <$> parseConfigFile <*> bsequence parseConfiguration
                     <> help "Validate all on-disk database files"
                 )
         }
+    parser :: Parser a -> Compose Parser Maybe a
+    parser p = Compose $ fmap Just p <|> pure Nothing
 
 parseConfigFile :: Parser FilePath
 parseConfigFile =

@@ -70,7 +70,8 @@ import Ouroboros.Network.Snocket (LocalAddress)
 import Prelude (String, show)
 
 data Tracers peer localPeer h c = Tracers
-  { mainTracer :: Tracer IO String,
+  { -- | Used for top-level morpho traces during initialization
+    mainTracer :: Tracer IO String,
     -- | Trace the ChainDB (flag '--trace-chain-db' will turn on textual output)
     chainDBTracer :: Tracer IO (ChainDB.TraceEvent (MorphoBlock h c)),
     -- | Consensus-specific tracers.
