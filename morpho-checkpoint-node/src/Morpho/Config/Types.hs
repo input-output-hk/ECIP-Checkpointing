@@ -14,12 +14,14 @@ module Morpho.Config.Types
     MiscellaneousFilepaths (..),
     NodeConfiguration_ (..),
     NodeConfiguration,
+    NodeConfigurationFunctor,
     Protocol (..),
     SigningKeyFile (..),
     SocketFile (..),
     TopologyFile (..),
     TraceOptions_ (..),
     TraceOptions,
+    TraceOptionsFunctor,
     NodeAddress (..),
     NodeHostAddress (..),
     nodeAddressToSockAddr,
@@ -84,17 +86,25 @@ data NodeConfiguration_ w f = NodeConfiguration
   }
   deriving (Generic)
 
-instance FunctorB (NodeConfiguration_ Covered)
+-- A convenience type alias for a NodeConfiguration where every field is
+-- covered with a functor
+type NodeConfigurationFunctor = NodeConfiguration_ Covered
 
-instance ApplicativeB (NodeConfiguration_ Covered)
+-- A convenience type alias for a NodeConfiguration where every field is
+-- bare, not covered by any functor
+type NodeConfiguration = NodeConfiguration_ Bare Identity
 
-instance TraversableB (NodeConfiguration_ Covered)
+instance FunctorB NodeConfigurationFunctor
 
-instance ConstraintsB (NodeConfiguration_ Covered)
+instance ApplicativeB NodeConfigurationFunctor
 
-deriving instance AllBF Eq f (NodeConfiguration_ Covered) => Eq (NodeConfiguration_ Covered f)
+instance TraversableB NodeConfigurationFunctor
 
-deriving instance AllBF Show f (NodeConfiguration_ Covered) => Show (NodeConfiguration_ Covered f)
+instance ConstraintsB NodeConfigurationFunctor
+
+deriving instance AllBF Eq f NodeConfigurationFunctor => Eq (NodeConfigurationFunctor f)
+
+deriving instance AllBF Show f NodeConfigurationFunctor => Show (NodeConfigurationFunctor f)
 
 instance BareB NodeConfiguration_
 
@@ -106,9 +116,7 @@ deriving instance AllBF Eq f (NodeConfiguration_ Bare) => Eq (NodeConfiguration_
 
 deriving instance AllBF Show f (NodeConfiguration_ Bare) => Show (NodeConfiguration_ Bare f)
 
-type NodeConfiguration = NodeConfiguration_ Bare Identity
-
-parseConfigJSON :: Object -> NodeConfiguration_ Covered Parser
+parseConfigJSON :: Object -> NodeConfigurationFunctor Parser
 parseConfigJSON v =
   NodeConfiguration
     { ncProtocol = v .: "Protocol",
@@ -139,10 +147,10 @@ parseConfigJSON v =
       ncValidateDb = v .: "ValidateDatabase"
     }
 
-emptyConfiguration :: NodeConfiguration_ Covered Maybe
+emptyConfiguration :: NodeConfigurationFunctor Maybe
 emptyConfiguration = bpure Nothing
 
-defaultConfiguration :: NodeConfiguration_ Covered Maybe
+defaultConfiguration :: NodeConfigurationFunctor Maybe
 defaultConfiguration =
   emptyConfiguration
     { ncSystemStart = Just Nothing,
@@ -192,7 +200,7 @@ defaultTraceOptions =
       traceTimeTravelError = True
     }
 
-traceConfigParser :: Object -> TraceOptions_ Covered Parser
+traceConfigParser :: Object -> TraceOptionsFunctor Parser
 traceConfigParser v =
   TraceOptions
     { traceVerbosity = v .: "TracingVerbosity",
@@ -266,7 +274,7 @@ data Protocol = MockedBFT
 -- overriding values from the config file, which override defaults.
 -- If a configuration field hasn't been provided in the CLI/file/defaults, an
 -- error is thrown.
-getConfiguration :: FilePath -> NodeConfiguration_ Covered Maybe -> IO NodeConfiguration
+getConfiguration :: FilePath -> NodeConfigurationFunctor Maybe -> IO NodeConfiguration
 getConfiguration file cliConfig = do
   value <- decodeFileThrow file
   case parse parser value of
@@ -371,17 +379,25 @@ data TraceOptions_ w f = TraceOptions
   }
   deriving (Generic)
 
-instance FunctorB (TraceOptions_ Covered)
+-- A convenience type alias for a TraceOptions where every field is
+-- covered with a functor
+type TraceOptionsFunctor = TraceOptions_ Covered
 
-instance ApplicativeB (TraceOptions_ Covered)
+-- A convenience type alias for a TraceOptions where every field is
+-- bare, not covered by any functor
+type TraceOptions = TraceOptions_ Bare Identity
 
-instance TraversableB (TraceOptions_ Covered)
+instance FunctorB TraceOptionsFunctor
 
-instance ConstraintsB (TraceOptions_ Covered)
+instance ApplicativeB TraceOptionsFunctor
 
-deriving instance AllBF Eq f (TraceOptions_ Covered) => Eq (TraceOptions_ Covered f)
+instance TraversableB TraceOptionsFunctor
 
-deriving instance AllBF Show f (TraceOptions_ Covered) => Show (TraceOptions_ Covered f)
+instance ConstraintsB TraceOptionsFunctor
+
+deriving instance AllBF Eq f TraceOptionsFunctor => Eq (TraceOptionsFunctor f)
+
+deriving instance AllBF Show f TraceOptionsFunctor => Show (TraceOptionsFunctor f)
 
 instance BareB TraceOptions_
 
@@ -392,8 +408,6 @@ instance ConstraintsB (TraceOptions_ Bare)
 deriving instance AllBF Eq f (TraceOptions_ Bare) => Eq (TraceOptions_ Bare f)
 
 deriving instance AllBF Show f (TraceOptions_ Bare) => Show (TraceOptions_ Bare f)
-
-type TraceOptions = TraceOptions_ Bare Identity
 
 newtype ConfigYamlFilePath = ConfigYamlFilePath
   {unConfigPath :: FilePath}
