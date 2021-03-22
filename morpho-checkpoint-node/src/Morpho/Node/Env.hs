@@ -1,7 +1,6 @@
 module Morpho.Node.Env where
 
 import Cardano.BM.Data.Transformers
-import Cardano.BM.Trace
 import Cardano.Crypto.DSIGN
 import Cardano.Prelude
 import Cardano.Shell.Lib
@@ -94,7 +93,7 @@ withTracing ::
 withTracing nc action = do
   host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
   (loggingLayer, loggingFeats) <- loggingFeatures (ncLogging nc) (ncLoggingSwitch nc)
-  let basicTrace = setHostname host $ appendName "node" (llBasicTrace loggingLayer)
+  let basicTrace = setHostname host $ llBasicTrace loggingLayer
   tracers <- mkTracers basicTrace
   runCardanoApplicationWithFeatures loggingFeats $
     CardanoApplication $ action tracers
