@@ -16,6 +16,7 @@ module Test.Morpho.QSM
   )
 where
 
+import Cardano.Shell.Lib
 import Control.Concurrent.Async
 import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class
@@ -28,6 +29,7 @@ import GHC.Generics (Generic, Generic1)
 import Morpho.Common.Bytes (Bytes)
 import Morpho.Config.Types
 import Morpho.Ledger.PowTypes hiding (Checkpoint (..))
+import Morpho.Node.Env
 import Morpho.Node.Run
 import Morpho.RPC.PoWMock
 import Morpho.RPC.Types
@@ -189,7 +191,7 @@ semantics cfg handles (SendPowBlock toNodes blockRef) = do
           (error $ "Couldn't find " ++ show node ++ " in " ++ show handles)
           (M.lookup node handles)
   let sendHandles = getHandle <$> toNodes
-  forM_ sendHandles (\h -> addPoWBlock h blockRef)
+  forM_ sendHandles (`addPoWBlock` blockRef)
   res <- waitAll cfg $ M.toList handles
   return $ Response res
 
@@ -351,24 +353,24 @@ runDualNode createDir testId nodeId = do
   let nodeDir = testDir ++ "/nodedir-" ++ show nodeId
   let configDir = "tests/configuration/QSM/prop_" ++ show testId
   when createDir $ createDirectory nodeDir
-  let paths =
-        MiscellaneousFilepaths
-          { topFile = TopologyFile $ configDir ++ "/topology.json",
-            dBFile = DbFile $ nodeDir ++ "/db",
-            genesisFile = Nothing,
-            signKeyFile = Nothing,
-            socketFile = SocketFile $ nodeDir ++ "/.socket"
+  let cliConfig =
+        emptyConfiguration
+          { ncTopologyFile = Just $ TopologyFile $ configDir ++ "/topology.json",
+            ncDatabaseDir = Just $ DbFile $ nodeDir ++ "/db",
+            ncSocketFile = Just $ SocketFile $ nodeDir ++ "/.socket",
+            ncNodePort = Just $ fromIntegral $ 3000 + 2 * nodeId,
+            ncValidateDb = Just True
           }
-  let nodeCli =
-        NodeCLI
-          { mscFp = paths,
-            genesisHash = Nothing,
-            nodeAddr = NodeAddress (NodeHostAddress Nothing) (fromIntegral $ 3000 + 2 * nodeId),
-            configFp = ConfigYamlFilePath $ configDir ++ "/config-" ++ show nodeId ++ ".yaml",
-            validateDB = True
-          }
+      configFile = configDir ++ "/config-" ++ show nodeId ++ ".yaml"
   mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
-  node <- async $ run nodeCli
+
+  nodeConfig <- getConfiguration configFile cliConfig
+  (env, features) <- configurationToEnv configFile nodeConfig
+  node <-
+    async $
+      runCardanoApplicationWithFeatures features $
+        CardanoApplication $ run env
+
   link node
   return $ NodeHandle nodeId mockNode node
 

@@ -6,14 +6,11 @@
 NodeId: 1
 Protocol: MockedBFT
 NumCoreNodes: 2
-RequiresNetworkMagic: RequiresMagic
 NetworkMagic : 12345
 SystemStart: "2020-11-12T04:07:09Z"
 SecurityParam : 5
 StableLedgerDepth : 3
 TurnOnLogging: True
-ViewMode: SimpleView
-TurnOnLogMetrics: False
 SlotDuration: 1
 SnapshotsOnDisk: 60
 SnapshotInterval: 60
@@ -29,14 +26,6 @@ FedPubKeys:
   - 3ea6ebf308a16b45bbf3392d1cd226aa6858d2ea6a2402799eeffc576f0187af62ed11677c8d4d01ef03bbf638f49f2fd77e181924a52dd01b86a187af07b724
 NodePrivKeyFile: tests/configuration/QSM/prop_2/secret-key-1
 
-
-#####    Update Parameters    #####
-
-ApplicationName: morpho-checkpoint
-ApplicationVersion: 1
-LastKnownBlockVersion-Major: 0
-LastKnownBlockVersion-Minor: 2
-LastKnownBlockVersion-Alt: 0
 
 #####         Tracing         #####
 

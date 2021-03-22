@@ -3,6 +3,7 @@
 module Test.Morpho.Examples
   ( morphoExamples,
     exampleNodeConfig,
+    minimalConfig,
     exampleTopology,
     TestBlock,
     G.Examples (..),
@@ -13,7 +14,6 @@ import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
-import Cardano.Crypto.ProtocolMagic
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Maybe
@@ -175,32 +175,95 @@ exampleAnnTip =
 exampleApplyTxErr :: MorphoError TestBlock
 exampleApplyTxErr = MorphoInvalidSignature exampleVote
 
-exampleNodeConfig :: NodeConfiguration
-exampleNodeConfig =
+minimalConfig :: NodeConfiguration
+minimalConfig =
   NodeConfiguration
     { ncProtocol = MockedBFT,
-      ncNodeId = CoreId $ CoreNodeId 0,
+      ncNodeId = CoreNodeId 0,
       ncNumCoreNodes = 1,
-      ncReqNetworkMagic = RequiresMagic,
       ncNetworkMagic = 12345,
-      ncSystemStart = Just $ SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
+      ncSystemStart = Nothing,
       ncSecurityParameter = 3,
       ncStableLedgerDepth = 2,
       ncLoggingSwitch = True,
-      ncTraceOpts = exampleTraceOptions,
-      ncLogMetrics = True,
-      ncViewMode = SimpleView,
-      ncUpdate = Update $ LastKnownBlockVersion 0 2 0,
+      ncTraceOpts =
+        TraceOptions
+          { traceVerbosity = NormalVerbosity,
+            traceChainDB = True,
+            traceChainSyncClient = True,
+            traceChainSyncHeaderServer = True,
+            traceChainSyncBlockServer = True,
+            traceBlockFetchDecisions = True,
+            traceBlockFetchClient = True,
+            traceBlockFetchServer = True,
+            traceTxInbound = True,
+            traceTxOutbound = True,
+            traceLocalTxSubmissionServer = True,
+            traceMempool = True,
+            traceForge = True,
+            traceChainSyncProtocol = True,
+            traceBlockFetchProtocol = True,
+            traceBlockFetchProtocolSerialised = True,
+            traceTxSubmissionProtocol = True,
+            traceLocalChainSyncProtocol = True,
+            traceLocalTxSubmissionProtocol = True,
+            traceLocalStateQueryProtocol = True,
+            traceIpSubscription = True,
+            traceDnsSubscription = True,
+            traceDnsResolver = True,
+            traceErrorPolicy = True,
+            traceMux = True,
+            traceHandshake = True,
+            traceLedgerState = True,
+            tracePoWNodeRpc = True,
+            traceTimeTravelError = True
+          },
       ncTimeslotLength = mkSlotLength 5,
       ncSnapshotsOnDisk = 60,
       ncSnapshotInterval = 60,
-      ncPoWBlockFetchInterval = Just 5000000,
+      ncPoWBlockFetchInterval = 1000000,
       ncPoWNodeRpcUrl = "http://127.0.0.1:8546",
       ncPrometheusPort = 13788,
       ncCheckpointInterval = 4,
       ncRequiredMajority = 1,
+      ncFedPubKeys = [],
+      ncNodePrivKeyFile = "abc",
+      ncTopologyFile = TopologyFile "/path/to/topo.json",
+      ncDatabaseDir = DbFile "/path/to/db",
+      ncSocketFile = SocketFile "/path/to/socket",
+      ncNodeHost = NodeHostAddress Nothing,
+      ncNodePort = 1234,
+      ncValidateDb = False
+    }
+
+exampleNodeConfig :: NodeConfiguration
+exampleNodeConfig =
+  NodeConfiguration
+    { ncProtocol = MockedBFT,
+      ncNodeId = CoreNodeId 3,
+      ncNumCoreNodes = 5,
+      ncNetworkMagic = 3254,
+      ncSystemStart = Just $ SystemStart $ posixSecondsToUTCTime $ realToFrac (1234566789 :: Integer),
+      ncSecurityParameter = 123,
+      ncStableLedgerDepth = 6,
+      ncLoggingSwitch = False,
+      ncTraceOpts = exampleTraceOptions,
+      ncTimeslotLength = mkSlotLength 2,
+      ncSnapshotsOnDisk = 10,
+      ncSnapshotInterval = 10,
+      ncPoWBlockFetchInterval = 5000000,
+      ncPoWNodeRpcUrl = "http://example.com:1234",
+      ncPrometheusPort = 6543,
+      ncCheckpointInterval = 6,
+      ncRequiredMajority = 3,
       ncFedPubKeys = [publicKey],
-      ncNodePrivKeyFile = "abc"
+      ncNodePrivKeyFile = "/path/to/private/key",
+      ncTopologyFile = TopologyFile "/path/to/topo.json",
+      ncDatabaseDir = DbFile "/path/to/db",
+      ncSocketFile = SocketFile "/path/to/socket",
+      ncNodeHost = NodeHostAddress (Just "127.0.0.1"),
+      ncNodePort = 2345,
+      ncValidateDb = True
     }
   where
     hex = fromJust $ normalizeHex "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167"

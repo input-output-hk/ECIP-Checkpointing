@@ -33,6 +33,7 @@ library
         Morpho.Node.ProtocolInfo
         Morpho.Node.Run
         Morpho.Node.RunNode
+        Morpho.Node.Env
         Morpho.RPC.PoWMock
         Morpho.RPC.Request
         Morpho.RPC.Types
@@ -49,6 +50,7 @@ library
         aeson,
         async,
         base16-bytestring,
+        barbies,
         binary,
         bytestring,
         cardano-binary,
@@ -206,6 +208,7 @@ test-suite state-machine-tests
         QuickCheck,
         async,
         bytestring,
+        cardano-shell,
         cardano-crypto-class,
         cborg,
         containers,

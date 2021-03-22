@@ -3,39 +3,35 @@
 ##########################################################
 
 
-NodeId: 0
+NodeId: 3
 Protocol: MockedBFT
-NumCoreNodes: 1
-RequiresNetworkMagic: RequiresMagic
-NetworkMagic : 12345
+NumCoreNodes: 5
+NetworkMagic : 3254
 SystemStart: "2009-02-13T23:13:09Z"
-SecurityParam : 3
-StableLedgerDepth : 2
-TurnOnLogging: True
-ViewMode: SimpleView
-TurnOnLogMetrics: True
-SlotDuration: 5
-SnapshotsOnDisk: 60
-SnapshotInterval: 60
+SecurityParam : 123
+StableLedgerDepth : 6
+TurnOnLogging: False
+SlotDuration: 2
+SnapshotsOnDisk: 10
+SnapshotInterval: 10
 PoWBlockFetchInterval: 5000000
-PoWNodeRpcUrl: http://127.0.0.1:8546
-PrometheusPort: 13788
+PoWNodeRpcUrl: http://example.com:1234
+PrometheusPort: 6543
 
 # Checkpointing parameters
-CheckpointInterval: 4
-RequiredMajority: 1
+CheckpointInterval: 6
+RequiredMajority: 3
 FedPubKeys:
   - ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167
-NodePrivKeyFile: abc
+NodePrivKeyFile: /path/to/private/key
 
+TopologyFile: "/path/to/topo.json"
+DatabaseDirectory: "/path/to/db"
+SocketFile: "/path/to/socket"
+NodeHost: "127.0.0.1"
+NodePort: 2345
+ValidateDatabase: True
 
-#####    Update Parameters    #####
-
-ApplicationName: morpho-checkpoint
-ApplicationVersion: 1
-LastKnownBlockVersion-Major: 0
-LastKnownBlockVersion-Minor: 2
-LastKnownBlockVersion-Alt: 0
 
 #####         Tracing         #####
 

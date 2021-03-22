@@ -70,7 +70,9 @@ import Ouroboros.Network.Snocket (LocalAddress)
 import Prelude (String, show)
 
 data Tracers peer localPeer h c = Tracers
-  { -- | Trace the ChainDB (flag '--trace-chain-db' will turn on textual output)
+  { -- | Used for top-level morpho traces during initialization
+    mainTracer :: Tracer IO String,
+    -- | Trace the ChainDB (flag '--trace-chain-db' will turn on textual output)
     chainDBTracer :: Tracer IO (ChainDB.TraceEvent (MorphoBlock h c)),
     -- | Consensus-specific tracers.
     consensusTracers :: Consensus.Tracers IO peer localPeer (MorphoBlock h c),
@@ -198,7 +200,11 @@ mkTracers traceOptions tracer = do
       <*> counting (liftCounting staticMetaCC name "forge-state-update-error" tracer)
   pure
     Tracers
-      { chainDBTracer =
+      { mainTracer =
+          annotateSeverity $
+            toLogObject' tracingVerbosity $
+              appendName "Main" tracer,
+        chainDBTracer =
           tracerOnOff (traceChainDB traceOptions) $
             annotateSeverity $
               toLogObject' tracingVerbosity $

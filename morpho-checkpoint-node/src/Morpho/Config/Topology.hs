@@ -24,7 +24,7 @@ import qualified Data.Text as T
 import Morpho.Config.Types
 import Network.Socket
 import Ouroboros.Consensus.Util.Condense (Condense (..))
-import Prelude (String, read)
+import Prelude (String)
 
 -- | Domain name with port number
 data RemoteAddress = RemoteAddress
@@ -57,7 +57,7 @@ instance Condense NodeAddress where
 instance FromJSON NodeAddress where
   parseJSON = withObject "NodeAddress" $ \v -> do
     NodeAddress
-      <$> (NodeHostAddress . Just <$> read <$> v .: "addr")
+      <$> (NodeHostAddress <$> readMaybe <$> v .: "addr")
       <*> ((fromIntegral :: Int -> PortNumber) <$> v .: "port")
 
 data NodeSetup = NodeSetup

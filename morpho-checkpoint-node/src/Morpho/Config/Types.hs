@@ -1,5 +1,9 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Morpho.Config.Types
@@ -8,28 +12,31 @@ module Morpho.Config.Types
     DelegationCertFile (..),
     GenesisFile (..),
     MiscellaneousFilepaths (..),
-    NodeCLI (..),
-    NodeConfiguration (..),
+    NodeConfiguration_ (..),
+    NodeConfiguration,
+    NodeConfigurationFunctor,
     Protocol (..),
     SigningKeyFile (..),
     SocketFile (..),
     TopologyFile (..),
-    TraceOptions (..),
-    Update (..),
+    TraceOptions_ (..),
+    TraceOptions,
+    TraceOptionsFunctor,
     NodeAddress (..),
     NodeHostAddress (..),
-    LastKnownBlockVersion (..),
-    ViewMode (..),
     nodeAddressToSockAddr,
-    parseNodeConfiguration,
+    getConfiguration,
+    emptyConfiguration,
   )
 where
 
+import Barbies
+import Barbies.Bare
 import Cardano.BM.Data.Tracer (TracingVerbosity (..))
-import Cardano.Crypto.ProtocolMagic (RequiresNetworkMagic)
 import Cardano.Prelude
+import Control.Monad.Fail
 import Data.Aeson
-import Data.Aeson.Types (Parser)
+import Data.Aeson.Types
 import qualified Data.IP as IP
 import qualified Data.Text as T
 import Data.Time ()
@@ -38,133 +45,194 @@ import Morpho.Config.Orphans ()
 import Morpho.Crypto.ECDSASignature
 import Network.Socket
 import Ouroboros.Consensus.BlockchainTime
-import Ouroboros.Consensus.NodeId (CoreNodeId (..), NodeId (..))
+import Ouroboros.Consensus.NodeId (CoreNodeId (..))
 import qualified Prelude
 
-data NodeConfiguration = NodeConfiguration
-  { ncProtocol :: Protocol,
-    ncNodeId :: NodeId,
-    ncNumCoreNodes :: Word64,
-    ncReqNetworkMagic :: RequiresNetworkMagic,
-    ncNetworkMagic :: Word32,
-    ncSystemStart :: Maybe SystemStart,
-    ncSecurityParameter :: Word64,
-    ncStableLedgerDepth :: Int,
-    ncLoggingSwitch :: Bool,
-    ncTraceOpts :: !TraceOptions,
-    ncLogMetrics :: Bool,
-    ncViewMode :: ViewMode,
-    ncUpdate :: Update,
-    ncTimeslotLength :: SlotLength,
-    ncSnapshotsOnDisk :: Int,
-    ncSnapshotInterval :: Word64,
-    ncPoWBlockFetchInterval :: Maybe Int,
-    ncPoWNodeRpcUrl :: Text,
-    ncPrometheusPort :: Int,
-    -- FIXME: separate data type: CheckpointingConfiguration
-    ncCheckpointInterval :: Int,
-    ncRequiredMajority :: Int,
-    ncFedPubKeys :: [PublicKey],
-    ncNodePrivKeyFile :: FilePath
-  }
-  deriving (Show, Eq)
+-- For configuration, we use the approach described by
+-- https://chrispenner.ca/posts/hkd-options, making heavy use of the barbies
+-- library.
+-- See https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies.html
+-- for an introduction
+-- See https://hackage.haskell.org/package/barbies-2.0.2.0/docs/Barbies-Bare.html
+-- to see what's up with the Wear thing
 
-instance FromJSON NodeConfiguration where
-  parseJSON = withObject "NodeConfiguration" $ \v -> do
-    nId <- v .: "NodeId"
-    ptcl <- v .: "Protocol"
-    numCoreNode <- v .: "NumCoreNodes"
-    rNetworkMagic <- v .: "RequiresNetworkMagic"
-    networkMagic <- v .: "NetworkMagic"
-    systemStart <- v .:? "SystemStart"
-    securityParam <- v .: "SecurityParam"
-    stableLedgerDepth <- v .: "StableLedgerDepth"
-    loggingSwitch <- v .: "TurnOnLogging"
-    traceOptions <- traceConfigParser v
-    vMode <- v .: "ViewMode"
-    logMetrics <- v .: "TurnOnLogMetrics"
-    -- Update Parameters
-    lkBlkVersionMajor <- v .: "LastKnownBlockVersion-Major"
-    lkBlkVersionMinor <- v .: "LastKnownBlockVersion-Minor"
-    lkBlkVersionAlt <- v .: "LastKnownBlockVersion-Alt"
-    slotLength <- v .: "SlotDuration"
-    snapshotsOnDisk <- v .: "SnapshotsOnDisk"
-    snapshotInterval <- v .: "SnapshotInterval"
-    blockFetchInterval <- v .:? "PoWBlockFetchInterval"
-    powNodeRpcUrl <- v .: "PoWNodeRpcUrl"
-    promPort <- v .: "PrometheusPort"
-    -- Checkpointing parameters
-    checkpointInterval <- v .: "CheckpointInterval"
-    requiredMajority <- v .: "RequiredMajority"
-    fedPubKeys <- v .: "FedPubKeys"
-    nodePrivKeyFile <- v .: "NodePrivKeyFile"
-    pure $
-      NodeConfiguration
-        ptcl
-        (CoreId (CoreNodeId nId))
-        numCoreNode
-        rNetworkMagic
-        networkMagic
-        systemStart
-        securityParam
-        stableLedgerDepth
-        loggingSwitch
-        traceOptions
-        logMetrics
-        vMode
-        ( Update
-            ( LastKnownBlockVersion
-                lkBlkVersionMajor
-                lkBlkVersionMinor
-                lkBlkVersionAlt
-            )
-        )
-        slotLength
-        snapshotsOnDisk
-        snapshotInterval
-        blockFetchInterval
-        powNodeRpcUrl
-        promPort
-        checkpointInterval
-        requiredMajority
-        fedPubKeys
-        nodePrivKeyFile
+data NodeConfiguration_ w f = NodeConfiguration
+  { ncProtocol :: Wear w f Protocol,
+    ncNodeId :: Wear w f CoreNodeId,
+    ncNumCoreNodes :: Wear w f Word64,
+    ncNetworkMagic :: Wear w f Word32,
+    ncSystemStart :: Wear w f (Maybe SystemStart),
+    ncSecurityParameter :: Wear w f Word64,
+    ncStableLedgerDepth :: Wear w f Int,
+    ncLoggingSwitch :: Wear w f Bool,
+    ncTraceOpts :: TraceOptions_ w f,
+    ncTimeslotLength :: Wear w f SlotLength,
+    ncSnapshotsOnDisk :: Wear w f Int,
+    ncSnapshotInterval :: Wear w f Word64,
+    ncPoWBlockFetchInterval :: Wear w f Int,
+    ncPoWNodeRpcUrl :: Wear w f Text,
+    ncPrometheusPort :: Wear w f Int,
+    -- FIXME: separate data type: CheckpointingConfiguration
+    ncCheckpointInterval :: Wear w f Int,
+    ncRequiredMajority :: Wear w f Int,
+    ncFedPubKeys :: Wear w f [PublicKey],
+    ncNodePrivKeyFile :: Wear w f FilePath,
+    ncTopologyFile :: Wear w f TopologyFile,
+    ncDatabaseDir :: Wear w f DbFile,
+    ncSocketFile :: Wear w f SocketFile,
+    ncNodeHost :: Wear w f NodeHostAddress,
+    ncNodePort :: Wear w f PortNumber,
+    ncValidateDb :: Wear w f Bool
+  }
+  deriving (Generic)
+
+-- A convenience type alias for a NodeConfiguration where every field is
+-- covered with a functor
+type NodeConfigurationFunctor = NodeConfiguration_ Covered
+
+-- A convenience type alias for a NodeConfiguration where every field is
+-- bare, not covered by any functor
+type NodeConfiguration = NodeConfiguration_ Bare Identity
+
+instance FunctorB NodeConfigurationFunctor
+
+instance ApplicativeB NodeConfigurationFunctor
+
+instance TraversableB NodeConfigurationFunctor
+
+instance ConstraintsB NodeConfigurationFunctor
+
+deriving instance AllBF Eq f NodeConfigurationFunctor => Eq (NodeConfigurationFunctor f)
+
+deriving instance AllBF Show f NodeConfigurationFunctor => Show (NodeConfigurationFunctor f)
+
+instance BareB NodeConfiguration_
+
+instance FunctorB (NodeConfiguration_ Bare)
+
+instance ConstraintsB (NodeConfiguration_ Bare)
+
+deriving instance AllBF Eq f (NodeConfiguration_ Bare) => Eq (NodeConfiguration_ Bare f)
+
+deriving instance AllBF Show f (NodeConfiguration_ Bare) => Show (NodeConfiguration_ Bare f)
+
+parseConfigJSON :: Object -> NodeConfigurationFunctor Parser
+parseConfigJSON v =
+  NodeConfiguration
+    { ncProtocol = v .: "Protocol",
+      ncNodeId = CoreNodeId <$> v .: "NodeId",
+      ncNumCoreNodes = v .: "NumCoreNodes",
+      ncNetworkMagic = v .: "NetworkMagic",
+      ncSystemStart = v .:? "SystemStart",
+      ncSecurityParameter = v .: "SecurityParam",
+      ncStableLedgerDepth = v .: "StableLedgerDepth",
+      ncLoggingSwitch = v .: "TurnOnLogging",
+      ncTraceOpts = traceConfigParser v,
+      ncTimeslotLength = v .: "SlotDuration",
+      ncSnapshotsOnDisk = v .: "SnapshotsOnDisk",
+      ncSnapshotInterval = v .: "SnapshotInterval",
+      ncPoWBlockFetchInterval = v .: "PoWBlockFetchInterval",
+      ncPoWNodeRpcUrl = v .: "PoWNodeRpcUrl",
+      ncPrometheusPort = v .: "PrometheusPort",
+      ncCheckpointInterval = v .: "CheckpointInterval",
+      ncRequiredMajority = v .: "RequiredMajority",
+      ncFedPubKeys = v .: "FedPubKeys",
+      ncNodePrivKeyFile = v .: "NodePrivKeyFile",
+      ncTopologyFile = TopologyFile <$> v .: "TopologyFile",
+      ncDatabaseDir = DbFile <$> v .: "DatabaseDirectory",
+      -- TODO: Remove
+      ncSocketFile = SocketFile <$> v .: "SocketFile",
+      ncNodeHost = NodeHostAddress . readMaybe . T.unpack <$> v .: "NodeHost",
+      ncNodePort = (fromIntegral :: Int -> PortNumber) <$> v .: "NodePort",
+      ncValidateDb = v .: "ValidateDatabase"
+    }
+
+emptyConfiguration :: NodeConfigurationFunctor Maybe
+emptyConfiguration = bpure Nothing
+
+defaultConfiguration :: NodeConfigurationFunctor Maybe
+defaultConfiguration =
+  emptyConfiguration
+    { ncSystemStart = Just Nothing,
+      ncLoggingSwitch = Just True,
+      ncSnapshotsOnDisk = Just 60,
+      ncSnapshotInterval = Just 60,
+      ncPoWBlockFetchInterval = Just 1000000,
+      ncTraceOpts = bcoverWith Just defaultTraceOptions,
+      ncNodeHost = Just (NodeHostAddress Nothing),
+      ncValidateDb = Just False
+    }
 
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
 
-traceConfigParser :: Object -> Parser TraceOptions
+defaultTraceOptions :: TraceOptions
+defaultTraceOptions =
+  TraceOptions
+    { traceVerbosity = NormalVerbosity,
+      traceChainDB = True,
+      traceChainSyncClient = True,
+      traceChainSyncHeaderServer = True,
+      traceChainSyncBlockServer = True,
+      traceBlockFetchDecisions = True,
+      traceBlockFetchClient = True,
+      traceBlockFetchServer = True,
+      traceTxInbound = True,
+      traceTxOutbound = True,
+      traceLocalTxSubmissionServer = True,
+      traceMempool = True,
+      traceForge = True,
+      traceChainSyncProtocol = True,
+      traceBlockFetchProtocol = True,
+      traceBlockFetchProtocolSerialised = True,
+      traceTxSubmissionProtocol = True,
+      traceLocalChainSyncProtocol = True,
+      traceLocalTxSubmissionProtocol = True,
+      traceLocalStateQueryProtocol = True,
+      traceIpSubscription = True,
+      traceDnsSubscription = True,
+      traceDnsResolver = True,
+      traceErrorPolicy = True,
+      traceMux = True,
+      traceHandshake = True,
+      traceLedgerState = True,
+      tracePoWNodeRpc = True,
+      traceTimeTravelError = True
+    }
+
+traceConfigParser :: Object -> TraceOptionsFunctor Parser
 traceConfigParser v =
   TraceOptions
-    <$> v .:? "TracingVerbosity" .!= NormalVerbosity
-    <*> v .:? "TraceChainDb" .!= True
-    <*> v .:? "TraceChainSyncClient" .!= True
-    <*> v .:? "TraceChainSyncHeaderServer" .!= True
-    <*> v .:? "TraceChainSyncBlockServer" .!= True
-    <*> v .:? "TraceBlockFetchDecisions" .!= True
-    <*> v .:? "TraceBlockFetchServer" .!= True
-    <*> v .:? "TraceBlockFetchClient" .!= True
-    <*> v .:? "TraceTxInbound" .!= True
-    <*> v .:? "TraceTxOutbound" .!= True
-    <*> v .:? "TraceLocalTxSubmissionServer" .!= True
-    <*> v .:? "TraceMempool" .!= True
-    <*> v .:? "TraceForge" .!= True
-    <*> v .:? "TraceChainSyncProtocol" .!= True
-    <*> v .:? "TraceBlockFetchProtocol" .!= True
-    <*> v .:? "TraceBlockFetchProtocolSerialised" .!= True
-    <*> v .:? "TraceTxSubmissionProtocol" .!= True
-    <*> v .:? "TraceLocalChainSyncProtocol" .!= True
-    <*> v .:? "TraceLocalTxSubmissionProtocol" .!= True
-    <*> v .:? "traceLocalStateQueryProtocol" .!= True
-    <*> v .:? "TraceIpSubscription" .!= True
-    <*> v .:? "TraceDNSSubscription" .!= True
-    <*> v .:? "TraceDNSResolver" .!= True
-    <*> v .:? "TraceErrorPolicy" .!= True
-    <*> v .:? "TraceMux" .!= True
-    <*> v .:? "TraceHandshake" .!= True
-    <*> v .:? "TraceLedgerState" .!= True
-    <*> v .:? "TracePoWNodeRpc" .!= True
-    <*> v .:? "TraceTimeTravelError" .!= True
+    { traceVerbosity = v .: "TracingVerbosity",
+      traceChainDB = v .: "TraceChainDb",
+      traceChainSyncClient = v .: "TraceChainSyncClient",
+      traceChainSyncHeaderServer = v .: "TraceChainSyncHeaderServer",
+      traceChainSyncBlockServer = v .: "TraceChainSyncBlockServer",
+      traceBlockFetchDecisions = v .: "TraceBlockFetchDecisions",
+      traceBlockFetchClient = v .: "TraceBlockFetchServer",
+      traceBlockFetchServer = v .: "TraceBlockFetchClient",
+      traceTxInbound = v .: "TraceTxInbound",
+      traceTxOutbound = v .: "TraceTxOutbound",
+      traceLocalTxSubmissionServer = v .: "TraceLocalTxSubmissionServer",
+      traceMempool = v .: "TraceMempool",
+      traceForge = v .: "TraceForge",
+      traceChainSyncProtocol = v .: "TraceChainSyncProtocol",
+      traceBlockFetchProtocol = v .: "TraceBlockFetchProtocol",
+      traceBlockFetchProtocolSerialised = v .: "TraceBlockFetchProtocolSerialised",
+      traceTxSubmissionProtocol = v .: "TraceTxSubmissionProtocol",
+      traceLocalChainSyncProtocol = v .: "TraceLocalChainSyncProtocol",
+      traceLocalTxSubmissionProtocol = v .: "TraceLocalTxSubmissionProtocol",
+      traceLocalStateQueryProtocol = v .: "traceLocalStateQueryProtocol",
+      traceIpSubscription = v .: "TraceIpSubscription",
+      traceDnsSubscription = v .: "TraceDNSSubscription",
+      traceDnsResolver = v .: "TraceDNSResolver",
+      traceErrorPolicy = v .: "TraceErrorPolicy",
+      traceMux = v .: "TraceMux",
+      traceHandshake = v .: "TraceHandshake",
+      traceLedgerState = v .: "TraceLedgerState",
+      tracePoWNodeRpc = v .: "TracePoWNodeRpc",
+      traceTimeTravelError = v .: "TraceTimeTravelError"
+    }
 
 instance FromJSON TracingVerbosity where
   parseJSON (String str) = case str of
@@ -180,7 +248,7 @@ instance FromJSON TracingVerbosity where
     panic $
       "Parsing of TracingVerbosity failed due to type mismatch. "
         <> "Encountered: "
-        <> (T.pack $ Prelude.show invalid)
+        <> T.pack (Prelude.show invalid)
 
 instance FromJSON Protocol where
   parseJSON (String str) = case str of
@@ -196,64 +264,52 @@ instance FromJSON Protocol where
     panic $
       "Parsing of Protocol failed due to type mismatch. "
         <> "Encountered: "
-        <> (T.pack $ Prelude.show invalid)
-
-instance FromJSON ViewMode where
-  parseJSON (String str) = case str of
-    "LiveView" -> pure LiveView
-    "SimpleView" -> pure SimpleView
-    view ->
-      panic $
-        "Parsing of ViewMode: "
-          <> view
-          <> " failed. "
-          <> view
-          <> " is not a valid view mode"
-  parseJSON invalid =
-    panic $
-      "Parsing of ViewMode failed due to type mismatch. "
-        <> "Encountered: "
-        <> (T.pack $ Prelude.show invalid)
+        <> T.pack (Prelude.show invalid)
 
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
--- Node can be run in two modes.
-data ViewMode
-  = LiveView -- Live mode with TUI
-  | SimpleView -- Simple mode, just output text.
-  deriving (Eq, Show)
-
-parseNodeConfiguration :: FilePath -> IO NodeConfiguration
-parseNodeConfiguration = decodeFileThrow
-
-data NodeCLI = NodeCLI
-  { mscFp :: !MiscellaneousFilepaths,
-    -- TODO Use genesis file.
-    genesisHash :: !(Maybe Text),
-    nodeAddr :: !NodeAddress,
-    configFp :: !ConfigYamlFilePath,
-    validateDB :: !Bool
-  }
-  deriving (Show)
+-- | Returns the finalized configuration, given a config file, and a partial
+-- configuration from the CLI. Values from the CLI config take priority,
+-- overriding values from the config file, which override defaults.
+-- If a configuration field hasn't been provided in the CLI/file/defaults, an
+-- error is thrown.
+getConfiguration :: FilePath -> NodeConfigurationFunctor Maybe -> IO NodeConfiguration
+getConfiguration file cliConfig = do
+  value <- decodeFileThrow file
+  case parse parser value of
+    Error err -> fail err
+    Success config -> return $ bstrip config
+  where
+    parser =
+      withObject "NodeConfiguration" $ \v ->
+        bsequence' $ bzipWith3 combine cliConfig (parseConfigJSON v) defaultConfiguration
+    -- Used for combining every configuration value from three sources, CLI,
+    -- file and defaults, earlier ones taking precedence
+    combine :: Maybe a -> Parser a -> Maybe a -> Parser a
+    -- Providing a value on the CLI overrides anything else
+    combine (Just v) _ _ = return v
+    -- No CLI value, and no default means that the parser of the config file
+    -- must succeed
+    combine _ p Nothing = p
+    -- No CLI value but a default, means that if the config file parser fails
+    -- we can use the default instead
+    combine _ p (Just def) = parserCatchError p (\_ _ -> return def)
 
 data MiscellaneousFilepaths = MiscellaneousFilepaths
   { topFile :: !TopologyFile,
     dBFile :: !DbFile,
-    -- TODO Use genesis file.
-    genesisFile :: !(Maybe GenesisFile),
-    signKeyFile :: !(Maybe SigningKeyFile),
     socketFile :: !SocketFile
   }
   deriving (Show)
 
 newtype TopologyFile = TopologyFile
   {unTopology :: FilePath}
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype DbFile = DbFile
   {unDB :: FilePath}
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype GenesisFile = GenesisFile
   {unGenesisFile :: FilePath}
@@ -265,29 +321,11 @@ newtype DelegationCertFile = DelegationCertFile
 
 newtype SocketFile = SocketFile
   {unSocket :: FilePath}
-  deriving (Show)
+  deriving (Eq, Show)
 
 newtype SigningKeyFile = SigningKeyFile
   {unSigningKey :: FilePath}
   deriving (Eq, Ord, Show, IsString)
-
--- TODO: migrate to Update.SoftwareVersion
-newtype Update = Update
-  { -- | Update last known block version.
-    upLastKnownBlockVersion :: LastKnownBlockVersion
-  }
-  deriving (Eq, Show)
-
--- TODO: migrate to Update.ProtocolVersion
-data LastKnownBlockVersion = LastKnownBlockVersion
-  { -- | Last known block version major.
-    lkbvMajor :: !Word16,
-    -- | Last known block version minor.
-    lkbvMinor :: !Word16,
-    -- | Last known block version alternative.
-    lkbvAlt :: !Word8
-  }
-  deriving (Eq, Show)
 
 nodeAddressToSockAddr :: NodeAddress -> SockAddr
 nodeAddressToSockAddr (NodeAddress addr port) =
@@ -298,48 +336,78 @@ nodeAddressToSockAddr (NodeAddress addr port) =
 
 -- | Detailed tracing options. Each option enables a tracer
 --   which verbosity to the log output.
-data TraceOptions = TraceOptions
-  { traceVerbosity :: !TracingVerbosity,
+data TraceOptions_ w f = TraceOptions
+  { traceVerbosity :: Wear w f TracingVerbosity,
     -- | By default we use 'readableChainDB' tracer, if on this it will use
     -- more verbose tracer
-    traceChainDB :: !Bool,
+    traceChainDB :: Wear w f Bool,
     -- Consensus Tracers --
-    traceChainSyncClient :: !Bool,
-    traceChainSyncHeaderServer :: !Bool,
-    traceChainSyncBlockServer :: !Bool,
-    traceBlockFetchDecisions :: !Bool,
-    traceBlockFetchClient :: !Bool,
-    traceBlockFetchServer :: !Bool,
-    traceTxInbound :: !Bool,
-    traceTxOutbound :: !Bool,
-    traceLocalTxSubmissionServer :: !Bool,
-    traceMempool :: !Bool,
-    traceForge :: !Bool,
+    traceChainSyncClient :: Wear w f Bool,
+    traceChainSyncHeaderServer :: Wear w f Bool,
+    traceChainSyncBlockServer :: Wear w f Bool,
+    traceBlockFetchDecisions :: Wear w f Bool,
+    traceBlockFetchClient :: Wear w f Bool,
+    traceBlockFetchServer :: Wear w f Bool,
+    traceTxInbound :: Wear w f Bool,
+    traceTxOutbound :: Wear w f Bool,
+    traceLocalTxSubmissionServer :: Wear w f Bool,
+    traceMempool :: Wear w f Bool,
+    traceForge :: Wear w f Bool,
     -----------------------
 
     -- Protocol Tracers --
-    traceChainSyncProtocol :: !Bool,
+    traceChainSyncProtocol :: Wear w f Bool,
     -- There's two variants of the block fetch tracer and for now
     -- at least we'll set them both together from the same flags.
-    traceBlockFetchProtocol :: !Bool,
-    traceBlockFetchProtocolSerialised :: !Bool,
-    traceTxSubmissionProtocol :: !Bool,
-    traceLocalChainSyncProtocol :: !Bool,
-    traceLocalTxSubmissionProtocol :: !Bool,
-    traceLocalStateQueryProtocol :: !Bool,
-    traceIpSubscription :: !Bool,
+    traceBlockFetchProtocol :: Wear w f Bool,
+    traceBlockFetchProtocolSerialised :: Wear w f Bool,
+    traceTxSubmissionProtocol :: Wear w f Bool,
+    traceLocalChainSyncProtocol :: Wear w f Bool,
+    traceLocalTxSubmissionProtocol :: Wear w f Bool,
+    traceLocalStateQueryProtocol :: Wear w f Bool,
+    traceIpSubscription :: Wear w f Bool,
     -----------------------
 
-    traceDnsSubscription :: !Bool,
-    traceDnsResolver :: !Bool,
-    traceErrorPolicy :: !Bool,
-    traceMux :: !Bool,
-    traceHandshake :: Bool,
-    traceLedgerState :: !Bool,
-    tracePoWNodeRpc :: !Bool,
-    traceTimeTravelError :: !Bool
+    traceDnsSubscription :: Wear w f Bool,
+    traceDnsResolver :: Wear w f Bool,
+    traceErrorPolicy :: Wear w f Bool,
+    traceMux :: Wear w f Bool,
+    traceHandshake :: Wear w f Bool,
+    traceLedgerState :: Wear w f Bool,
+    tracePoWNodeRpc :: Wear w f Bool,
+    traceTimeTravelError :: Wear w f Bool
   }
-  deriving (Eq, Show)
+  deriving (Generic)
+
+-- A convenience type alias for a TraceOptions where every field is
+-- covered with a functor
+type TraceOptionsFunctor = TraceOptions_ Covered
+
+-- A convenience type alias for a TraceOptions where every field is
+-- bare, not covered by any functor
+type TraceOptions = TraceOptions_ Bare Identity
+
+instance FunctorB TraceOptionsFunctor
+
+instance ApplicativeB TraceOptionsFunctor
+
+instance TraversableB TraceOptionsFunctor
+
+instance ConstraintsB TraceOptionsFunctor
+
+deriving instance AllBF Eq f TraceOptionsFunctor => Eq (TraceOptionsFunctor f)
+
+deriving instance AllBF Show f TraceOptionsFunctor => Show (TraceOptionsFunctor f)
+
+instance BareB TraceOptions_
+
+instance FunctorB (TraceOptions_ Bare)
+
+instance ConstraintsB (TraceOptions_ Bare)
+
+deriving instance AllBF Eq f (TraceOptions_ Bare) => Eq (TraceOptions_ Bare f)
+
+deriving instance AllBF Show f (TraceOptions_ Bare) => Show (TraceOptions_ Bare f)
 
 newtype ConfigYamlFilePath = ConfigYamlFilePath
   {unConfigPath :: FilePath}

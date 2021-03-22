@@ -12,23 +12,18 @@
 
 module Morpho.Node.Run
   ( run,
-    runNode,
   )
 where
 
 import Cardano.BM.Data.Tracer
-import Cardano.BM.Data.Transformers (setHostname)
-import Cardano.BM.Tracing
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
-import Cardano.Shell.Lib (CardanoApplication (..), runCardanoApplicationWithFeatures)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as List
 import Data.Map.Strict (size)
-import Data.Text (breakOn, pack, take)
+import Data.Text (pack)
 import Morpho.Common.Socket
-import Morpho.Config.Logging hiding (hostname)
 import Morpho.Config.Topology
 import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
@@ -38,6 +33,7 @@ import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.State
 import Morpho.Ledger.Tx
 import Morpho.Ledger.Update
+import Morpho.Node.Env
 import Morpho.Node.ProtocolInfo
 import Morpho.Node.RunNode ()
 import Morpho.RPC.Request
@@ -47,7 +43,6 @@ import Morpho.Tracing.Tracers
 import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.HTTP.Client hiding (Proxy)
-import Network.HostName (getHostName)
 import Network.Socket
 import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
@@ -63,35 +58,12 @@ import Ouroboros.Consensus.Util.STM
 import Ouroboros.Network.Block
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
-import System.Directory
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (error, id, unlines)
 
-run :: NodeCLI -> IO ()
-run cli = do
-  nodeConfig <- parseNodeConfiguration $ unConfigPath (configFp cli)
-  (loggingLayer, logging) <- loggingFeatures cli nodeConfig
-  runCardanoApplicationWithFeatures logging $
-    CardanoApplication $ runNode loggingLayer nodeConfig cli
-
-runNode ::
-  LoggingLayer ->
-  NodeConfiguration ->
-  NodeCLI ->
-  IO ()
-runNode loggingLayer nc nCli = do
-  hn <- hostname
-  let trace =
-        setHostname hn $
-          appendName "node" (llBasicTrace loggingLayer)
-  pInfo <- protocolInfoMorpho nc
-  tracers <- mkTracers (ncTraceOpts nc) trace
-  handleSimpleNode pInfo trace tracers nCli nc
-  where
-    hostname = do
-      hn0 <- pack <$> getHostName
-      return $ take 8 $ fst $ breakOn "." hn0
+run :: Env MorphoMockHash ConsensusMockCrypto -> IO ()
+run env = handleSimpleNode (protocolInfoMorpho env) (eTracers env) env
 
 -- | Sets up a simple node, which will run the chain sync protocol and block
 -- fetch protocol, and, if core, will also look at the mempool when trying to
@@ -100,38 +72,34 @@ handleSimpleNode ::
   forall blk h c.
   (RunNode blk, blk ~ MorphoBlock h c, MorphoStateDefaultConstraints h c) =>
   ProtocolInfo IO blk ->
-  Trace IO Text -> -- (LogObject Text)
   Tracers RemoteConnectionId LocalConnectionId h c ->
-  NodeCLI ->
-  NodeConfiguration ->
+  Env h c ->
   IO ()
-handleSimpleNode pInfo trace nodeTracers nCli nc = do
-  NetworkTopology nodeSetups <-
-    either error id <$> readTopologyFile (unTopology . topFile $ mscFp nCli)
-  let tracer = contramap pack $ toLogObject trace
-  let producers' = case List.lookup nid $
+handleSimpleNode pInfo nodeTracers env = do
+  let NetworkTopology nodeSetups = eTopology env
+      producers' = case List.lookup nid $
         map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) nodeSetups of
         Just ps -> ps
         Nothing ->
           error $
             "handleSimpleNode: own address "
-              <> show (nodeAddr nCli)
+              <> show (eNodeAddress env)
               <> ", Node Id "
               <> show nid
               <> " not found in topology"
-  traceWith tracer $
+  traceWith (mainTracer nodeTracers) $
     unlines
       [ "",
         "**************************************",
-        "I am Node " <> show (nodeAddr nCli) <> " Id: " <> show nid,
+        "I am Node " <> show (eNodeAddress env) <> " Id: " <> show nid,
         "My producers are " <> show producers',
         "**************************************"
       ]
   -- Socket directory TODO
-  addresses <- nodeAddressInfo (nodeAddr nCli)
+  addresses <- nodeAddressInfo (eNodeAddress env)
   let ipv4Address = find ((== AF_INET) . addrFamily) addresses
       ipv6Address = find ((== AF_INET6) . addrFamily) addresses
-      localSocketPath = unSocket . socketFile $ mscFp nCli
+      localSocketPath = eSocketFile env
   removeStaleLocalSocket localSocketPath
   let ipProducerAddrs :: [NodeAddress]
       dnsProducerAddrs :: [RemoteAddress]
@@ -189,9 +157,8 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
                 },
             daDiffusionMode = InitiatorAndResponderDiffusionMode
           }
-  dbPath <- canonicalizePath =<< makeAbsolute (unDB . dBFile $ mscFp nCli)
-  when (validateDB nCli) $
-    traceWith tracer "Performing DB validation"
+  when (eValidateDb env) $
+    traceWith (mainTracer nodeTracers) "Performing DB validation"
   (metrics, irs) <- setupPrometheus
   let kernelHook ::
         ResourceRegistry IO ->
@@ -202,8 +169,8 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         void $
           forkLinkedThread registry "PrometheusMetrics" $
             catch
-              (serveMetrics (ncPrometheusPort nc) ["metrics"] irs)
-              (\e -> traceWith tracer $ show (e :: IOException))
+              (serveMetrics (ePrometheusPort env) ["metrics"] irs)
+              (\e -> traceWith (mainTracer nodeTracers) $ show (e :: IOException))
         -- Watch the tip of the chain and store it in @varTip@ so we can include
         -- it in trace messages.
         let chainDB = getChainDB nodeKernel
@@ -244,10 +211,10 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
                 wInitial = Nothing,
                 wReader = ledgerState <$> ChainDB.getCurrentLedger chainDB,
                 wNotify =
-                  publishStableCheckpoint nc nodeTracers metrics chainDB
+                  publishStableCheckpoint env nodeTracers metrics chainDB
               }
         -- Fetch the current stable PoW block
-        void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel nc nodeTracers metrics
+        void $ forkLinkedThread registry "RequestCurrentBlock" $ requestCurrentBlock (powNodeRpcTracer nodeTracers) nodeKernel env nodeTracers metrics
         -- Track the nb of connected peers
         void $
           forkLinkedWatcher
@@ -272,8 +239,8 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
         StdRunNodeArgs
           { srnBfcMaxConcurrencyBulkSync = Nothing,
             srnBfcMaxConcurrencyDeadline = Nothing,
-            srcChainDbValidateOverride = validateDB nCli,
-            srnDatabasePath = dbPath,
+            srcChainDbValidateOverride = eValidateDb env,
+            srnDatabasePath = eDatabaseDir env,
             srnDiffusionArguments = diffusionArguments,
             srnDiffusionTracers = diffusionTracers,
             srnTraceChainDB = chainDBTracer nodeTracers
@@ -287,15 +254,13 @@ handleSimpleNode pInfo trace nodeTracers nCli nc = do
   Node.runWith args customizedLowLevelArgs
   where
     blockNoToDouble = realToFrac . unBlockNo
-    nid = case ncNodeId nc of
-      (CoreId n) -> n
-      (RelayId _) -> error "Non-core nodes currently not supported"
+    nid = eNodeId env
     customiseChainDbArgs cdbArgs =
       cdbArgs
         { cdbDiskPolicy =
             DiskPolicy
-              { onDiskNumSnapshots = fromIntegral $ ncSnapshotsOnDisk nc,
-                onDiskShouldTakeSnapshot = const (== ncSnapshotInterval nc)
+              { onDiskNumSnapshots = eSnapshotsOnDisk env,
+                onDiskShouldTakeSnapshot = const (== eSnapshotInterval env)
               }
         }
 
@@ -304,16 +269,16 @@ requestCurrentBlock ::
   MorphoStateDefaultConstraints h c =>
   Tracer IO PoWNodeRpcTrace ->
   NodeKernel IO peer localPeer (MorphoBlock h c) ->
-  NodeConfiguration ->
+  Env h c ->
   Tracers peer localPeer h c ->
   MorphoMetrics ->
   IO ()
 requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
-  threadDelay (fromMaybe (1000 * 1000) $ ncPoWBlockFetchInterval nc)
+  threadDelay (ePoWBlockFetchInterval nc)
   st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
   let lastCheckpointedBlock = checkpointedBlock $ lastCheckpoint st
   handle (httpExceptionHandler FetchLatestPoWBlock $ powNodeRpcTracer nodeTracers) $ do
-    er <- getLatestPoWBlock (ncPoWNodeRpcUrl nc) (ncCheckpointInterval nc) lastCheckpointedBlock
+    er <- getLatestPoWBlock (ePoWNodeRpcUrl nc) (eCheckpointingInterval nc) lastCheckpointedBlock
     either
       (traceWith tr . RpcResponseParseError FetchLatestPoWBlock)
       processResponse
@@ -339,16 +304,16 @@ requestCurrentBlock tr kernel nc nodeTracers metrics = forever $ do
 publishStableCheckpoint ::
   forall blk h c peer localpeer.
   (blk ~ MorphoBlock h c, RunNode blk) =>
-  NodeConfiguration ->
+  Env h c ->
   Tracers peer localpeer h c ->
   MorphoMetrics ->
   ChainDB.ChainDB IO blk ->
   LedgerState blk ->
   IO ()
-publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
+publishStableCheckpoint env nodeTracers metrics chainDB ledgerState = do
   traceWith (extractStateTracer nodeTracers) (MorphoStateTrace $ morphoLedgerState ledgerState)
   set (ledgerStateToBlockNum ledgerState) $ mMorphoStateUnstableCheckpoint metrics
-  mst <- getLatestStableLedgerState chainDB (ncStableLedgerDepth nc)
+  mst <- getLatestStableLedgerState chainDB (eStableLedgerDepth env)
   case mst of
     Left err -> traceWith (timeTravelErrorTracer nodeTracers) err
     Right stableLedgerState -> do
@@ -372,7 +337,7 @@ publishStableCheckpoint nc nodeTracers metrics chainDB ledgerState = do
             PoWBlockchainCheckpoint
               (PowBlockHash hashBytes)
               (ObftSignature . sigToHex <$> chkpSignatures chkp)
-      er <- pushPoWNodeCheckpoint (ncPoWNodeRpcUrl nc) chkpt
+      er <- pushPoWNodeCheckpoint (ePoWNodeRpcUrl env) chkpt
       either
         (traceWith tr . RpcResponseParseError PushCheckpoint)
         (traceWith tr . RpcPushedCheckpoint)

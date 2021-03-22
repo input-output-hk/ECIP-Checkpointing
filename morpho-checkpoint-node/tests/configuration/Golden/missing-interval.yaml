@@ -1,0 +1,26 @@
+##########################################################
+################### Node Configuration ###################
+##########################################################
+
+
+NodeId: 0
+Protocol: MockedBFT
+NumCoreNodes: 1
+NetworkMagic : 12345
+SecurityParam : 3
+StableLedgerDepth : 2
+SlotDuration: 5
+PoWNodeRpcUrl: http://127.0.0.1:8546
+PrometheusPort: 13788
+
+# Checkpointing parameters
+# Missing field, should throw error
+# CheckpointInterval: 4
+RequiredMajority: 1
+FedPubKeys: []
+NodePrivKeyFile: abc
+
+TopologyFile: "/path/to/topo.json"
+DatabaseDirectory: "/path/to/db"
+SocketFile: "/path/to/socket"
+NodePort: 1234
