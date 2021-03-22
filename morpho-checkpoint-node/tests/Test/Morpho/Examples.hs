@@ -13,7 +13,6 @@ import Cardano.BM.Data.Backend
 import Cardano.BM.Data.Configuration
 import Cardano.BM.Data.Output
 import Cardano.BM.Data.Severity
-import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
@@ -189,7 +188,6 @@ exampleNodeConfig =
       ncSecurityParameter = 123,
       ncStableLedgerDepth = 6,
       ncLoggingSwitch = False,
-      ncTraceOpts = exampleTraceOptions,
       ncTimeslotLength = mkSlotLength 2,
       ncSnapshotsOnDisk = 10,
       ncSnapshotInterval = 10,
@@ -246,40 +244,6 @@ exampleNodeConfig =
   where
     hex = fromJust $ normalizeHex "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167"
     publicKey = fromRight' $ importPublicKey $ fromRight' $ bytesFromHex hex
-
-exampleTraceOptions :: TraceOptions
-exampleTraceOptions =
-  TraceOptions
-    { traceVerbosity = NormalVerbosity,
-      traceChainDB = True,
-      traceChainSyncClient = True,
-      traceChainSyncHeaderServer = True,
-      traceChainSyncBlockServer = True,
-      traceBlockFetchDecisions = True,
-      traceBlockFetchServer = True,
-      traceBlockFetchClient = True,
-      traceTxInbound = True,
-      traceTxOutbound = True,
-      traceLocalTxSubmissionServer = True,
-      traceMempool = True,
-      traceForge = True,
-      traceChainSyncProtocol = True,
-      traceBlockFetchProtocol = True,
-      traceBlockFetchProtocolSerialised = False,
-      traceTxSubmissionProtocol = True,
-      traceLocalChainSyncProtocol = True,
-      traceLocalTxSubmissionProtocol = True,
-      traceLocalStateQueryProtocol = True,
-      traceIpSubscription = False,
-      traceDnsSubscription = False,
-      traceDnsResolver = False,
-      traceErrorPolicy = False,
-      traceMux = False,
-      traceHandshake = True,
-      traceLedgerState = True,
-      tracePoWNodeRpc = True,
-      traceTimeTravelError = True
-    }
 
 exampleTopology :: NetworkTopology
 exampleTopology = NetworkTopology [t1]

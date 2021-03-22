@@ -95,7 +95,7 @@ withTracing nc action = do
   host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
   (loggingLayer, loggingFeats) <- loggingFeatures (ncLogging nc) (ncLoggingSwitch nc)
   let basicTrace = setHostname host $ appendName "node" (llBasicTrace loggingLayer)
-  tracers <- mkTracers (ncTraceOpts nc) basicTrace
+  tracers <- mkTracers basicTrace
   runCardanoApplicationWithFeatures loggingFeats $
     CardanoApplication $ action tracers
 
