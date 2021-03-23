@@ -17,8 +17,8 @@ module Morpho.Config.Logging
   )
 where
 
-import Cardano.BM.Configuration (Configuration)
-import qualified Cardano.BM.Configuration as Config
+import Cardano.BM.Configuration.Model
+import Cardano.BM.Data.Configuration
 import Cardano.BM.Data.LogItem
   ( LOContent (..),
     LOMeta (..),
@@ -38,15 +38,15 @@ newtype LoggingLayer = LoggingLayer
   { llBasicTrace :: forall m. MonadIO m => Trace m Text
   }
 
-loggingFeatures :: FilePath -> Bool -> IO (LoggingLayer, [CardanoFeature])
+loggingFeatures :: Representation -> Bool -> IO (LoggingLayer, [CardanoFeature])
 loggingFeatures _ False = return (LoggingLayer Trace.nullTracer, [])
-loggingFeatures fp True = do
-  (loggingLayer, logging) <- loggingFeatureWithConfigFile fp
+loggingFeatures rep True = do
+  (loggingLayer, logging) <- loggingFeatureWithRepresentation rep
   return (loggingLayer, [logging])
 
-loggingFeatureWithConfigFile :: FilePath -> IO (LoggingLayer, CardanoFeature)
-loggingFeatureWithConfigFile fp = do
-  config <- Config.setup fp
+loggingFeatureWithRepresentation :: Representation -> IO (LoggingLayer, CardanoFeature)
+loggingFeatureWithRepresentation rep = do
+  config <- setupFromRepresentation rep
   (baseTrace, switchboard) <- setupTrace_ config "morpho-checkpoint"
   let loggingLayer = LoggingLayer $ Trace.natTrace liftIO baseTrace
       feature =

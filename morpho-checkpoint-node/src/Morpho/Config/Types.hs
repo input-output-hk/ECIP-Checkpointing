@@ -35,6 +35,7 @@ where
 
 import Barbies
 import Barbies.Bare
+import Cardano.BM.Data.Configuration
 import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Prelude
 import Data.Aeson
@@ -82,9 +83,12 @@ data NodeConfiguration_ w f = NodeConfiguration
     ncSocketFile :: Wear w f SocketFile,
     ncNodeHost :: Wear w f NodeHostAddress,
     ncNodePort :: Wear w f PortNumber,
-    ncValidateDb :: Wear w f Bool
+    ncValidateDb :: Wear w f Bool,
+    ncLogging :: Wear w f Representation
   }
   deriving (Generic)
+
+deriving instance Eq Representation
 
 -- | A convenience type alias for a 'NodeConfiguration' where every field is
 -- covered with a functor
@@ -175,7 +179,8 @@ configFieldName =
       ncSocketFile = "SocketFile",
       ncNodeHost = "NodeHost",
       ncNodePort = "NodePort",
-      ncValidateDb = "ValidateDatabase"
+      ncValidateDb = "ValidateDatabase",
+      ncLogging = "Logging"
     }
 
 -- | Determines how each configuration field should be parsed
@@ -244,7 +249,8 @@ configFieldParser =
       ncSocketFile = SocketFile <$> Compose fromJSON,
       ncNodeHost = NodeHostAddress . readMaybe . T.unpack <$> Compose fromJSON,
       ncNodePort = (fromIntegral :: Int -> PortNumber) <$> Compose fromJSON,
-      ncValidateDb = Compose fromJSON
+      ncValidateDb = Compose fromJSON,
+      ncLogging = Compose fromJSON
     }
 
 -- | The configuration defaults for each field. Gets overridden by CLI and

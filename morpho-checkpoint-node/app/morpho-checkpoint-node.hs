@@ -10,6 +10,6 @@ main :: IO ()
 main = toplevelExceptionHandler $ do
   (file, cliConfig) <- runCLI
   nodeConfig <- getConfiguration cliConfig file
-  (env, features) <- configurationToEnv file nodeConfig
+  (env, features) <- configurationToEnv nodeConfig
   runCardanoApplicationWithFeatures features $
     CardanoApplication $ run env
