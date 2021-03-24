@@ -88,8 +88,6 @@ data NodeConfiguration_ w f = NodeConfiguration
   }
   deriving (Generic)
 
-deriving instance Eq Representation
-
 -- | A convenience type alias for a 'NodeConfiguration' where every field is
 -- covered with a functor
 type NodeConfigurationFunctor = NodeConfiguration_ Covered
