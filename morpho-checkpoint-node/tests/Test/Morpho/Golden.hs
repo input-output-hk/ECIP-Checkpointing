@@ -15,7 +15,6 @@ import Morpho.Common.Conversions
 import Morpho.Common.Parsers
 import Morpho.Config.Combined
 import Morpho.Config.Topology
-import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
 import Morpho.Ledger.Serialise ()
@@ -36,13 +35,7 @@ goldenTests =
   testGroup
     "Golden"
     [ goldenTest_all codecConfig "tests/golden-encodings" morphoExamples,
-      testGroup
-        "Config"
-        [ testCase "Full" test_golden_parseNodeConfiguration,
-          testCase "Minimal" testMinimalConfig,
-          testCase "CLIOverrides" testCLIConfig,
-          testCase "MissingField" testConfigMissing
-        ],
+      testCase "Config" test_golden_parseNodeConfiguration,
       testCase "Topology" test_golden_parseTopology,
       testCase "secretKeyNormal" test_golden_secretKeyNormal,
       testCase "secretKeyNewline" test_golden_secretKeyNewline,
@@ -51,34 +44,8 @@ goldenTests =
 
 test_golden_parseNodeConfiguration :: Assertion
 test_golden_parseNodeConfiguration = do
-  cfg <- getConfiguration "tests/configuration/Golden/Config.yaml" (bpure $ Left CliNoParser)
+  cfg <- getConfiguration (bpure $ Left CliNoParser) "tests/configuration/Golden/Config.yaml"
   assertEqual "NodeConfiguration" cfg exampleNodeConfig
-
-testMinimalConfig :: Assertion
-testMinimalConfig = do
-  -- Checks that the defaults are properly inferred
-  cfg <- getConfiguration "tests/configuration/Golden/minimal.yaml" (bpure $ Left CliNoParser)
-  assertEqual "minimalConfig" minimalConfig cfg
-
-testCLIConfig :: Assertion
-testCLIConfig = do
-  let overriding =
-        (bpure $ Left CliNoParser)
-          { ncPoWBlockFetchInterval = Right 2000000,
-            ncPrometheusPort = Right 7665
-          }
-  cfg <- getConfiguration "tests/configuration/Golden/minimal.yaml" overriding
-  -- CLI should override fields from the defaults
-  assertEqual "ConfigOverride.ncPoWBlockFetchInterval" (ncPoWBlockFetchInterval overriding) (Right $ ncPoWBlockFetchInterval cfg)
-  -- CLI should override fields from the config
-  assertEqual "ConfigOverride.ncPoWBlockFetchInterval" (ncPrometheusPort overriding) (Right $ ncPrometheusPort cfg)
-
-testConfigMissing :: Assertion
-testConfigMissing = do
-  cfg <-
-    (Right <$> getConfiguration "tests/configuration/Golden/missing-interval.yaml" (bpure $ Left CliNoParser))
-      `catch` \(e :: SomeException) -> return (Left (displayException e))
-  assertEqual "ConfigParseFailure" (Left "user error (key \"CheckpointInterval\" not found)") cfg
 
 test_golden_parseTopology :: Assertion
 test_golden_parseTopology = do

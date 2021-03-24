@@ -3,13 +3,16 @@
 module Test.Morpho.Examples
   ( morphoExamples,
     exampleNodeConfig,
-    minimalConfig,
     exampleTopology,
     TestBlock,
     G.Examples (..),
   )
 where
 
+import Cardano.BM.Data.Backend
+import Cardano.BM.Data.Configuration
+import Cardano.BM.Data.Output
+import Cardano.BM.Data.Severity
 import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Binary
 import Cardano.Crypto.DSIGN
@@ -175,67 +178,6 @@ exampleAnnTip =
 exampleApplyTxErr :: MorphoError TestBlock
 exampleApplyTxErr = MorphoInvalidSignature exampleVote
 
-minimalConfig :: NodeConfiguration
-minimalConfig =
-  NodeConfiguration
-    { ncProtocol = MockedBFT,
-      ncNodeId = CoreNodeId 0,
-      ncNumCoreNodes = 1,
-      ncNetworkMagic = 12345,
-      ncSystemStart = Nothing,
-      ncSecurityParameter = 3,
-      ncStableLedgerDepth = 2,
-      ncLoggingSwitch = True,
-      ncTraceOpts =
-        TraceOptions
-          { traceVerbosity = NormalVerbosity,
-            traceChainDB = True,
-            traceChainSyncClient = True,
-            traceChainSyncHeaderServer = True,
-            traceChainSyncBlockServer = True,
-            traceBlockFetchDecisions = True,
-            traceBlockFetchClient = True,
-            traceBlockFetchServer = True,
-            traceTxInbound = True,
-            traceTxOutbound = True,
-            traceLocalTxSubmissionServer = True,
-            traceMempool = True,
-            traceForge = True,
-            traceChainSyncProtocol = True,
-            traceBlockFetchProtocol = True,
-            traceBlockFetchProtocolSerialised = True,
-            traceTxSubmissionProtocol = True,
-            traceLocalChainSyncProtocol = True,
-            traceLocalTxSubmissionProtocol = True,
-            traceLocalStateQueryProtocol = True,
-            traceIpSubscription = True,
-            traceDnsSubscription = True,
-            traceDnsResolver = True,
-            traceErrorPolicy = True,
-            traceMux = True,
-            traceHandshake = True,
-            traceLedgerState = True,
-            tracePoWNodeRpc = True,
-            traceTimeTravelError = True
-          },
-      ncTimeslotLength = mkSlotLength 5,
-      ncSnapshotsOnDisk = 60,
-      ncSnapshotInterval = 60,
-      ncPoWBlockFetchInterval = 1000000,
-      ncPoWNodeRpcUrl = "http://127.0.0.1:8546",
-      ncPrometheusPort = 13788,
-      ncCheckpointInterval = 4,
-      ncRequiredMajority = 1,
-      ncFedPubKeys = [],
-      ncNodePrivKeyFile = "abc",
-      ncTopologyFile = TopologyFile "/path/to/topo.json",
-      ncDatabaseDir = DbFile "/path/to/db",
-      ncSocketFile = SocketFile "/path/to/socket",
-      ncNodeHost = NodeHostAddress Nothing,
-      ncNodePort = 1234,
-      ncValidateDb = False
-    }
-
 exampleNodeConfig :: NodeConfiguration
 exampleNodeConfig =
   NodeConfiguration
@@ -263,7 +205,44 @@ exampleNodeConfig =
       ncSocketFile = SocketFile "/path/to/socket",
       ncNodeHost = NodeHostAddress (Just "127.0.0.1"),
       ncNodePort = 2345,
-      ncValidateDb = True
+      ncValidateDb = True,
+      ncLogging =
+        Representation
+          { minSeverity = Info,
+            rotation = Nothing,
+            setupScribes =
+              [ ScribeDefinition
+                  { scKind = FileSK,
+                    scFormat = ScText,
+                    scName = "logs/staging.log",
+                    scPrivacy = ScPublic,
+                    scRotation = Nothing,
+                    scMinSev = minBound,
+                    scMaxSev = maxBound
+                  },
+                ScribeDefinition
+                  { scKind = StdoutSK,
+                    scFormat = ScText,
+                    scName = "stdout",
+                    scPrivacy = ScPublic,
+                    -- v These are defaulted when parsing
+                    scRotation = Nothing,
+                    scMinSev = minBound,
+                    scMaxSev = maxBound
+                  }
+              ],
+            defaultScribes = [(FileSK, "logs/staging.log"), (StdoutSK, "stdout")],
+            setupBackends = [KatipBK],
+            defaultBackends = [KatipBK],
+            hasEKG = Nothing,
+            hasGraylog = Nothing,
+            hasPrometheus = Nothing,
+            hasGUI = Nothing,
+            traceForwardTo = Nothing,
+            forwardDelay = Nothing,
+            traceAcceptAt = Nothing,
+            options = mempty
+          }
     }
   where
     hex = fromJust $ normalizeHex "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167"

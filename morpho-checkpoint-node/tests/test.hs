@@ -1,4 +1,5 @@
 import Test.Morpho.Common.Utils
+import Test.Morpho.Config
 import Test.Morpho.Crypto.ECDSASignature
 import Test.Morpho.Golden
 import Test.Morpho.Ledger.State
@@ -19,5 +20,6 @@ tests = do
         ecdsaTests,
         utilsTests,
         serialiseTests,
-        goldenTests
+        goldenTests,
+        configTests
       ]

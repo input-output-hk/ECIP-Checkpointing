@@ -146,6 +146,7 @@ test-suite test
         Test.Morpho.Common.Utils
         Test.Morpho.Common.Tables
         Test.Morpho.Examples
+        Test.Morpho.Config
         Test.Morpho.Generators
         Test.Morpho.Golden
         Test.Morpho.Serialisation
@@ -154,6 +155,7 @@ test-suite test
     default-extensions: NoImplicitPrelude
     build-depends:
         base >=4.12.0.0,
+        aeson,
         QuickCheck,
         barbies,
         bytestring,
@@ -176,7 +178,9 @@ test-suite test
         tasty-hunit,
         tasty-quickcheck,
         text,
-        time
+        time,
+        unordered-containers,
+        validation
 
 test-suite mantis-integration-tests
     type:               exitcode-stdio-1.0
