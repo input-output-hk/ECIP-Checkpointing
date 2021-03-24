@@ -16,6 +16,7 @@ module Test.Morpho.QSM
   )
 where
 
+import Barbies
 import Cardano.Shell.Lib
 import Control.Concurrent.Async
 import Control.Monad (forM, forM_, when)
@@ -27,6 +28,8 @@ import qualified Data.Map as M
 import Data.Maybe
 import GHC.Generics (Generic, Generic1)
 import Morpho.Common.Bytes (Bytes)
+import Morpho.Common.Parsers
+import Morpho.Config.Combined
 import Morpho.Config.Types
 import Morpho.Ledger.PowTypes hiding (Checkpoint (..))
 import Morpho.Node.Env
@@ -354,18 +357,18 @@ runDualNode createDir testId nodeId = do
   let configDir = "tests/configuration/QSM/prop_" ++ show testId
   when createDir $ createDirectory nodeDir
   let cliConfig =
-        emptyConfiguration
-          { ncTopologyFile = Just $ TopologyFile $ configDir ++ "/topology.json",
-            ncDatabaseDir = Just $ DbFile $ nodeDir ++ "/db",
-            ncSocketFile = Just $ SocketFile $ nodeDir ++ "/.socket",
-            ncNodePort = Just $ fromIntegral $ 3000 + 2 * nodeId,
-            ncValidateDb = Just True
+        (bpure (Left CliNoParser))
+          { ncTopologyFile = Right $ TopologyFile $ configDir ++ "/topology.json",
+            ncDatabaseDir = Right $ DbFile $ nodeDir ++ "/db",
+            ncSocketFile = Right $ SocketFile $ nodeDir ++ "/.socket",
+            ncNodePort = Right $ fromIntegral $ 3000 + 2 * nodeId,
+            ncValidateDb = Right True
           }
       configFile = configDir ++ "/config-" ++ show nodeId ++ ".yaml"
   mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
 
-  nodeConfig <- getConfiguration configFile cliConfig
-  (env, features) <- configurationToEnv configFile nodeConfig
+  nodeConfig <- getConfiguration cliConfig configFile
+  (env, features) <- configurationToEnv nodeConfig
   node <-
     async $
       runCardanoApplicationWithFeatures features $
