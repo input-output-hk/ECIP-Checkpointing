@@ -21,7 +21,7 @@ import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge
-import Morpho.Ledger.PowTypes hiding (block)
+import Morpho.Ledger.PowTypes
 import Morpho.Ledger.State
 import Morpho.Ledger.Tx
 import Morpho.Ledger.Update

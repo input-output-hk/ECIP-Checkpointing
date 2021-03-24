@@ -183,6 +183,7 @@ test-suite state-machine-tests
     main-is:            state-machine-tests.hs
     hs-source-dirs:     tests
     other-modules:
+        Test.Morpho.MockRpc
         Test.Morpho.QSM
         Test.Morpho.Generators
 
@@ -196,6 +197,7 @@ test-suite state-machine-tests
         async,
         barbies,
         bytestring,
+        cardano-prelude,
         cardano-crypto-class,
         cborg,
         containers,
@@ -206,6 +208,7 @@ test-suite state-machine-tests
         ouroboros-consensus-test,
         quickcheck-instances,
         quickcheck-state-machine,
+        stm,
         tasty,
         tasty-quickcheck,
         text

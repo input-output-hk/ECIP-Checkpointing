@@ -30,13 +30,12 @@ import Morpho.Common.Bytes (Bytes)
 import Morpho.Common.Parsers
 import Morpho.Config.Combined
 import Morpho.Config.Types
-import Morpho.Ledger.PowTypes hiding (Checkpoint (..))
+import Morpho.Ledger.PowTypes
 import Morpho.Node.Env
 import Morpho.Node.Run
-import Morpho.RPC.PoWMock
-import Morpho.RPC.Types
 import System.Directory
 import Test.Morpho.Generators ()
+import Test.Morpho.MockRpc
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.StateMachine
@@ -143,13 +142,13 @@ newtype Response (r :: Type -> Type) = Response
 
 data CheckpointResult
   = -- | A new checkpoint was created from a PoW block at a certain block number
-    Checkpoint !PowBlockHash !Int
+    NewCheckpoint !PowBlockHash !Int
   | -- | No new checkpoint was created
     NoCheckpoint
   deriving (Eq, Show)
 
 toBlockRef :: CheckpointResult -> Maybe PowBlockHash
-toBlockRef (Checkpoint ref _) = Just ref
+toBlockRef (NewCheckpoint ref _) = Just ref
 toBlockRef _ = Nothing
 
 instance ToExpr Bytes
@@ -190,7 +189,7 @@ semantics :: Config -> Map Node MockNodeHandle -> Command Concrete -> IO (Respon
 semantics cfg handles (SendPowBlock toNodes blockRef) = do
   let getHandle node =
         fromMaybe
-          (error $ "Couldn't find " ++ show node ++ " in " ++ show handles)
+          (error $ "Couldn't find " ++ show node)
           (M.lookup node handles)
   let sendHandles = getHandle <$> toNodes
   forM_ sendHandles (`addPoWBlock` blockRef)
@@ -206,7 +205,7 @@ waitNode cfg (node, mockHandle) = do
   mCheckpoint <- waitCheckpoint 15 mockHandle
   let res = case mCheckpoint of
         Nothing -> NoCheckpoint
-        Just chkp -> Checkpoint (parentHash chkp) (majority cfg)
+        Just chkp -> NewCheckpoint (powBlockHash $ checkpointedBlock chkp) (majority cfg)
   return (node, res)
 
 -- TODO extend the generators
@@ -229,7 +228,7 @@ toMock :: Config -> Model r -> Command r -> Response r
 toMock cfg Model {..} cmd = Response $
   case snd $ updateChain cfg chain cmd of
     Just elected ->
-      map (,Checkpoint (powBlockHash elected) (majority cfg)) nodes
+      map (,NewCheckpoint (powBlockHash elected) (majority cfg)) nodes
     _ ->
       map (,NoCheckpoint) nodes
 
@@ -347,7 +346,6 @@ setup nodesNum testId = do
 cleanup :: NodeHandle -> IO ()
 cleanup NodeHandle {..} = do
   cancel mainNode
-  killServer mockNode
 
 runDualNode :: Bool -> Int -> Int -> IO NodeHandle
 runDualNode createDir testId nodeId = do
@@ -363,11 +361,16 @@ runDualNode createDir testId nodeId = do
             ncValidateDb = Right True
           }
       configFile = configDir ++ "/config-" ++ show nodeId ++ ".yaml"
-  mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
+  (mockNode, rpcUpstream) <- mockRpcUpstream
 
   nodeConfig <- getConfiguration cliConfig configFile
 
-  node <- async $ withEnv nodeConfig run
+  node <- async $
+    withEnv nodeConfig $ \env -> do
+      run
+        env
+          { eRpcUpstream = rpcUpstream
+          }
 
   link node
   return $ NodeHandle nodeId mockNode node
