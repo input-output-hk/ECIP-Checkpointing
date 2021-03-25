@@ -24,7 +24,7 @@ exec 3< <(awk '
 ' "$CABAL_PROJECT_FILE")
 
 # Calls cabal but exposes different the modified contents for cabal.project
-bwrap \
+exec bwrap \
   --dev-bind / / \
   --ro-bind-data 3 "$CABAL_PROJECT_FILE" \
   "$CABAL_EXECUTABLE" "$@"
