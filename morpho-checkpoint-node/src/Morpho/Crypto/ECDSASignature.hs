@@ -111,9 +111,14 @@ recoverPublicKey sig (B.Bytes msgBytestr) = do
   s <- recSigFromSignature sig
   toPublicKey <$> EC.recover s m
 
+-- Why 27? Pretty much just inherited from bitcoin at some point, but
+-- insignificant really.
+-- https://github.com/ethereumclassic/ECIPs/blob/master/_specs/ecip-1097.md#data-structures
+-- https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v/38909#38909
 morphoRecIdOffset :: Word8
 morphoRecIdOffset = 27
 
+-- From https://github.com/bitcoin-core/secp256k1/blob/26de4dfeb1f1436dae1fcf17f57bdaa43540f940/include/secp256k1.h#L182
 uncompressedIndicator :: Word8
 uncompressedIndicator = 4
 
