@@ -25,8 +25,8 @@ data PoWNodeRpcOperation = FetchLatestPoWBlock | PushCheckpoint
   deriving (Eq, Show)
 
 data MorphoInitTrace
-  = NotFoundInTopology NodeAddress CoreNodeId
-  | ProducerList NodeAddress CoreNodeId [RemoteAddress]
+  = NotFoundInTopology CoreNodeId
+  | ProducerList CoreNodeId [RemoteAddress]
   | PerformingDBValidation
   | PrometheusException IOException
   deriving (Eq, Show)
@@ -43,16 +43,14 @@ instance Transformable Text IO MorphoInitTrace where
   trTransformer = trStructuredText
 
 instance ToObject MorphoInitTrace where
-  toObject _ (NotFoundInTopology addr nid) =
+  toObject _ (NotFoundInTopology nid) =
     mkObject
       [ "kind" .= String "NotFoundInTopology",
-        "addr" .= String (show addr),
         "nodeId" .= String (show nid)
       ]
-  toObject _ (ProducerList addr nid prods) =
+  toObject _ (ProducerList nid prods) =
     mkObject
       [ "kind" .= String "ProducerList",
-        "addr" .= String (show addr),
         "nodeId" .= String (show nid),
         "producers" .= String (show prods)
       ]
@@ -67,8 +65,8 @@ instance ToObject MorphoInitTrace where
       ]
 
 instance HasTextFormatter MorphoInitTrace where
-  formatText (NotFoundInTopology addr nid) _ = "Own address " <> show addr <> " Node Id " <> show nid <> " not found in topology"
-  formatText (ProducerList addr nid prods) _ = "I am Node " <> show addr <> " Id: " <> show nid <> ". My producers are " <> show prods
+  formatText (NotFoundInTopology nid) _ = "Own node id " <> show nid <> " not found in topology"
+  formatText (ProducerList nid prods) _ = "I am node id " <> show nid <> ". My producers are " <> show prods
   formatText PerformingDBValidation _ = "Performing DB validation"
   formatText (PrometheusException err) _ = "Prometheus exception: " <> show err
 

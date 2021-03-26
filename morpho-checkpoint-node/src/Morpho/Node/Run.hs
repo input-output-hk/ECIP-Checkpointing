@@ -20,7 +20,6 @@ import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
-import qualified Data.List as List
 import Data.Map.Strict (size)
 import Data.Text (pack)
 import Morpho.Common.Socket
@@ -51,7 +50,6 @@ import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
 import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, run, tracers)
 import qualified Ouroboros.Consensus.Node as Node (runWith)
-import Ouroboros.Consensus.NodeId
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import Ouroboros.Consensus.Storage.LedgerDB.DiskPolicy
 import Ouroboros.Consensus.Util.ResourceRegistry
@@ -77,15 +75,6 @@ handleSimpleNode ::
   Env h c ->
   IO ()
 handleSimpleNode pInfo nodeTracers env = do
-  let NetworkTopology nodeSetups = eTopology env
-  producers' <- case List.lookup nid $
-    map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) nodeSetups of
-    Just ps -> do
-      traceWith (morphoInitTracer nodeTracers) $ ProducerList (eNodeAddress env) nid ps
-      return ps
-    Nothing -> do
-      traceWith (morphoInitTracer nodeTracers) $ NotFoundInTopology (eNodeAddress env) nid
-      exitFailure
   -- Socket directory TODO
   addresses <- nodeAddressInfo (eNodeAddress env)
   let ipv4Address = find ((== AF_INET) . addrFamily) addresses
@@ -97,7 +86,7 @@ handleSimpleNode pInfo nodeTracers env = do
       (ipProducerAddrs, dnsProducerAddrs) =
         partitionEithers
           [ maybe (Right ra) Left $ remoteAddressToNodeAddress ra
-            | ra <- producers'
+            | ra <- eProducers env
           ]
       ipProducers :: IPSubscriptionTarget
       ipProducers =
@@ -245,7 +234,6 @@ handleSimpleNode pInfo nodeTracers env = do
   Node.runWith args customizedLowLevelArgs
   where
     blockNoToDouble = realToFrac . unBlockNo
-    nid = eNodeId env
     customiseChainDbArgs cdbArgs =
       cdbArgs
         { cdbDiskPolicy =

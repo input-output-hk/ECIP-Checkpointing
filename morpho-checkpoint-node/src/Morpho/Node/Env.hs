@@ -4,8 +4,10 @@ import Cardano.BM.Data.Transformers
 import Cardano.BM.Trace
 import Cardano.Crypto.DSIGN
 import Cardano.Prelude
-import Cardano.Shell.Types
+import Cardano.Shell.Lib
 import Control.Monad.Fail
+import Control.Tracer
+import qualified Data.List as List
 import qualified Data.Text as T
 import Morpho.Config.Logging
 import Morpho.Config.Topology
@@ -14,6 +16,7 @@ import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
 import Morpho.Ledger.Update
 import Morpho.Tracing.Tracers
+import Morpho.Tracing.Types
 import Network.HostName
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config
@@ -22,30 +25,29 @@ import Ouroboros.Consensus.NodeId
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
 import Ouroboros.Network.NodeToClient
-import Ouroboros.Network.NodeToNode
+import Ouroboros.Network.NodeToNode (RemoteConnectionId)
 import System.Directory
-import Prelude (error, id)
 
 -- | Turns the user configuration (which can be provided by the CLI, config
 -- files or from defaults) into an application environment. This function takes
 -- care of initializing/checking values provided by the config
-configurationToEnv ::
+withEnv ::
   ( MorphoStateDefaultConstraints h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
   NodeConfiguration ->
-  IO (Env h c, [CardanoFeature])
-configurationToEnv nc = do
+  (Env h c -> IO ()) ->
+  IO ()
+withEnv nc action = do
   privKey <- initPrivateKey nc
 
-  (tracers, loggingFeats) <- initTracers nc
+  withTracing nc $ \tracers -> do
+    prods <- initProducers tracers nc
 
-  topology <- initTopology nc
+    databaseDir <- initDatabaseDir nc
 
-  databaseDir <- initDatabaseDir nc
-
-  return
-    ( Env
+    action
+      Env
         { eNodeId = ncNodeId nc,
           eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
           eCheckpointingInterval = ncCheckpointInterval nc,
@@ -63,14 +65,12 @@ configurationToEnv nc = do
           ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
           ePoWNodeRpcUrl = ncPoWNodeRpcUrl nc,
           eStableLedgerDepth = ncStableLedgerDepth nc,
-          eTopology = topology,
+          eProducers = prods,
           eDatabaseDir = databaseDir,
           eSocketFile = unSocket $ ncSocketFile nc,
           eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
           eValidateDb = ncValidateDb nc
-        },
-      loggingFeats
-    )
+        }
 
 -- Read and import private key
 initPrivateKey :: NodeConfiguration -> IO PrivateKey
@@ -81,22 +81,36 @@ initPrivateKey nc = do
     Right pk -> return pk
 
 -- Set up tracers from logging config
-initTracers ::
+withTracing ::
   ( MorphoStateDefaultConstraints h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
   NodeConfiguration ->
-  IO (Tracers RemoteConnectionId LocalConnectionId h c, [CardanoFeature])
-initTracers nc = do
+  (Tracers RemoteConnectionId LocalConnectionId h c -> IO ()) ->
+  IO ()
+withTracing nc action = do
   host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
   (loggingLayer, loggingFeats) <- loggingFeatures (ncLogging nc) (ncLoggingSwitch nc)
   let basicTrace = setHostname host $ appendName "node" (llBasicTrace loggingLayer)
   tracers <- mkTracers (ncTraceOpts nc) basicTrace
-  return (tracers, loggingFeats)
+  runCardanoApplicationWithFeatures loggingFeats $
+    CardanoApplication $ action tracers
 
 -- Read and import topology file
-initTopology :: NodeConfiguration -> IO NetworkTopology
-initTopology nc = either error id <$> readTopologyFile (unTopology $ ncTopologyFile nc)
+initProducers :: Tracers RemoteConnectionId LocalConnectionId h c -> NodeConfiguration -> IO [RemoteAddress]
+initProducers tracers nc = do
+  let file = unTopology $ ncTopologyFile nc
+      nid = ncNodeId nc
+  Right (NetworkTopology topology) <- readTopologyFile file
+
+  case List.lookup nid $
+    map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) topology of
+    Just ps -> do
+      traceWith (morphoInitTracer tracers) $ ProducerList nid ps
+      return ps
+    Nothing -> do
+      traceWith (morphoInitTracer tracers) $ NotFoundInTopology nid
+      exitFailure
 
 -- Make database path absolute
 initDatabaseDir :: NodeConfiguration -> IO FilePath
@@ -124,7 +138,7 @@ data Env h c = Env
     ePoWBlockFetchInterval :: Int,
     ePoWNodeRpcUrl :: Text,
     eStableLedgerDepth :: Int,
-    eTopology :: NetworkTopology,
+    eProducers :: [RemoteAddress],
     eDatabaseDir :: FilePath,
     eSocketFile :: FilePath,
     eNodeAddress :: NodeAddress,
