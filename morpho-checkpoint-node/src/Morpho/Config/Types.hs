@@ -62,7 +62,7 @@ data NodeConfiguration_ w f = NodeConfiguration
     ncNodeId :: Wear w f CoreNodeId,
     ncNumCoreNodes :: Wear w f Word64,
     ncNetworkMagic :: Wear w f Word32,
-    ncSystemStart :: Wear w f (Maybe SystemStart),
+    ncSystemStart :: Wear w f SystemStart,
     ncSecurityParameter :: Wear w f Word64,
     ncStableLedgerDepth :: Wear w f Int,
     ncLoggingSwitch :: Wear w f Bool,
@@ -256,8 +256,7 @@ configFieldParser =
 configFieldDefault :: NodeConfigurationFunctor Maybe
 configFieldDefault =
   (bpure Nothing)
-    { ncSystemStart = Just Nothing,
-      ncLoggingSwitch = Just True,
+    { ncLoggingSwitch = Just True,
       ncSnapshotsOnDisk = Just 60,
       ncSnapshotInterval = Just 60,
       ncPoWBlockFetchInterval = Just 1000000,

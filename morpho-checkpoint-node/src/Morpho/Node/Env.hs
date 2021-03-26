@@ -7,7 +7,6 @@ import Cardano.Prelude
 import Cardano.Shell.Types
 import Control.Monad.Fail
 import qualified Data.Text as T
-import Data.Time
 import Morpho.Config.Logging
 import Morpho.Config.Topology
 import Morpho.Config.Types
@@ -37,8 +36,6 @@ configurationToEnv ::
   NodeConfiguration ->
   IO (Env h c, [CardanoFeature])
 configurationToEnv nc = do
-  start <- initSystemStart nc
-
   privKey <- initPrivateKey nc
 
   (tracers, loggingFeats) <- initTracers nc
@@ -57,7 +54,7 @@ configurationToEnv nc = do
           eTimeslotLength = ncTimeslotLength nc,
           eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
           eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
-          eSystemStart = start,
+          eSystemStart = ncSystemStart nc,
           ePrivateKey = privKey,
           eTracers = tracers,
           ePrometheusPort = ncPrometheusPort nc,
@@ -74,10 +71,6 @@ configurationToEnv nc = do
         },
       loggingFeats
     )
-
--- Set current time as system start if not provided
-initSystemStart :: NodeConfiguration -> IO SystemStart
-initSystemStart nc = maybe (SystemStart <$> getCurrentTime) pure (ncSystemStart nc)
 
 -- Read and import private key
 initPrivateKey :: NodeConfiguration -> IO PrivateKey
