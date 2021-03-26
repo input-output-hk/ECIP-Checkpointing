@@ -42,6 +42,7 @@ import Morpho.Tracing.Metrics
 import Morpho.Tracing.Tracers
 import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
+import Network.DNS.Utils (normalize)
 import Network.HTTP.Client hiding (Proxy)
 import Network.Socket
 import Ouroboros.Consensus.Block.Abstract
@@ -120,7 +121,7 @@ handleSimpleNode pInfo nodeTracers env = do
       producerSubscription :: RemoteAddress -> DnsSubscriptionTarget
       producerSubscription ra =
         DnsSubscriptionTarget
-          { dstDomain = BSC.pack (raAddress ra),
+          { dstDomain = normalize (BSC.pack (raAddress ra)),
             dstPort = raPort ra,
             dstValency = raValency ra
           }
