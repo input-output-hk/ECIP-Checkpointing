@@ -92,8 +92,8 @@ determineFailures = Failure failures @?= determineConfiguration cliConfig fileCo
     failures =
       NE.fromList
         [ ConfigMissing {fieldName = "StableLedgerDepth", cliUnavailable = CliNoParser},
-          ConfigFieldParseError {fieldName = "PrometheusPort", fieldParseError = "parsing Int failed, expected Number, but encountered String"},
           ConfigMissing {fieldName = "TopologyFile", cliUnavailable = CliNotPassed ("--topology" :| [])},
+          ConfigFieldParseError {fieldName = "PrometheusPort", fieldParseError = "parsing Int failed, expected Number, but encountered String"},
           ConfigExtraField {fieldName = "ExtraField"}
         ]
 
