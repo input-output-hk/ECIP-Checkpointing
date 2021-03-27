@@ -146,7 +146,7 @@ handleSimpleNode pInfo nodeTracers env = do
         DiffusionArguments
           { daIPv4Address = Right <$> ipv4Address,
             daIPv6Address = Right <$> ipv6Address,
-            daLocalAddress = Right localSocketPath,
+            daLocalAddress = Just $ Right localSocketPath,
             daIpProducers = ipProducers,
             daDnsProducers = dnsProducers,
             -- TODO probably we could use smaller values here.
@@ -240,11 +240,12 @@ handleSimpleNode pInfo nodeTracers env = do
         StdRunNodeArgs
           { srnBfcMaxConcurrencyBulkSync = Nothing,
             srnBfcMaxConcurrencyDeadline = Nothing,
-            srcChainDbValidateOverride = eValidateDb env,
+            srnChainDbValidateOverride = eValidateDb env,
             srnDatabasePath = eDatabaseDir env,
             srnDiffusionArguments = diffusionArguments,
             srnDiffusionTracers = diffusionTracers,
-            srnTraceChainDB = chainDBTracer nodeTracers
+            srnTraceChainDB = chainDBTracer nodeTracers,
+            srnEnableInDevelopmentVersions = False
           }
   lowLevelArgs <- stdLowLevelRunNodeArgsIO args stdRunNodeArgs
   let customizedLowLevelArgs =

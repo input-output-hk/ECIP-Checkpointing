@@ -89,6 +89,9 @@ type instance CannotForge (MorphoBlock h c) = Void
 
 type instance ForgeStateUpdateError (MorphoBlock h c) = Void
 
+instance BlockSupportsMetrics (MorphoBlock h c) where
+  isSelfIssued = isSelfIssuedConstUnknown
+
 instance
   ( MorphoStateDefaultConstraints h c,
     HashAlgorithm h,
