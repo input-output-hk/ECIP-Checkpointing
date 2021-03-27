@@ -360,7 +360,6 @@ runDualNode createDir testId nodeId = do
         (bpure (Left CliNoParser))
           { ncTopologyFile = Right $ TopologyFile $ configDir ++ "/topology.json",
             ncDatabaseDir = Right $ DbFile $ nodeDir ++ "/db",
-            ncSocketFile = Right $ SocketFile $ nodeDir ++ "/.socket",
             ncNodePort = Right $ fromIntegral $ 3000 + 2 * nodeId,
             ncValidateDb = Right True
           }

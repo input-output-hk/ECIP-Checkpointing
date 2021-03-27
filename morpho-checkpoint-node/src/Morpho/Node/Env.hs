@@ -68,7 +68,6 @@ configurationToEnv nc = do
           eStableLedgerDepth = ncStableLedgerDepth nc,
           eTopology = topology,
           eDatabaseDir = databaseDir,
-          eSocketFile = unSocket $ ncSocketFile nc,
           eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
           eValidateDb = ncValidateDb nc
         },
@@ -133,7 +132,6 @@ data Env h c = Env
     eStableLedgerDepth :: Int,
     eTopology :: NetworkTopology,
     eDatabaseDir :: FilePath,
-    eSocketFile :: FilePath,
     eNodeAddress :: NodeAddress,
     eValidateDb :: Bool
   }

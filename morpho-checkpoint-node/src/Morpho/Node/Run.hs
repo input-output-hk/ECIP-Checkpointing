@@ -100,8 +100,6 @@ handleSimpleNode pInfo nodeTracers env = do
   addresses <- nodeAddressInfo (eNodeAddress env)
   let ipv4Address = find ((== AF_INET) . addrFamily) addresses
       ipv6Address = find ((== AF_INET6) . addrFamily) addresses
-      localSocketPath = eSocketFile env
-  removeStaleLocalSocket localSocketPath
   let ipProducerAddrs :: [NodeAddress]
       dnsProducerAddrs :: [RemoteAddress]
       (ipProducerAddrs, dnsProducerAddrs) =
@@ -146,7 +144,7 @@ handleSimpleNode pInfo nodeTracers env = do
         DiffusionArguments
           { daIPv4Address = Right <$> ipv4Address,
             daIPv6Address = Right <$> ipv6Address,
-            daLocalAddress = Just $ Right localSocketPath,
+            daLocalAddress = Nothing,
             daIpProducers = ipProducers,
             daDnsProducers = dnsProducers,
             -- TODO probably we could use smaller values here.

@@ -11,15 +11,10 @@
 module Morpho.Config.Types
   ( ConfigYamlFilePath (..),
     DbFile (..),
-    DelegationCertFile (..),
-    GenesisFile (..),
-    MiscellaneousFilepaths (..),
     NodeConfiguration_ (..),
     NodeConfiguration,
     NodeConfigurationFunctor,
     Protocol (..),
-    SigningKeyFile (..),
-    SocketFile (..),
     TopologyFile (..),
     TraceOptions_ (..),
     TraceOptions,
@@ -80,7 +75,6 @@ data NodeConfiguration_ w f = NodeConfiguration
     ncNodePrivKeyFile :: Wear w f FilePath,
     ncTopologyFile :: Wear w f TopologyFile,
     ncDatabaseDir :: Wear w f DbFile,
-    ncSocketFile :: Wear w f SocketFile,
     ncNodeHost :: Wear w f NodeHostAddress,
     ncNodePort :: Wear w f PortNumber,
     ncValidateDb :: Wear w f Bool,
@@ -174,7 +168,6 @@ configFieldName =
       ncNodePrivKeyFile = "NodePrivKeyFile",
       ncTopologyFile = "TopologyFile",
       ncDatabaseDir = "DatabaseDirectory",
-      ncSocketFile = "SocketFile",
       ncNodeHost = "NodeHost",
       ncNodePort = "NodePort",
       ncValidateDb = "ValidateDatabase",
@@ -243,8 +236,6 @@ configFieldParser =
       ncNodePrivKeyFile = Compose fromJSON,
       ncTopologyFile = TopologyFile <$> Compose fromJSON,
       ncDatabaseDir = DbFile <$> Compose fromJSON,
-      -- TODO: Remove
-      ncSocketFile = SocketFile <$> Compose fromJSON,
       ncNodeHost = NodeHostAddress . readMaybe . T.unpack <$> Compose fromJSON,
       ncNodePort = (fromIntegral :: Int -> PortNumber) <$> Compose fromJSON,
       ncValidateDb = Compose fromJSON,
@@ -338,13 +329,6 @@ instance FromJSON Protocol where
 data Protocol = MockedBFT
   deriving (Eq, Show)
 
-data MiscellaneousFilepaths = MiscellaneousFilepaths
-  { topFile :: !TopologyFile,
-    dBFile :: !DbFile,
-    socketFile :: !SocketFile
-  }
-  deriving (Show)
-
 newtype TopologyFile = TopologyFile
   {unTopology :: FilePath}
   deriving (Eq, Show)
@@ -352,22 +336,6 @@ newtype TopologyFile = TopologyFile
 newtype DbFile = DbFile
   {unDB :: FilePath}
   deriving (Eq, Show)
-
-newtype GenesisFile = GenesisFile
-  {unGenesisFile :: FilePath}
-  deriving (Eq, Ord, Show, IsString)
-
-newtype DelegationCertFile = DelegationCertFile
-  {unDelegationCert :: FilePath}
-  deriving (Show)
-
-newtype SocketFile = SocketFile
-  {unSocket :: FilePath}
-  deriving (Eq, Show)
-
-newtype SigningKeyFile = SigningKeyFile
-  {unSigningKey :: FilePath}
-  deriving (Eq, Ord, Show, IsString)
 
 nodeAddressToSockAddr :: NodeAddress -> SockAddr
 nodeAddressToSockAddr (NodeAddress addr port) =

@@ -24,7 +24,6 @@ FedPubKeys:
 NodePrivKeyFile: morpho-checkpoint-node/tests/configuration/Golden/secret-key-normal
 StableLedgerDepth: 6
 DatabaseDirectory: db
-SocketFile: socket
 NodePort: 1234
 
 TopologyFile: configuration/morpho-topology.json
