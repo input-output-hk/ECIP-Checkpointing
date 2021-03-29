@@ -202,7 +202,6 @@ exampleNodeConfig =
       ncNodePrivKeyFile = "/path/to/private/key",
       ncTopologyFile = TopologyFile "/path/to/topo.json",
       ncDatabaseDir = DbFile "/path/to/db",
-      ncSocketFile = SocketFile "/path/to/socket",
       ncNodeHost = NodeHostAddress (Just "127.0.0.1"),
       ncNodePort = 2345,
       ncValidateDb = True,

@@ -387,3 +387,4 @@ instance HasNetworkProtocolVersion (MorphoBlock h c) where
 instance SupportedNetworkProtocolVersion (MorphoBlock h c) where
   supportedNodeToNodeVersions _ = Map.singleton NodeToNodeV_6 MorphoNodeToNodeVersion1
   supportedNodeToClientVersions _ = Map.singleton NodeToClientV_8 MorphoNodeToClientVersion1
+  latestReleasedNodeVersion _ = (Just NodeToNodeV_6, Just NodeToClientV_8)

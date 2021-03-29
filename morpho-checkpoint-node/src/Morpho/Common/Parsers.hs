@@ -96,16 +96,6 @@ cliParsers =
                   <> metavar "FILEPATH"
                   <> help "Directory where the state is stored."
               ),
-      ncSocketFile =
-        parser $
-          SocketFile
-            <$> strOption
-              ( long "socket-dir"
-                  <> metavar "FILEPATH"
-                  <> help
-                    "Directory with local sockets:\
-                    \  ${dir}/node-{core,relay}-${node-id}.socket"
-              ),
       ncNodeHost =
         parser $
           option
