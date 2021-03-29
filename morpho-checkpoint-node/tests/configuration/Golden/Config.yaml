@@ -32,11 +32,6 @@ NodeHost: "127.0.0.1"
 NodePort: 2345
 ValidateDatabase: True
 
-
-#####         Tracing         #####
-
-minSeverity: Notice
-
 # MinimalVerbosity: Minimal level of the rendering of captured items
 # MaximalVerbosity: Maximal level of the rendering of captured items
 # NormalVerbosity: the default level of the rendering of captured items
@@ -111,51 +106,53 @@ TraceTxOutbound: True
 # Trace TxSubmission protocol messages.
 TraceTxSubmissionProtocol: True
 
+#####         Tracing         #####
+Logging:
+  minSeverity: Info
 
-##### LoggingFeature Configuration #####
+  ##### LoggingFeature Configuration #####
 
-# EKG is a simple metrics monitoring system. Uncomment the following to listen
-# on the given local port and point your web browser to http://localhost:12788/
-# for a live view. The same URL can also serve JSON output.
-# hasEKG: 12788
+  # EKG is a simple metrics monitoring system. Uncomment the following to listen
+  # on the given local port and point your web browser to http://localhost:12788/
+  # for a live view. The same URL can also serve JSON output.
+  # hasEKG: 12788
 
-# The Prometheus monitoring system can also be used. Uncomment the following
-# to listen on the given port
-# hasPrometheus: 12789
+  # The Prometheus monitoring system can also be used. Uncomment the following
+  # to listen on the given port
+  # hasPrometheus: 12789
 
-# For the Katip logging backend we must set up outputs (called scribes)
-# The available types of scribe are:
-#   FileSK for files
-#   StdoutSK/StdoutSK for stdout/stderr
-#   JournalSK for systemd's journal system
-#   DevNullSK
-# The scribe output format can be ScText or ScJson. Log rotation settings can
-# be specified in the defaults below or overidden on a per-scribe basis here.
-setupScribes:
-  - scKind: FileSK
-    scName: "logs/staging.log"
-    scFormat: ScText
+  # For the Katip logging backend we must set up outputs (called scribes)
+  # The available types of scribe are:
+  #   FileSK for files
+  #   StdoutSK/StdoutSK for stdout/stderr
+  #   JournalSK for systemd's journal system
+  #   DevNullSK
+  # The scribe output format can be ScText or ScJson. Log rotation settings can
+  # be specified in the defaults below or overidden on a per-scribe basis here.
+  setupScribes:
+    - scKind: FileSK
+      scName: "logs/staging.log"
+      scFormat: ScText
 
-  - scKind: StdoutSK
-    scName: stdout
-    scFormat: ScText
-    scRotation: null
+    - scKind: StdoutSK
+      scName: stdout
+      scFormat: ScText
+      scRotation: null
 
-# For the Katip logging backend this specifies the default scribes that trace
-# output is sent to if it is not configured to be sent to other scribes.
-defaultScribes:
-  - - FileSK
-    - "logs/staging.log"
+  # For the Katip logging backend this specifies the default scribes that trace
+  # output is sent to if it is not configured to be sent to other scribes.
+  defaultScribes:
+    - - FileSK
+      - "logs/staging.log"
 
-  - - StdoutSK
-    - stdout
+    - - StdoutSK
+      - stdout
 
-setupBackends:
-  - KatipBK
+  setupBackends:
+    - KatipBK
 
-defaultBackends:
-  - KatipBK
+  defaultBackends:
+    - KatipBK
 
-##### Fine grained logging control #####
-options:
-  mapBackends:
+  ##### Fine grained logging control #####
+  options: {}

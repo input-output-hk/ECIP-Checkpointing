@@ -29,7 +29,6 @@ NodePrivKeyFile: tests/configuration/QSM/prop_4/secret-key-0
 
 #####         Tracing         #####
 
-minSeverity: Debug
 
 # MinimalVerbosity: Minimal level of the rendering of captured items
 # MaximalVerbosity: Maximal level of the rendering of captured items
@@ -107,47 +106,49 @@ TraceTxSubmissionProtocol: True
 
 
 ##### LoggingFeature Configuration #####
+Logging:
+  minSeverity: Debug
 
-# EKG is a simple metrics monitoring system. Uncomment the following to listen
-# on the given local port and point your web browser to http://localhost:12788/
-# for a live view. The same URL can also serve JSON output.
-hasEKG: 12788
+  # EKG is a simple metrics monitoring system. Uncomment the following to listen
+  # on the given local port and point your web browser to http://localhost:12788/
+  # for a live view. The same URL can also serve JSON output.
+  hasEKG: 12788
 
-# The Prometheus monitoring system can also be used. Uncomment the following
-# to listen on the given port
-hasPrometheus:
-  - localhost
-  - 12791
+  # The Prometheus monitoring system can also be used. Uncomment the following
+  # to listen on the given port
+  hasPrometheus:
+    - localhost
+    - 12791
 
-hasGraylog: 12789
-hasGUI: 12790
+  hasGraylog: 12789
+  hasGUI: 12790
 
-# For the Katip logging backend we must set up outputs (called scribes)
-# The available types of scribe are:
-#   FileSK for files
-#   StdoutSK/StdoutSK for stdout/stderr
-#   JournalSK for systemd's journal system
-#   DevNullSK
-# The scribe output format can be ScText or ScJson. Log rotation settings can
-# be specified in the defaults below or overidden on a per-scribe basis here.
-setupScribes:
-  - scKind: FileSK
-    scName: "db/qsm-tests-4/nodedir-0/node.log"
-    scFormat: ScText
+  # For the Katip logging backend we must set up outputs (called scribes)
+  # The available types of scribe are:
+  #   FileSK for files
+  #   StdoutSK/StdoutSK for stdout/stderr
+  #   JournalSK for systemd's journal system
+  #   DevNullSK
+  # The scribe output format can be ScText or ScJson. Log rotation settings can
+  # be specified in the defaults below or overidden on a per-scribe basis here.
+  setupScribes:
+    - scKind: FileSK
+      scName: "db/qsm-tests-4/nodedir-0/node.log"
+      scFormat: ScText
 
-# For the Katip logging backend this specifies the default scribes that trace
-# output is sent to if it is not configured to be sent to other scribes.
-defaultScribes:
-  - - FileSK
-    - "db/qsm-tests-4/nodedir-0/node.log"
+  # For the Katip logging backend this specifies the default scribes that trace
+  # output is sent to if it is not configured to be sent to other scribes.
+  defaultScribes:
+    - - FileSK
+      - "db/qsm-tests-4/nodedir-0/node.log"
 
-setupBackends:
-  - KatipBK
-  - EKGViewBK
+  setupBackends:
+    - KatipBK
+    - EKGViewBK
 
-defaultBackends:
-  - KatipBK
+  defaultBackends:
+    - KatipBK
 
-##### Fine grained logging control #####
-options:
-  mapBackends:
+  ##### Fine grained logging control #####
+  options:
+    mapBackends:

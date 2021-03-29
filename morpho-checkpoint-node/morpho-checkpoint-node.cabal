@@ -17,6 +17,7 @@ library
         Morpho.Common.Parsers
         Morpho.Common.Bytes
         Morpho.Common.Conversions
+        Morpho.Config.Combined
         Morpho.Config.Logging
         Morpho.Config.Orphans
         Morpho.Config.Topology
@@ -91,6 +92,8 @@ library
         tracer-transformers,
         transformers,
         transformers-except,
+        unordered-containers,
+        validation,
         vector,
         yaml,
         wai,
@@ -144,6 +147,7 @@ test-suite test
         Test.Morpho.Common.Utils
         Test.Morpho.Common.Tables
         Test.Morpho.Examples
+        Test.Morpho.Config
         Test.Morpho.Generators
         Test.Morpho.Golden
         Test.Morpho.Serialisation
@@ -152,7 +156,9 @@ test-suite test
     default-extensions: NoImplicitPrelude
     build-depends:
         base >=4.12.0.0,
+        aeson,
         QuickCheck,
+        barbies,
         bytestring,
         cardano-crypto-class,
         cardano-crypto-wrapper,
@@ -173,7 +179,9 @@ test-suite test
         tasty-hunit,
         tasty-quickcheck,
         text,
-        time
+        time,
+        unordered-containers,
+        validation
 
 test-suite mantis-integration-tests
     type:               exitcode-stdio-1.0
@@ -208,6 +216,7 @@ test-suite state-machine-tests
         base >=4.12.0.0,
         QuickCheck,
         async,
+        barbies,
         bytestring,
         cardano-shell,
         cardano-crypto-class,

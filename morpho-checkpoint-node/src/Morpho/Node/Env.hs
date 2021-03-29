@@ -34,15 +34,14 @@ configurationToEnv ::
   ( MorphoStateDefaultConstraints h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
-  FilePath ->
   NodeConfiguration ->
   IO (Env h c, [CardanoFeature])
-configurationToEnv configFile nc = do
+configurationToEnv nc = do
   start <- initSystemStart nc
 
   privKey <- initPrivateKey nc
 
-  (tracers, loggingFeats) <- initTracers configFile nc
+  (tracers, loggingFeats) <- initTracers nc
 
   topology <- initTopology nc
 
@@ -93,12 +92,11 @@ initTracers ::
   ( MorphoStateDefaultConstraints h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
-  FilePath ->
   NodeConfiguration ->
   IO (Tracers RemoteConnectionId LocalConnectionId h c, [CardanoFeature])
-initTracers configFile nc = do
+initTracers nc = do
   host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
-  (loggingLayer, loggingFeats) <- loggingFeatures configFile (ncLoggingSwitch nc)
+  (loggingLayer, loggingFeats) <- loggingFeatures (ncLogging nc) (ncLoggingSwitch nc)
   let basicTrace = setHostname host $ appendName "node" (llBasicTrace loggingLayer)
   tracers <- mkTracers (ncTraceOpts nc) basicTrace
   return (tracers, loggingFeats)
