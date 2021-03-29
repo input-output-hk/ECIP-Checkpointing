@@ -20,7 +20,6 @@ import Cardano.Crypto.Hash
 import Cardano.Prelude hiding (atomically, take, trace, traceId, unlines)
 import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, readTVar)
 import qualified Data.ByteString.Char8 as BSC
-import qualified Data.List as List
 import Data.Map.Strict (size)
 import Data.Text (pack)
 import Morpho.Common.Socket
@@ -51,7 +50,6 @@ import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
 import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, run, tracers)
 import qualified Ouroboros.Consensus.Node as Node (runWith)
-import Ouroboros.Consensus.NodeId
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import Ouroboros.Consensus.Storage.LedgerDB.DiskPolicy
 import Ouroboros.Consensus.Util.ResourceRegistry
@@ -61,7 +59,7 @@ import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
-import Prelude (error, id, unlines)
+import Prelude (id)
 
 run :: Env MorphoMockHash ConsensusMockCrypto -> IO ()
 run env = handleSimpleNode (protocolInfoMorpho env) (eTracers env) env
@@ -77,25 +75,6 @@ handleSimpleNode ::
   Env h c ->
   IO ()
 handleSimpleNode pInfo nodeTracers env = do
-  let NetworkTopology nodeSetups = eTopology env
-      producers' = case List.lookup nid $
-        map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) nodeSetups of
-        Just ps -> ps
-        Nothing ->
-          error $
-            "handleSimpleNode: own address "
-              <> show (eNodeAddress env)
-              <> ", Node Id "
-              <> show nid
-              <> " not found in topology"
-  traceWith (mainTracer nodeTracers) $
-    unlines
-      [ "",
-        "**************************************",
-        "I am Node " <> show (eNodeAddress env) <> " Id: " <> show nid,
-        "My producers are " <> show producers',
-        "**************************************"
-      ]
   -- Socket directory TODO
   addresses <- nodeAddressInfo (eNodeAddress env)
   let ipv4Address = find ((== AF_INET) . addrFamily) addresses
@@ -105,7 +84,7 @@ handleSimpleNode pInfo nodeTracers env = do
       (ipProducerAddrs, dnsProducerAddrs) =
         partitionEithers
           [ maybe (Right ra) Left $ remoteAddressToNodeAddress ra
-            | ra <- producers'
+            | ra <- eProducers env
           ]
       ipProducers :: IPSubscriptionTarget
       ipProducers =
@@ -157,7 +136,7 @@ handleSimpleNode pInfo nodeTracers env = do
             daDiffusionMode = InitiatorAndResponderDiffusionMode
           }
   when (eValidateDb env) $
-    traceWith (mainTracer nodeTracers) "Performing DB validation"
+    traceWith (morphoInitTracer nodeTracers) PerformingDBValidation
   (metrics, irs) <- setupPrometheus
   let kernelHook ::
         ResourceRegistry IO ->
@@ -169,7 +148,7 @@ handleSimpleNode pInfo nodeTracers env = do
           forkLinkedThread registry "PrometheusMetrics" $
             catch
               (serveMetrics (ePrometheusPort env) ["metrics"] irs)
-              (\e -> traceWith (mainTracer nodeTracers) $ show (e :: IOException))
+              (traceWith (morphoInitTracer nodeTracers) . PrometheusException)
         -- Watch the tip of the chain and store it in @varTip@ so we can include
         -- it in trace messages.
         let chainDB = getChainDB nodeKernel
@@ -254,7 +233,6 @@ handleSimpleNode pInfo nodeTracers env = do
   Node.runWith args customizedLowLevelArgs
   where
     blockNoToDouble = realToFrac . unBlockNo
-    nid = eNodeId env
     customiseChainDbArgs cdbArgs =
       cdbArgs
         { cdbDiskPolicy =

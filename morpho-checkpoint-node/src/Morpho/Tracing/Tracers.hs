@@ -71,7 +71,7 @@ import Prelude (String, show)
 
 data Tracers peer localPeer h c = Tracers
   { -- | Used for top-level morpho traces during initialization
-    mainTracer :: Tracer IO String,
+    morphoInitTracer :: Tracer IO MorphoInitTrace,
     -- | Trace the ChainDB (flag '--trace-chain-db' will turn on textual output)
     chainDBTracer :: Tracer IO (ChainDB.TraceEvent (MorphoBlock h c)),
     -- | Consensus-specific tracers.
@@ -200,10 +200,10 @@ mkTracers traceOptions tracer = do
       <*> counting (liftCounting staticMetaCC name "forge-state-update-error" tracer)
   pure
     Tracers
-      { mainTracer =
+      { morphoInitTracer =
           annotateSeverity $
             toLogObject' tracingVerbosity $
-              appendName "Main" tracer,
+              appendName "MorphoInit" tracer,
         chainDBTracer =
           tracerOnOff (traceChainDB traceOptions) $
             annotateSeverity $

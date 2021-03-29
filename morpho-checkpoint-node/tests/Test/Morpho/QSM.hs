@@ -17,7 +17,6 @@ module Test.Morpho.QSM
 where
 
 import Barbies
-import Cardano.Shell.Lib
 import Control.Concurrent.Async
 import Control.Monad (forM, forM_, when)
 import Control.Monad.IO.Class
@@ -367,11 +366,8 @@ runDualNode createDir testId nodeId = do
   mockNode <- runSimpleMock $ 8446 + 100 * testId + 2 * nodeId
 
   nodeConfig <- getConfiguration cliConfig configFile
-  (env, features) <- configurationToEnv nodeConfig
-  node <-
-    async $
-      runCardanoApplicationWithFeatures features $
-        CardanoApplication $ run env
+
+  node <- async $ withEnv nodeConfig run
 
   link node
   return $ NodeHandle nodeId mockNode node
