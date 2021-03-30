@@ -15,6 +15,8 @@ import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
 import Morpho.Ledger.Update
+import Morpho.RPC.Abstract
+import Morpho.RPC.JsonRpc
 import Morpho.Tracing.Tracers
 import Morpho.Tracing.Types
 import Network.HostName
@@ -36,7 +38,7 @@ withEnv ::
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
   NodeConfiguration ->
-  (Env h c -> IO ()) ->
+  (Env JsonRpcEvent h c -> IO ()) ->
   IO ()
 withEnv nc action = do
   privKey <- initPrivateKey nc
@@ -45,6 +47,8 @@ withEnv nc action = do
     prods <- initProducers tracers nc
 
     databaseDir <- initDatabaseDir nc
+
+    rpcUpstream <- initRpcUpstream nc
 
     action
       Env
@@ -63,7 +67,7 @@ withEnv nc action = do
           eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
           eSnapshotInterval = ncSnapshotInterval nc,
           ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
-          ePoWNodeRpcUrl = ncPoWNodeRpcUrl nc,
+          eRpcUpstream = rpcUpstream,
           eStableLedgerDepth = ncStableLedgerDepth nc,
           eProducers = prods,
           eDatabaseDir = databaseDir,
@@ -115,11 +119,18 @@ initProducers tracers nc = do
 initDatabaseDir :: NodeConfiguration -> IO FilePath
 initDatabaseDir nc = canonicalizePath =<< makeAbsolute (unDB $ ncDatabaseDir nc)
 
+initRpcUpstream :: NodeConfiguration -> IO (RpcUpstream JsonRpcEvent IO)
+initRpcUpstream nc = do
+  mrpcUpstream <- runExceptT $ jsonRpcUpstream (ncPoWNodeRpcUrl nc)
+  case mrpcUpstream of
+    Left err -> fail $ show err
+    Right result -> return result
+
 -- | The application environment, a read-only structure that configures how
 -- morpho should run. This structure can abstract over interface details such
 -- as logging, rpc, where configuration is read from, etc.
 -- Essentially no initialization should be needed by morpho with such a value
-data Env h c = Env
+data Env rpce h c = Env
   { eNodeId :: CoreNodeId,
     eNumCoreNodes :: NumCoreNodes,
     eCheckpointingInterval :: Int,
@@ -135,7 +146,7 @@ data Env h c = Env
     eSnapshotsOnDisk :: Word,
     eSnapshotInterval :: Word64,
     ePoWBlockFetchInterval :: Int,
-    ePoWNodeRpcUrl :: Text,
+    eRpcUpstream :: RpcUpstream rpce IO,
     eStableLedgerDepth :: Int,
     eProducers :: [RemoteAddress],
     eDatabaseDir :: FilePath,

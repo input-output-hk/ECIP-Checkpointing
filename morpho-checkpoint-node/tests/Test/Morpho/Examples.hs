@@ -28,7 +28,7 @@ import Morpho.Config.Topology
 import Morpho.Config.Types
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.Block
-import Morpho.Ledger.PowTypes hiding (block)
+import Morpho.Ledger.PowTypes
 import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.State
 import Morpho.Ledger.Tx

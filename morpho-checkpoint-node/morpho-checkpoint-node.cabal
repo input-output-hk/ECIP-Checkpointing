@@ -35,9 +35,9 @@ library
         Morpho.Node.Run
         Morpho.Node.RunNode
         Morpho.Node.Env
-        Morpho.RPC.PoWMock
-        Morpho.RPC.Request
-        Morpho.RPC.Types
+        Morpho.RPC.Abstract
+        Morpho.RPC.JsonRpc
+        Morpho.RPC.JsonRpcProtocol
         Morpho.Tracing.TracingOrphanInstances
         Morpho.Tracing.Types
         Morpho.Tracing.Tracers
@@ -183,6 +183,7 @@ test-suite state-machine-tests
     main-is:            state-machine-tests.hs
     hs-source-dirs:     tests
     other-modules:
+        Test.Morpho.MockRpc
         Test.Morpho.QSM
         Test.Morpho.Generators
 
@@ -192,18 +193,22 @@ test-suite state-machine-tests
     build-depends:
         base >=4.12.0.0,
         QuickCheck,
+        aeson,
         async,
         barbies,
         bytestring,
+        cardano-prelude,
         cardano-crypto-class,
         cborg,
         containers,
         directory,
+        iohk-monitoring,
         morpho-checkpoint-node,
         ouroboros-consensus,
         ouroboros-consensus-test,
         quickcheck-instances,
         quickcheck-state-machine,
+        stm,
         tasty,
         tasty-quickcheck,
         text

@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
@@ -43,6 +44,7 @@ import Morpho.Ledger.Block
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.Update
 import Morpho.Node.RunNode ()
+import Morpho.RPC.Abstract
 import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.Mux.Trace (MuxTrace (..), WithMuxBearer (..))
@@ -87,7 +89,7 @@ data Tracers peer localPeer h c = Tracers
     -- | Trace error policy resolution (flag '--trace-error-policy' will turn on textual output)
     muxLocalTracer :: Tracer IO (WithMuxBearer (ConnectionId LocalAddress) MuxTrace),
     errorPolicyTracer :: Tracer IO (WithAddr Socket.SockAddr ErrorPolicyTrace),
-    powNodeRpcTracer :: Tracer IO PoWNodeRpcTrace,
+    powNodeRpcTracer :: forall i o ev. (Show ev, ToJSON ev, HasSeverityAnnotation ev) => Tracer IO (RpcTrace ev i o),
     extractStateTracer :: Tracer IO (ExtractStateTrace h c),
     timeTravelErrorTracer :: Tracer IO (TimeTravelError (MorphoBlock h c)),
     -- | Chain Tip tracer.
@@ -248,9 +250,8 @@ mkTracers traceOptions tracer = do
                 appendName "ExtractState" tracer,
         powNodeRpcTracer =
           tracerOnOff (tracePoWNodeRpc traceOptions) $
-            annotateSeverity $
-              toLogObject' tracingVerbosity $
-                appendName "PoWNodeRpc" tracer,
+            toLogObject' tracingVerbosity $
+              appendName "PoWNodeRpc" tracer,
         timeTravelErrorTracer =
           tracerOnOff (traceTimeTravelError traceOptions) $
             annotateSeverity $

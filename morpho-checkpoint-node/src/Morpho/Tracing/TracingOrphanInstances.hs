@@ -39,6 +39,7 @@ import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
+import Morpho.RPC.Abstract
 import Morpho.Tracing.Types
 import Network.Mux (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket (SockAddr)
@@ -143,11 +144,6 @@ instance (HashAlgorithm h, BftCrypto c) => ToObject (ExtractStateTrace h c) wher
         "state" .= show st,
         "tip" .= showPoint NormalVerbosity tip
       ]
-  toObject _verb (PushingCheckpoint chkp) =
-    mkObject
-      [ "kind" .= String "ExtractTxErrorTrace",
-        "checkpoint" .= show chkp
-      ]
   toObject _verb (ExtractTxErrorTrace err) =
     mkObject
       [ "kind" .= String "ExtractTxErrorTrace",
@@ -161,7 +157,6 @@ instance (HashAlgorithm h, BftCrypto c) => ToObject (ExtractStateTrace h c) wher
 
 instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
   formatText (MorphoStateTrace st) _ = pack $ "Current Ledger State: " ++ show st
-  formatText (PushingCheckpoint chkp) _ = pack $ "Pushing Checkpoint " ++ show chkp
   formatText (ExtractTxErrorTrace err) _ =
     pack $
       "Error while trying to extract Tx from PoW BlockRef: " ++ show err
@@ -173,55 +168,27 @@ instance HasPrivacyAnnotation (ExtractStateTrace h c)
 
 instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation MorphoStateTrace {} = Info
-  getSeverityAnnotation PushingCheckpoint {} = Debug
   getSeverityAnnotation ExtractTxErrorTrace {} = Error
   getSeverityAnnotation WontPushCheckpointTrace {} = Info
 
 instance ToObject (Header (MorphoBlock h c)) where
   toObject _ _ = emptyObject
 
-instance Transformable Text IO PoWNodeRpcTrace where
+instance (HasSeverityAnnotation e, ToJSON e, Show e) => Transformable Text IO (RpcTrace e i o) where
   trTransformer = trStructuredText
 
-instance HasTextFormatter PoWNodeRpcTrace where
+instance Show e => HasTextFormatter (RpcTrace e i o) where
   formatText tr _ = pack $ show tr
 
-instance ToObject PoWNodeRpcTrace where
-  toObject _verb (RpcPushedCheckpoint ckpt) =
-    mkObject
-      [ "kind" .= String "RpcPushedCheckpoint",
-        "checkpoint" .= show ckpt
-      ]
-  toObject _verb (RpcLatestPoWBlock blk) =
-    mkObject
-      [ "kind" .= String "RpcLatestPoWBlock",
-        "block" .= show blk
-      ]
-  toObject _verb RpcNoLatestPoWBlock =
-    mkObject
-      [ "kind" .= String "RpcNoLatestPoWBlock"
-      ]
-  toObject _verb (RpcNetworkError op err) =
-    mkObject
-      [ "kind" .= String "RpcNetworkError",
-        "operation" .= show op,
-        "error" .= err
-      ]
-  toObject _verb (RpcResponseParseError op err) =
-    mkObject
-      [ "kind" .= String "RpcResponseParseError",
-        "operation" .= show op,
-        "error" .= show err
-      ]
+instance ToJSON e => ToObject (RpcTrace e i o)
 
-instance HasPrivacyAnnotation PoWNodeRpcTrace
+instance HasPrivacyAnnotation (RpcTrace e i o)
 
-instance HasSeverityAnnotation PoWNodeRpcTrace where
-  getSeverityAnnotation RpcPushedCheckpoint {} = Notice
-  getSeverityAnnotation RpcLatestPoWBlock {} = Notice
-  getSeverityAnnotation RpcNoLatestPoWBlock {} = Notice
-  getSeverityAnnotation RpcNetworkError {} = Error
-  getSeverityAnnotation RpcResponseParseError {} = Error
+instance HasSeverityAnnotation e => HasSeverityAnnotation (RpcTrace e i o) where
+  getSeverityAnnotation (RpcTrace _ _ RpcStart) = Info
+  getSeverityAnnotation (RpcTrace GetLatestBlock _ (RpcSuccess Nothing)) = Notice
+  getSeverityAnnotation (RpcTrace _ _ (RpcSuccess _)) = Info
+  getSeverityAnnotation (RpcTrace _ _ (RpcEvent x)) = getSeverityAnnotation x
 
 instance (HashAlgorithm h, BftCrypto c) => Transformable Text IO (TimeTravelError (MorphoBlock h c)) where
   trTransformer = trStructured
