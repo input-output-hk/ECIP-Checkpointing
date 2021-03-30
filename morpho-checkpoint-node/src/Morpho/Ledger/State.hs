@@ -47,7 +47,9 @@ data MorphoState blk = MorphoState
 deriving instance Serialise (HeaderHash l) => Serialise (MorphoState l)
 
 data MorphoTransactionError
-  = MorphoWrongDistance
+  = MorphoCandidateBeforeCheckpoint
+  | MorphoAlreadyCheckpointed
+  | MorphoWrongDistance
   | MorphoInvalidSignature
   | MorphoDuplicateVote
   | MorphoUnknownPublicKey

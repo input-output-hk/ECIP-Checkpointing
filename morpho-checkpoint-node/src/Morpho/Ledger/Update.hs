@@ -306,10 +306,11 @@ updateMorphoStateByVote cfg st@(MorphoState lc chAt vs tip) v =
         else throwE MorphoUnknownPublicKey
 
 isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Except MorphoTransactionError ()
-isAtCorrectInterval cfg st blockRef =
-  if (bn - lcNo) `mod` interval == 0 && bn > lcNo
-    then return ()
-    else throwE MorphoWrongDistance
+isAtCorrectInterval cfg st blockRef
+  | bn < lcNo = throwE MorphoCandidateBeforeCheckpoint
+  | bn == lcNo = throwE MorphoAlreadyCheckpointed
+  | (bn - lcNo) `mod` interval /= 0 = throwE MorphoWrongDistance
+  | otherwise = return ()
   where
     PowBlockNo lcNo = powBlockNo $ checkpointedBlock $ lastCheckpoint st
     PowBlockNo bn = powBlockNo blockRef

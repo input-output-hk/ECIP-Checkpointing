@@ -222,6 +222,14 @@ instance (BftCrypto c, HashAlgorithm h) => ToObject (GenTx (MorphoBlock h c)) wh
       ]
 
 instance ToObject MorphoTransactionError where
+  toObject _verb MorphoCandidateBeforeCheckpoint =
+    mkObject
+      [ "kind" .= String "MorphoCandidateBeforeCheckpoint"
+      ]
+  toObject _verb MorphoAlreadyCheckpointed =
+    mkObject
+      [ "kind" .= String "MorphoAlreadyCheckpointed"
+      ]
   toObject _verb MorphoWrongDistance =
     mkObject
       [ "kind" .= String "MorphoWrongDistance"
