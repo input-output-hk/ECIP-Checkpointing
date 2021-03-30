@@ -14,6 +14,7 @@ module Morpho.Tracing.TracingOrphanInstances where
 
 import Cardano.BM.Data.Tracer
   ( HasTextFormatter (..),
+    contramap,
     emptyObject,
     mkObject,
     trStructured,
@@ -28,12 +29,12 @@ import Cardano.BM.Tracing
     Transformable (..),
   )
 import Cardano.Prelude hiding (show)
-import Data.Aeson (ToJSON (..), Value (..), (.=))
-import Data.Text (pack)
-import qualified Data.Text as Text
 -- We do need some consensus imports to provide useful trace messages for some
 -- network protocols
 
+import Data.Aeson (ToJSON (..), Value (..), (.=))
+import Data.Text (pack)
+import qualified Data.Text as Text
 import Morpho.Ledger.Block
 import Morpho.Ledger.PowTypes
 import Morpho.Ledger.Serialise ()
@@ -54,6 +55,7 @@ import Ouroboros.Consensus.Block
     realPointHash,
     realPointSlot,
   )
+import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Abstract
 import Ouroboros.Consensus.Ledger.Extended
@@ -76,7 +78,7 @@ import Ouroboros.Consensus.MiniProtocol.LocalTxSubmission.Server
   ( TraceLocalTxSubmissionServerEvent (..),
   )
 import Ouroboros.Consensus.Node.Run (RunNode, estimateBlockSize)
-import Ouroboros.Consensus.Node.Tracers (TraceForgeEvent (..))
+import Ouroboros.Consensus.Node.Tracers (TraceForgeEvent (..), TraceLabelCreds (..))
 import Ouroboros.Consensus.Protocol.Abstract
 import Ouroboros.Consensus.Protocol.BFT
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
@@ -135,6 +137,22 @@ import Ouroboros.Network.TxSubmission.Outbound
   ( TraceTxSubmissionOutbound (..),
   )
 import Prelude (String, id, show)
+
+instance HasSeverityAnnotation (TraceBlockchainTimeEvent t) where
+  getSeverityAnnotation (TraceStartTimeInTheFuture _ _) = Debug
+  getSeverityAnnotation (TraceCurrentSlotUnknown _ _) = Debug
+  getSeverityAnnotation (TraceSystemClockMovedBack _ _) = Warning
+
+instance HasSeverityAnnotation a => HasSeverityAnnotation (TraceLabelCreds a) where
+  getSeverityAnnotation (TraceLabelCreds _ a) = getSeverityAnnotation a
+
+instance HasPrivacyAnnotation (TraceLabelCreds a)
+
+instance ToObject a => ToObject (TraceLabelCreds a) where
+  toObject _verb (TraceLabelCreds _ a) = toObject _verb a
+
+instance (ToObject a, HasTextFormatter a, Transformable Text IO a) => Transformable Text IO (TraceLabelCreds a) where
+  trTransformer _verb tr = contramap (\(TraceLabelCreds _ a) -> a) (trStructuredText _verb tr)
 
 instance (HashAlgorithm h, BftCrypto c) => Transformable Text IO (ExtractStateTrace h c) where
   trTransformer = trStructuredText

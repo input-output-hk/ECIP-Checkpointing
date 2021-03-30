@@ -47,7 +47,7 @@ loggingFeatures rep True = do
 loggingFeatureWithRepresentation :: Representation -> IO (LoggingLayer, CardanoFeature)
 loggingFeatureWithRepresentation rep = do
   config <- setupFromRepresentation rep
-  (baseTrace, switchboard) <- setupTrace_ config "morpho-checkpoint"
+  (baseTrace, switchboard) <- setupTrace_ config "morpho"
   let loggingLayer = LoggingLayer $ Trace.natTrace liftIO baseTrace
       feature =
         CardanoFeature

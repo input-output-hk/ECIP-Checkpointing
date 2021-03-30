@@ -16,9 +16,6 @@ module Morpho.Config.Types
     NodeConfigurationFunctor,
     Protocol (..),
     TopologyFile (..),
-    TraceOptions_ (..),
-    TraceOptions,
-    TraceOptionsFunctor,
     NodeAddress (..),
     NodeHostAddress (..),
     nodeAddressToSockAddr,
@@ -61,7 +58,6 @@ data NodeConfiguration_ w f = NodeConfiguration
     ncSecurityParameter :: Wear w f Word64,
     ncStableLedgerDepth :: Wear w f Int,
     ncLoggingSwitch :: Wear w f Bool,
-    ncTraceOpts :: TraceOptions_ w f,
     ncTimeslotLength :: Wear w f SlotLength,
     ncSnapshotsOnDisk :: Wear w f Int,
     ncSnapshotInterval :: Wear w f Word64,
@@ -124,38 +120,6 @@ configFieldName =
       ncSecurityParameter = "SecurityParam",
       ncStableLedgerDepth = "StableLedgerDepth",
       ncLoggingSwitch = "TurnOnLogging",
-      ncTraceOpts =
-        TraceOptions
-          { traceVerbosity = "TracingVerbosity",
-            traceChainDB = "TraceChainDb",
-            traceChainSyncClient = "TraceChainSyncClient",
-            traceChainSyncHeaderServer = "TraceChainSyncHeaderServer",
-            traceChainSyncBlockServer = "TraceChainSyncBlockServer",
-            traceBlockFetchDecisions = "TraceBlockFetchDecisions",
-            traceBlockFetchClient = "TraceBlockFetchServer",
-            traceBlockFetchServer = "TraceBlockFetchClient",
-            traceTxInbound = "TraceTxInbound",
-            traceTxOutbound = "TraceTxOutbound",
-            traceLocalTxSubmissionServer = "TraceLocalTxSubmissionServer",
-            traceMempool = "TraceMempool",
-            traceForge = "TraceForge",
-            traceChainSyncProtocol = "TraceChainSyncProtocol",
-            traceBlockFetchProtocol = "TraceBlockFetchProtocol",
-            traceBlockFetchProtocolSerialised = "TraceBlockFetchProtocolSerialised",
-            traceTxSubmissionProtocol = "TraceTxSubmissionProtocol",
-            traceLocalChainSyncProtocol = "TraceLocalChainSyncProtocol",
-            traceLocalTxSubmissionProtocol = "TraceLocalTxSubmissionProtocol",
-            traceLocalStateQueryProtocol = "traceLocalStateQueryProtocol",
-            traceIpSubscription = "TraceIpSubscription",
-            traceDnsSubscription = "TraceDNSSubscription",
-            traceDnsResolver = "TraceDNSResolver",
-            traceErrorPolicy = "TraceErrorPolicy",
-            traceMux = "TraceMux",
-            traceHandshake = "TraceHandshake",
-            traceLedgerState = "TraceLedgerState",
-            tracePoWNodeRpc = "TracePoWNodeRpc",
-            traceTimeTravelError = "TraceTimeTravelError"
-          },
       ncTimeslotLength = "SlotDuration",
       ncSnapshotsOnDisk = "SnapshotsOnDisk",
       ncSnapshotInterval = "SnapshotInterval",
@@ -192,38 +156,6 @@ configFieldParser =
       ncSecurityParameter = Compose fromJSON,
       ncStableLedgerDepth = Compose fromJSON,
       ncLoggingSwitch = Compose fromJSON,
-      ncTraceOpts =
-        TraceOptions
-          { traceVerbosity = Compose fromJSON,
-            traceChainDB = Compose fromJSON,
-            traceChainSyncClient = Compose fromJSON,
-            traceChainSyncHeaderServer = Compose fromJSON,
-            traceChainSyncBlockServer = Compose fromJSON,
-            traceBlockFetchDecisions = Compose fromJSON,
-            traceBlockFetchClient = Compose fromJSON,
-            traceBlockFetchServer = Compose fromJSON,
-            traceTxInbound = Compose fromJSON,
-            traceTxOutbound = Compose fromJSON,
-            traceLocalTxSubmissionServer = Compose fromJSON,
-            traceMempool = Compose fromJSON,
-            traceForge = Compose fromJSON,
-            traceChainSyncProtocol = Compose fromJSON,
-            traceBlockFetchProtocol = Compose fromJSON,
-            traceBlockFetchProtocolSerialised = Compose fromJSON,
-            traceTxSubmissionProtocol = Compose fromJSON,
-            traceLocalChainSyncProtocol = Compose fromJSON,
-            traceLocalTxSubmissionProtocol = Compose fromJSON,
-            traceLocalStateQueryProtocol = Compose fromJSON,
-            traceIpSubscription = Compose fromJSON,
-            traceDnsSubscription = Compose fromJSON,
-            traceDnsResolver = Compose fromJSON,
-            traceErrorPolicy = Compose fromJSON,
-            traceMux = Compose fromJSON,
-            traceHandshake = Compose fromJSON,
-            traceLedgerState = Compose fromJSON,
-            tracePoWNodeRpc = Compose fromJSON,
-            traceTimeTravelError = Compose fromJSON
-          },
       ncTimeslotLength = Compose fromJSON,
       ncSnapshotsOnDisk = Compose fromJSON,
       ncSnapshotInterval = Compose fromJSON,
@@ -251,47 +183,12 @@ configFieldDefault =
       ncSnapshotsOnDisk = Just 60,
       ncSnapshotInterval = Just 60,
       ncPoWBlockFetchInterval = Just 1000000,
-      ncTraceOpts = bcoverWith Just defaultTraceOptions,
       ncNodeHost = Just (NodeHostAddress Nothing),
       ncValidateDb = Just False
     }
 
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
-
-defaultTraceOptions :: TraceOptions
-defaultTraceOptions =
-  TraceOptions
-    { traceVerbosity = NormalVerbosity,
-      traceChainDB = True,
-      traceChainSyncClient = True,
-      traceChainSyncHeaderServer = True,
-      traceChainSyncBlockServer = True,
-      traceBlockFetchDecisions = True,
-      traceBlockFetchClient = True,
-      traceBlockFetchServer = True,
-      traceTxInbound = True,
-      traceTxOutbound = True,
-      traceLocalTxSubmissionServer = True,
-      traceMempool = True,
-      traceForge = True,
-      traceChainSyncProtocol = True,
-      traceBlockFetchProtocol = True,
-      traceBlockFetchProtocolSerialised = True,
-      traceTxSubmissionProtocol = True,
-      traceLocalChainSyncProtocol = True,
-      traceLocalTxSubmissionProtocol = True,
-      traceLocalStateQueryProtocol = True,
-      traceIpSubscription = True,
-      traceDnsSubscription = True,
-      traceDnsResolver = True,
-      traceErrorPolicy = True,
-      traceMux = True,
-      traceHandshake = True,
-      traceLedgerState = True,
-      tracePoWNodeRpc = True,
-      traceTimeTravelError = True
-    }
 
 instance FromJSON TracingVerbosity where
   parseJSON (String str) = case str of
@@ -342,81 +239,6 @@ nodeAddressToSockAddr (NodeAddress addr port) =
     Just (IP.IPv4 ipv4) -> SockAddrInet port $ IP.toHostAddress ipv4
     Just (IP.IPv6 ipv6) -> SockAddrInet6 port 0 (IP.toHostAddress6 ipv6) 0
     Nothing -> SockAddrInet port 0 -- Could also be any IPv6 addr
-
--- | Detailed tracing options. Each option enables a tracer
---   which verbosity to the log output.
-data TraceOptions_ w f = TraceOptions
-  { traceVerbosity :: Wear w f TracingVerbosity,
-    -- | By default we use 'readableChainDB' tracer, if on this it will use
-    -- more verbose tracer
-    traceChainDB :: Wear w f Bool,
-    -- Consensus Tracers --
-    traceChainSyncClient :: Wear w f Bool,
-    traceChainSyncHeaderServer :: Wear w f Bool,
-    traceChainSyncBlockServer :: Wear w f Bool,
-    traceBlockFetchDecisions :: Wear w f Bool,
-    traceBlockFetchClient :: Wear w f Bool,
-    traceBlockFetchServer :: Wear w f Bool,
-    traceTxInbound :: Wear w f Bool,
-    traceTxOutbound :: Wear w f Bool,
-    traceLocalTxSubmissionServer :: Wear w f Bool,
-    traceMempool :: Wear w f Bool,
-    traceForge :: Wear w f Bool,
-    -----------------------
-
-    -- Protocol Tracers --
-    traceChainSyncProtocol :: Wear w f Bool,
-    -- There's two variants of the block fetch tracer and for now
-    -- at least we'll set them both together from the same flags.
-    traceBlockFetchProtocol :: Wear w f Bool,
-    traceBlockFetchProtocolSerialised :: Wear w f Bool,
-    traceTxSubmissionProtocol :: Wear w f Bool,
-    traceLocalChainSyncProtocol :: Wear w f Bool,
-    traceLocalTxSubmissionProtocol :: Wear w f Bool,
-    traceLocalStateQueryProtocol :: Wear w f Bool,
-    traceIpSubscription :: Wear w f Bool,
-    -----------------------
-
-    traceDnsSubscription :: Wear w f Bool,
-    traceDnsResolver :: Wear w f Bool,
-    traceErrorPolicy :: Wear w f Bool,
-    traceMux :: Wear w f Bool,
-    traceHandshake :: Wear w f Bool,
-    traceLedgerState :: Wear w f Bool,
-    tracePoWNodeRpc :: Wear w f Bool,
-    traceTimeTravelError :: Wear w f Bool
-  }
-  deriving (Generic)
-
--- A convenience type alias for a TraceOptions where every field is
--- covered with a functor
-type TraceOptionsFunctor = TraceOptions_ Covered
-
--- A convenience type alias for a TraceOptions where every field is
--- bare, not covered by any functor
-type TraceOptions = TraceOptions_ Bare Identity
-
-instance FunctorB TraceOptionsFunctor
-
-instance ApplicativeB TraceOptionsFunctor
-
-instance TraversableB TraceOptionsFunctor
-
-instance ConstraintsB TraceOptionsFunctor
-
-deriving instance AllBF Eq f TraceOptionsFunctor => Eq (TraceOptionsFunctor f)
-
-deriving instance AllBF Show f TraceOptionsFunctor => Show (TraceOptionsFunctor f)
-
-instance BareB TraceOptions_
-
-instance FunctorB (TraceOptions_ Bare)
-
-instance ConstraintsB (TraceOptions_ Bare)
-
-deriving instance AllBF Eq f (TraceOptions_ Bare) => Eq (TraceOptions_ Bare f)
-
-deriving instance AllBF Show f (TraceOptions_ Bare) => Show (TraceOptions_ Bare f)
 
 newtype ConfigYamlFilePath = ConfigYamlFilePath
   {unConfigPath :: FilePath}
