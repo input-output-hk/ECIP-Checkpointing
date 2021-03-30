@@ -66,7 +66,8 @@ import Ouroboros.Consensus.MiniProtocol.BlockFetch.Server
   ( TraceBlockFetchServerEvent,
   )
 import Ouroboros.Consensus.MiniProtocol.ChainSync.Client
-  ( TraceChainSyncClientEvent (..),
+  ( InvalidBlockReason,
+    TraceChainSyncClientEvent (..),
   )
 import Ouroboros.Consensus.MiniProtocol.ChainSync.Server
   ( TraceChainSyncServerEvent (..),
@@ -196,7 +197,8 @@ instance (HashAlgorithm h, BftCrypto c) => Transformable Text IO (TimeTravelErro
 instance HasPrivacyAnnotation (TimeTravelError blk)
 
 instance HasSeverityAnnotation (TimeTravelError blk) where
-  getSeverityAnnotation _ = Error
+  getSeverityAnnotation (ChainNotLongEnough _ _) = Info
+  getSeverityAnnotation (LedgerStateNotFoundAt _) = Error
 
 instance (HashAlgorithm h, BftCrypto c) => ToObject (TimeTravelError (MorphoBlock h c)) where
   toObject verb (LedgerStateNotFoundAt point) =
@@ -349,8 +351,19 @@ instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
 
 instance HasPrivacyAnnotation (TraceEventMempool blk)
 
-instance HasSeverityAnnotation (TraceEventMempool blk) where
-  getSeverityAnnotation _ = Info
+instance HasSeverityAnnotation MorphoTransactionError where
+  getSeverityAnnotation MorphoCandidateBeforeCheckpoint = Info
+  getSeverityAnnotation MorphoAlreadyCheckpointed = Debug
+  getSeverityAnnotation MorphoWrongDistance = Error
+  getSeverityAnnotation MorphoInvalidSignature = Error
+  getSeverityAnnotation MorphoDuplicateVote = Debug
+  getSeverityAnnotation MorphoUnknownPublicKey = Notice
+
+instance HasSeverityAnnotation (TraceEventMempool (MorphoBlock h c)) where
+  getSeverityAnnotation TraceMempoolAddedTx {} = Info
+  getSeverityAnnotation (TraceMempoolRejectedTx _ (_, reason) _) = getSeverityAnnotation reason
+  getSeverityAnnotation (TraceMempoolRemoveTxs _ _) = Debug
+  getSeverityAnnotation TraceMempoolManuallyRemovedTxs {} = Debug
 
 instance HasPrivacyAnnotation ()
 
@@ -359,7 +372,16 @@ instance HasSeverityAnnotation () where
 
 instance HasPrivacyAnnotation (TraceForgeEvent blk)
 
-instance HasSeverityAnnotation (TraceForgeEvent blk) where
+instance HasSeverityAnnotation (MorphoError (MorphoBlock h c)) where
+  getSeverityAnnotation (MorphoTransactionError _ txErr) = getSeverityAnnotation txErr
+  getSeverityAnnotation (MorphoInvalidHash _ _) = Error
+
+instance HasSeverityAnnotation (InvalidBlockReason (MorphoBlock h c)) where
+  getSeverityAnnotation (ChainDB.ValidationError (ExtValidationErrorLedger err)) = getSeverityAnnotation err
+  getSeverityAnnotation (ChainDB.ValidationError ExtValidationErrorHeader {}) = Error
+  getSeverityAnnotation (ChainDB.InFutureExceedsClockSkew _) = Warning
+
+instance HasSeverityAnnotation (TraceForgeEvent (MorphoBlock h c)) where
   getSeverityAnnotation TraceForgedBlock {} = Info
   getSeverityAnnotation TraceStartLeadershipCheck {} = Info
   getSeverityAnnotation TraceNodeNotLeader {} = Info
@@ -371,7 +393,7 @@ instance HasSeverityAnnotation (TraceForgeEvent blk) where
   getSeverityAnnotation TraceSlotIsImmutable {} = Error
   getSeverityAnnotation TraceAdoptedBlock {} = Info
   getSeverityAnnotation TraceDidntAdoptBlock {} = Error
-  getSeverityAnnotation TraceForgedInvalidBlock {} = Error
+  getSeverityAnnotation (TraceForgedInvalidBlock _ _ reason) = getSeverityAnnotation reason
   getSeverityAnnotation TraceBlockContext {} = Info
   getSeverityAnnotation TraceLedgerState {} = Info
   getSeverityAnnotation TraceLedgerView {} = Info
@@ -427,7 +449,8 @@ instance
     ToObject (ApplyTxErr blk),
     Show (ApplyTxErr blk),
     ToObject (GenTx blk),
-    ToJSON (GenTxId blk)
+    ToJSON (GenTxId blk),
+    blk ~ MorphoBlock h c
   ) =>
   Transformable Text IO (TraceEventMempool blk)
   where
@@ -442,14 +465,13 @@ showT = pack . show
 instance
   ( tx ~ GenTx blk,
     Condense (HeaderHash blk),
-    HasTxId tx,
     RunNode blk,
     Show blk,
-    Show (TxId tx),
     ToObject (LedgerError blk),
     ToObject (OtherHeaderEnvelopeError blk),
     ToObject (ValidationErr (BlockProtocol blk)),
-    ToObject (CannotForge blk)
+    ToObject (CannotForge blk),
+    blk ~ MorphoBlock h c
   ) =>
   Transformable Text IO (TraceForgeEvent blk)
   where
