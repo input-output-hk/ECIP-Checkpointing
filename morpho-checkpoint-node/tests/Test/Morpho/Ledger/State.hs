@@ -154,7 +154,7 @@ assert_singleVoteWrongDistance ::
   (blk ~ TestBlock) =>
   Assertion
 assert_singleVoteWrongDistance = case newStateResult of
-  Left (MorphoWrongDistance _) -> pure ()
+  Left (MorphoTransactionError _ MorphoWrongDistance) -> pure ()
   Left err -> assertFailure $ "unexcpeted state update error: " <> show err
   Right _ -> assertFailure "excptected state update error"
   where
@@ -177,7 +177,7 @@ assert_singleVoteInvalidSignature ::
   (blk ~ TestBlock) =>
   Assertion
 assert_singleVoteInvalidSignature = case newStateResult of
-  Left (MorphoInvalidSignature _) -> pure ()
+  Left (MorphoTransactionError _ MorphoInvalidSignature) -> pure ()
   Left err -> assertFailure $ "unexcpeted state update error: " <> show err
   Right _ -> assertFailure "excptected state update error"
   where
@@ -201,7 +201,7 @@ assert_singleVoteUnknownPublicKey ::
   (blk ~ TestBlock) =>
   Assertion
 assert_singleVoteUnknownPublicKey = case newStateResult of
-  Left (MorphoUnknownPublicKey _) -> pure ()
+  Left (MorphoTransactionError _ MorphoUnknownPublicKey) -> pure ()
   Left err -> assertFailure $ "unexcpeted state update error: " <> show err
   Right _ -> assertFailure "excptected state update error"
   where
@@ -225,7 +225,7 @@ assert_singleVoteDuplicateVote ::
   (blk ~ TestBlock) =>
   Assertion
 assert_singleVoteDuplicateVote = case newStateResult of
-  Left (MorphoDuplicateVote _) -> pure ()
+  Left (MorphoTransactionError _ MorphoDuplicateVote) -> pure ()
   Left err -> assertFailure $ "unexcpeted state update error: " <> show err
   Right _ -> assertFailure "excptected state update error"
   where

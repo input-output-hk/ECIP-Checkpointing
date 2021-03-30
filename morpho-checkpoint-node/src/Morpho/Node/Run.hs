@@ -258,11 +258,9 @@ requestCurrentBlock kernel env nodeTracers metrics = forever $ do
     processResponse Nothing = return ()
     processResponse (Just blockRef) = do
       set (fromIntegral . powBlockNo $ blockRef) $ mLatestPowBlock metrics
-      st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
-      let maybeVote = voteBlockRef (configLedger $ getTopLevelConfig kernel) st blockRef
-      case maybeVote of
+      case voteBlockRef (configLedger $ getTopLevelConfig kernel) blockRef of
         Left err ->
-          traceWith (extractStateTracer nodeTracers) $ ExtractTxErrorTrace err
+          traceWith (extractStateTracer nodeTracers) $ VoteErrorTrace err
         Right vote ->
           tryAddTxs [voteToTx vote] >> pure ()
     voteToTx = mkMorphoGenTx . Tx

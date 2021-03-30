@@ -175,8 +175,8 @@ exampleAnnTip =
       annTipInfo = exampleHeaderHash
     }
 
-exampleApplyTxErr :: MorphoError TestBlock
-exampleApplyTxErr = MorphoInvalidSignature exampleVote
+exampleApplyTxErr :: (Vote, MorphoTransactionError)
+exampleApplyTxErr = (exampleVote, MorphoInvalidSignature)
 
 exampleNodeConfig :: NodeConfiguration
 exampleNodeConfig =

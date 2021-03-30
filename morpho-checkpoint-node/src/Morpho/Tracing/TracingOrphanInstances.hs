@@ -35,6 +35,7 @@ import qualified Data.Text as Text
 -- network protocols
 
 import Morpho.Ledger.Block
+import Morpho.Ledger.PowTypes
 import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.State
@@ -65,7 +66,8 @@ import Ouroboros.Consensus.MiniProtocol.BlockFetch.Server
   ( TraceBlockFetchServerEvent,
   )
 import Ouroboros.Consensus.MiniProtocol.ChainSync.Client
-  ( TraceChainSyncClientEvent (..),
+  ( InvalidBlockReason,
+    TraceChainSyncClientEvent (..),
   )
 import Ouroboros.Consensus.MiniProtocol.ChainSync.Server
   ( TraceChainSyncServerEvent (..),
@@ -144,32 +146,31 @@ instance (HashAlgorithm h, BftCrypto c) => ToObject (ExtractStateTrace h c) wher
         "state" .= show st,
         "tip" .= showPoint NormalVerbosity tip
       ]
-  toObject _verb (ExtractTxErrorTrace err) =
-    mkObject
-      [ "kind" .= String "ExtractTxErrorTrace",
-        "err" .= show err
-      ]
   toObject _verb (WontPushCheckpointTrace reason) =
     mkObject
-      [ "kind" .= String "ExtractTxErrorTrace",
+      [ "kind" .= String "WontPushCheckpointTrace",
         "reason" .= show reason
+      ]
+  toObject _verb (VoteErrorTrace err) =
+    mkObject
+      [ "kind" .= String "VoteErrorTrace",
+        "err" .= show err
       ]
 
 instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
   formatText (MorphoStateTrace st) _ = pack $ "Current Ledger State: " ++ show st
-  formatText (ExtractTxErrorTrace err) _ =
-    pack $
-      "Error while trying to extract Tx from PoW BlockRef: " ++ show err
   formatText (WontPushCheckpointTrace reason) _ =
     pack $
       "Checkpoint doesn't need to be pushed: " ++ show reason
+  formatText (VoteErrorTrace err) _ =
+    pack $ "Error while trying to create a vote: " ++ show err
 
 instance HasPrivacyAnnotation (ExtractStateTrace h c)
 
 instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation MorphoStateTrace {} = Info
-  getSeverityAnnotation ExtractTxErrorTrace {} = Error
   getSeverityAnnotation WontPushCheckpointTrace {} = Info
+  getSeverityAnnotation VoteErrorTrace {} = Error
 
 instance ToObject (Header (MorphoBlock h c)) where
   toObject _ _ = emptyObject
@@ -196,7 +197,8 @@ instance (HashAlgorithm h, BftCrypto c) => Transformable Text IO (TimeTravelErro
 instance HasPrivacyAnnotation (TimeTravelError blk)
 
 instance HasSeverityAnnotation (TimeTravelError blk) where
-  getSeverityAnnotation _ = Error
+  getSeverityAnnotation (ChainNotLongEnough _ _) = Info
+  getSeverityAnnotation (LedgerStateNotFoundAt _) = Error
 
 instance (HashAlgorithm h, BftCrypto c) => ToObject (TimeTravelError (MorphoBlock h c)) where
   toObject verb (LedgerStateNotFoundAt point) =
@@ -221,26 +223,45 @@ instance (BftCrypto c, HashAlgorithm h) => ToObject (GenTx (MorphoBlock h c)) wh
         "txid" .= txid
       ]
 
+instance ToObject MorphoTransactionError where
+  toObject _verb MorphoCandidateBeforeCheckpoint =
+    mkObject
+      [ "kind" .= String "MorphoCandidateBeforeCheckpoint"
+      ]
+  toObject _verb MorphoAlreadyCheckpointed =
+    mkObject
+      [ "kind" .= String "MorphoAlreadyCheckpointed"
+      ]
+  toObject _verb MorphoWrongDistance =
+    mkObject
+      [ "kind" .= String "MorphoWrongDistance"
+      ]
+  toObject _verb MorphoInvalidSignature =
+    mkObject
+      [ "kind" .= String "MorphoInvalidSignature"
+      ]
+  toObject _verb MorphoDuplicateVote =
+    mkObject
+      [ "kind" .= String "MorphoDuplicateVote"
+      ]
+  toObject _verb MorphoUnknownPublicKey =
+    mkObject
+      [ "kind" .= String "MorphoUnknownPublicKey"
+      ]
+
+instance ToObject (Vote, MorphoTransactionError) where
+  toObject _verb (vote, err) =
+    mkObject
+      [ "vote" .= vote,
+        "error" .= toObject _verb err
+      ]
+
 instance StandardHash blk => ToObject (MorphoError blk) where
-  toObject _verb (MorphoWrongDistance v) =
+  toObject _verb (MorphoTransactionError vote err) =
     mkObject
-      [ "kind" .= String "MorphoWrongDistance",
-        "vote" .= show v
-      ]
-  toObject _verb (MorphoInvalidSignature v) =
-    mkObject
-      [ "kind" .= String "MorphoInvalidSignature",
-        "vote" .= show v
-      ]
-  toObject _verb (MorphoDuplicateVote v) =
-    mkObject
-      [ "kind" .= String "MorphoDuplicateVote",
-        "vote" .= show v
-      ]
-  toObject _verb (MorphoUnknownPublicKey v) =
-    mkObject
-      [ "kind" .= String "MorphoUnknownPublicKey",
-        "vote" .= show v
+      [ "kind" .= String "MorphoTransactionError",
+        "vote" .= vote,
+        "error" .= toObject _verb err
       ]
   toObject _verb (MorphoInvalidHash h h') =
     mkObject
@@ -330,8 +351,19 @@ instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
 
 instance HasPrivacyAnnotation (TraceEventMempool blk)
 
-instance HasSeverityAnnotation (TraceEventMempool blk) where
-  getSeverityAnnotation _ = Info
+instance HasSeverityAnnotation MorphoTransactionError where
+  getSeverityAnnotation MorphoCandidateBeforeCheckpoint = Info
+  getSeverityAnnotation MorphoAlreadyCheckpointed = Debug
+  getSeverityAnnotation MorphoWrongDistance = Error
+  getSeverityAnnotation MorphoInvalidSignature = Error
+  getSeverityAnnotation MorphoDuplicateVote = Debug
+  getSeverityAnnotation MorphoUnknownPublicKey = Notice
+
+instance HasSeverityAnnotation (TraceEventMempool (MorphoBlock h c)) where
+  getSeverityAnnotation TraceMempoolAddedTx {} = Info
+  getSeverityAnnotation (TraceMempoolRejectedTx _ (_, reason) _) = getSeverityAnnotation reason
+  getSeverityAnnotation (TraceMempoolRemoveTxs _ _) = Debug
+  getSeverityAnnotation TraceMempoolManuallyRemovedTxs {} = Debug
 
 instance HasPrivacyAnnotation ()
 
@@ -340,7 +372,16 @@ instance HasSeverityAnnotation () where
 
 instance HasPrivacyAnnotation (TraceForgeEvent blk)
 
-instance HasSeverityAnnotation (TraceForgeEvent blk) where
+instance HasSeverityAnnotation (MorphoError (MorphoBlock h c)) where
+  getSeverityAnnotation (MorphoTransactionError _ txErr) = getSeverityAnnotation txErr
+  getSeverityAnnotation (MorphoInvalidHash _ _) = Error
+
+instance HasSeverityAnnotation (InvalidBlockReason (MorphoBlock h c)) where
+  getSeverityAnnotation (ChainDB.ValidationError (ExtValidationErrorLedger err)) = getSeverityAnnotation err
+  getSeverityAnnotation (ChainDB.ValidationError ExtValidationErrorHeader {}) = Error
+  getSeverityAnnotation (ChainDB.InFutureExceedsClockSkew _) = Warning
+
+instance HasSeverityAnnotation (TraceForgeEvent (MorphoBlock h c)) where
   getSeverityAnnotation TraceForgedBlock {} = Info
   getSeverityAnnotation TraceStartLeadershipCheck {} = Info
   getSeverityAnnotation TraceNodeNotLeader {} = Info
@@ -352,7 +393,7 @@ instance HasSeverityAnnotation (TraceForgeEvent blk) where
   getSeverityAnnotation TraceSlotIsImmutable {} = Error
   getSeverityAnnotation TraceAdoptedBlock {} = Info
   getSeverityAnnotation TraceDidntAdoptBlock {} = Error
-  getSeverityAnnotation TraceForgedInvalidBlock {} = Error
+  getSeverityAnnotation (TraceForgedInvalidBlock _ _ reason) = getSeverityAnnotation reason
   getSeverityAnnotation TraceBlockContext {} = Info
   getSeverityAnnotation TraceLedgerState {} = Info
   getSeverityAnnotation TraceLedgerView {} = Info
@@ -408,7 +449,8 @@ instance
     ToObject (ApplyTxErr blk),
     Show (ApplyTxErr blk),
     ToObject (GenTx blk),
-    ToJSON (GenTxId blk)
+    ToJSON (GenTxId blk),
+    blk ~ MorphoBlock h c
   ) =>
   Transformable Text IO (TraceEventMempool blk)
   where
@@ -423,14 +465,13 @@ showT = pack . show
 instance
   ( tx ~ GenTx blk,
     Condense (HeaderHash blk),
-    HasTxId tx,
     RunNode blk,
     Show blk,
-    Show (TxId tx),
     ToObject (LedgerError blk),
     ToObject (OtherHeaderEnvelopeError blk),
     ToObject (ValidationErr (BlockProtocol blk)),
-    ToObject (CannotForge blk)
+    ToObject (CannotForge blk),
+    blk ~ MorphoBlock h c
   ) =>
   Transformable Text IO (TraceForgeEvent blk)
   where

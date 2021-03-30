@@ -11,6 +11,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -19,14 +20,13 @@
 
 -- We're going to define several ouroboros-network related orphan
 -- instances in this module.
-
 module Morpho.Ledger.Update
   ( TxId (..),
     GenTx (..),
     LedgerState (..),
     MorphoStateDefaultConstraints,
     Query,
-    ExtractTxError (..),
+    VoteError (..),
     WontPushCheckpoint (..),
     Ticked (..),
     voteBlockRef,
@@ -162,7 +162,7 @@ data instance GenTx (MorphoBlock h c) = MorphoGenTx
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
-type instance ApplyTxErr (MorphoBlock h c) = MorphoError (MorphoBlock h c)
+type instance ApplyTxErr (MorphoBlock h c) = (Vote, MorphoTransactionError)
 
 instance
   ( HashAlgorithm h,
@@ -188,18 +188,17 @@ instance MorphoStateDefaultConstraints h c => CommonProtocolParams (MorphoBlock 
 
 -- Why is this needed if we're already updating the state in `updateMorphoState`???
 applyTxMorpho ::
-  forall blk h c.
-  (blk ~ MorphoBlock h c) =>
+  forall h c.
   MorphoLedgerConfig ->
   SlotNo ->
   GenTx (MorphoBlock h c) ->
   Ticked (LedgerState (MorphoBlock h c)) ->
-  Except (MorphoError blk) (Ticked (LedgerState (MorphoBlock h c)))
+  Except (Vote, MorphoTransactionError) (Ticked (LedgerState (MorphoBlock h c)))
 applyTxMorpho cfg _ tx (MorphoTick (MorphoLedgerState st)) =
   MorphoTick . MorphoLedgerState <$> stateAfterUpdate
   where
     (Tx v) = morphoGenTx tx
-    stateAfterUpdate :: Except (MorphoError blk) (MorphoState (MorphoBlock h c))
+    stateAfterUpdate :: Except (Vote, MorphoTransactionError) (MorphoState (MorphoBlock h c))
     stateAfterUpdate = updateMorphoStateByVote cfg st v
 
 instance (Typeable h, Typeable c) => NoThunks (GenTx (MorphoBlock h c)) where
@@ -272,7 +271,7 @@ updateMorphoStateByTxs cfg txs st@(MorphoState _ _ _ tip) = do
       es <- lift $ runExceptT exs
       case es of
         Left _ -> exs
-        Right s -> updateMorphoStateByVote cfg s v
+        Right s -> withExcept (uncurry MorphoTransactionError) $ updateMorphoStateByVote cfg s v
     mwinner :: Except (MorphoError blk) (Maybe PowBlockRef)
     mwinner = findWinner (requiredMajority cfg) <$> (M.elems . currentVotes <$> stateWithVotesApplied)
     stateVotes :: Except (MorphoError blk) [Vote]
@@ -281,66 +280,51 @@ updateMorphoStateByTxs cfg txs st@(MorphoState _ _ _ tip) = do
     getSig (Vote _ s) = s
 
 updateMorphoStateByVote ::
-  (blk ~ MorphoBlock h c) =>
   MorphoLedgerConfig ->
   MorphoState blk ->
   Vote ->
-  Except (MorphoError blk) (MorphoState blk)
+  Except (Vote, MorphoTransactionError) (MorphoState blk)
 updateMorphoStateByVote cfg st@(MorphoState lc chAt vs tip) v =
   (\xs -> MorphoState lc chAt xs tip) <$> updatedVotes
   where
-    updatedVotes = do
-      unless distanceValid . throwError . MorphoWrongDistance $ v
-      unless notDuplicate . throwError . MorphoDuplicateVote $ v
-      p <- recoveredPoint
-      unless (pkValid p) . throwError . MorphoUnknownPublicKey $ v
+    updatedVotes = withExceptT (v,) $ do
+      distanceValid
+      notDuplicate
+      p <- recoveredPublicKey
+      pkValid p
       pure $ M.insert p v vs
-    notDuplicate = isNothing $ find (== v) vs
-    distanceValid = isRight $ isAtCorrectInterval cfg st (votedPowBlock v)
-    pkValid p = isJust $ find (p ==) (fedPubKeys cfg)
-    maybeRecoveredPoint = recoverPublicKey (voteSignature v) (powBlockRefToBytes $ votedPowBlock v)
-    recoveredPoint =
-      maybe
-        (throwError $ MorphoInvalidSignature v)
-        pure
-        maybeRecoveredPoint
+    distanceValid = isAtCorrectInterval cfg st (votedPowBlock v)
+    notDuplicate = case find (== v) vs of
+      Nothing -> return ()
+      Just _ -> throwE MorphoDuplicateVote
+    recoveredPublicKey = case recoverPublicKey (voteSignature v) (powBlockRefToBytes $ votedPowBlock v) of
+      Nothing -> throwE MorphoInvalidSignature
+      Just pk -> return pk
+    pkValid p =
+      if p `elem` fedPubKeys cfg
+        then return ()
+        else throwE MorphoUnknownPublicKey
 
-isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
-isAtCorrectInterval cfg st blockRef =
-  if (bn - lcNo) `mod` interval == 0 && bn > lcNo
-    then Right ()
-    else Left $ IncorectInterval blockRef bn lcNo interval
+isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Except MorphoTransactionError ()
+isAtCorrectInterval cfg st blockRef
+  | bn < lcNo = throwE MorphoCandidateBeforeCheckpoint
+  | bn == lcNo = throwE MorphoAlreadyCheckpointed
+  | (bn - lcNo) `mod` interval /= 0 = throwE MorphoWrongDistance
+  | otherwise = return ()
   where
     PowBlockNo lcNo = powBlockNo $ checkpointedBlock $ lastCheckpoint st
     PowBlockNo bn = powBlockNo blockRef
     interval = checkpointingInterval cfg
 
-alreadyVoted :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
-alreadyVoted cfg st ref =
-  if lastVotedBlock == Just ref
-    then Left $ DuplicatedVote ref pubKey
-    else Right ()
-  where
-    lastVotedBlock = votedPowBlock <$> M.lookup pubKey (currentVotes st)
-    KeyPair pubKey _ = nodeKeyPair cfg
-
-voteBlockRef :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError Vote
-voteBlockRef cfg st ref = do
-  _ <- isAtCorrectInterval cfg st ref
-  _ <- alreadyVoted cfg st ref
-  tryVote
+voteBlockRef :: MorphoLedgerConfig -> PowBlockRef -> Either VoteError Vote
+voteBlockRef cfg ref = case sign sk bytes of
+  Nothing -> Left $ FailedToSignBlockRef ref
+  Just x -> Right (Vote ref x)
   where
     KeyPair _ sk = nodeKeyPair cfg
     bytes = powBlockRefToBytes ref
-    tryVote :: Either ExtractTxError Vote
-    tryVote = case sign sk bytes of
-      Nothing -> Left $ FailedToSignBlockRef ref
-      Just x -> Right (Vote ref x)
 
-data ExtractTxError
-  = IncorectInterval PowBlockRef Int Int Int
-  | DuplicatedVote PowBlockRef PublicKey
-  | FailedToSignBlockRef PowBlockRef
+newtype VoteError = FailedToSignBlockRef PowBlockRef
   deriving (Show, Eq)
 
 findWinner :: Int -> [Vote] -> Maybe PowBlockRef

@@ -14,6 +14,7 @@ import Cardano.Crypto.DSIGN.Class
 import Cardano.Prelude
 import Morpho.Ledger.Block
 import Morpho.Ledger.Forge ()
+import Morpho.Ledger.PowTypes
 import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
@@ -78,6 +79,8 @@ instance (Typeable h, Typeable c) => ShowProxy (GenTx (MorphoBlock h c))
 instance (Typeable h, Typeable c) => ShowProxy (TxId (GenTx (MorphoBlock h c)))
 
 instance (Typeable h, Typeable c) => ShowProxy (MorphoBlock h c)
+
+instance ShowProxy (Vote, MorphoTransactionError)
 
 instance (Typeable h, Typeable c) => ShowProxy (MorphoError (MorphoBlock h c))
 

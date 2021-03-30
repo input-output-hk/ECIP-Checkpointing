@@ -22,6 +22,7 @@ import Codec.Serialise (Serialise (..))
 import Control.Monad.Except
 import qualified Data.ByteString.Lazy as Lazy
 import Morpho.Ledger.Block
+import Morpho.Ledger.PowTypes
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
 import Ouroboros.Consensus.Block.Abstract
@@ -168,6 +169,10 @@ instance
 instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c) =>
   SerialiseNodeToClient blk (GenTxId blk)
+
+instance
+  (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c, Serialise (HeaderHash blk)) =>
+  SerialiseNodeToClient blk (Vote, MorphoTransactionError)
 
 instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c, Serialise (HeaderHash blk)) =>
