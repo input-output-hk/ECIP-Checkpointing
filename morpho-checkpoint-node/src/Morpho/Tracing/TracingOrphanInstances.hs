@@ -151,8 +151,13 @@ instance (HashAlgorithm h, BftCrypto c) => ToObject (ExtractStateTrace h c) wher
       ]
   toObject _verb (WontPushCheckpointTrace reason) =
     mkObject
-      [ "kind" .= String "ExtractTxErrorTrace",
+      [ "kind" .= String "WontPushCheckpointTrace",
         "reason" .= show reason
+      ]
+  toObject _verb (VoteErrorTrace err) =
+    mkObject
+      [ "kind" .= String "VoteErrorTrace",
+        "err" .= show err
       ]
 
 instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
@@ -163,6 +168,8 @@ instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h
   formatText (WontPushCheckpointTrace reason) _ =
     pack $
       "Checkpoint doesn't need to be pushed: " ++ show reason
+  formatText (VoteErrorTrace err) _ =
+    pack $ "Error while trying to create a vote: " ++ show err
 
 instance HasPrivacyAnnotation (ExtractStateTrace h c)
 
@@ -170,6 +177,7 @@ instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation MorphoStateTrace {} = Info
   getSeverityAnnotation ExtractTxErrorTrace {} = Error
   getSeverityAnnotation WontPushCheckpointTrace {} = Info
+  getSeverityAnnotation VoteErrorTrace {} = Error
 
 instance ToObject (Header (MorphoBlock h c)) where
   toObject _ _ = emptyObject

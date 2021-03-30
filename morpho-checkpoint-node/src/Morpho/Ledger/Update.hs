@@ -27,6 +27,7 @@ module Morpho.Ledger.Update
     MorphoStateDefaultConstraints,
     Query,
     ExtractTxError (..),
+    VoteError (..),
     WontPushCheckpoint (..),
     Ticked (..),
     voteBlockRef,
@@ -315,32 +316,20 @@ isAtCorrectInterval cfg st blockRef =
     PowBlockNo bn = powBlockNo blockRef
     interval = checkpointingInterval cfg
 
-alreadyVoted :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
-alreadyVoted cfg st ref =
-  if lastVotedBlock == Just ref
-    then Left $ DuplicatedVote ref pubKey
-    else Right ()
-  where
-    lastVotedBlock = votedPowBlock <$> M.lookup pubKey (currentVotes st)
-    KeyPair pubKey _ = nodeKeyPair cfg
-
-voteBlockRef :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError Vote
-voteBlockRef cfg st ref = do
-  _ <- isAtCorrectInterval cfg st ref
-  _ <- alreadyVoted cfg st ref
-  tryVote
+voteBlockRef :: MorphoLedgerConfig -> PowBlockRef -> Either VoteError Vote
+voteBlockRef cfg ref = case sign sk bytes of
+  Nothing -> Left $ FailedToSignBlockRef ref
+  Just x -> Right (Vote ref x)
   where
     KeyPair _ sk = nodeKeyPair cfg
     bytes = powBlockRefToBytes ref
-    tryVote :: Either ExtractTxError Vote
-    tryVote = case sign sk bytes of
-      Nothing -> Left $ FailedToSignBlockRef ref
-      Just x -> Right (Vote ref x)
+
+newtype VoteError = FailedToSignBlockRef PowBlockRef
+  deriving (Show, Eq)
 
 data ExtractTxError
   = IncorectInterval PowBlockRef Int Int Int
   | DuplicatedVote PowBlockRef PublicKey
-  | FailedToSignBlockRef PowBlockRef
   deriving (Show, Eq)
 
 findWinner :: Int -> [Vote] -> Maybe PowBlockRef

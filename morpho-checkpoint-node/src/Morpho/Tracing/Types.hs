@@ -66,5 +66,6 @@ instance HasTextFormatter MorphoInitTrace where
 data ExtractStateTrace h c
   = MorphoStateTrace (MorphoState (MorphoBlock h c))
   | ExtractTxErrorTrace ExtractTxError
+  | VoteErrorTrace VoteError
   | WontPushCheckpointTrace (WontPushCheckpoint (MorphoBlock h c))
   deriving (Eq, Show)
