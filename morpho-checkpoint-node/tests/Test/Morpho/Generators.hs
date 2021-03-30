@@ -176,13 +176,19 @@ instance Arbitrary (AnnTip TestBlock) where
 instance Arbitrary (TxId (GenTx TestBlock)) where
   arbitrary = MorphoGenTxId <$> arbitrary
 
+instance Arbitrary MorphoTransactionError where
+  arbitrary =
+    oneof
+      [ pure MorphoWrongDistance,
+        pure MorphoInvalidSignature,
+        pure MorphoDuplicateVote,
+        pure MorphoUnknownPublicKey
+      ]
+
 instance Arbitrary (MorphoError TestBlock) where
   arbitrary =
     oneof
-      [ MorphoWrongDistance <$> arbitrary,
-        MorphoInvalidSignature <$> arbitrary,
-        MorphoDuplicateVote <$> arbitrary,
-        MorphoUnknownPublicKey <$> arbitrary,
+      [ MorphoTransactionError <$> arbitrary <*> arbitrary,
         MorphoInvalidHash <$> arbitrary <*> arbitrary
       ]
 
