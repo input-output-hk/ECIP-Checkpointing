@@ -171,6 +171,10 @@ instance
 
 instance
   (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c, Serialise (HeaderHash blk)) =>
+  SerialiseNodeToClient blk MorphoTransactionError
+
+instance
+  (blk ~ MorphoBlock h c, HashAlgorithm h, BftCrypto c, Serialise (HeaderHash blk)) =>
   SerialiseNodeToClient blk (MorphoError blk)
 
 instance

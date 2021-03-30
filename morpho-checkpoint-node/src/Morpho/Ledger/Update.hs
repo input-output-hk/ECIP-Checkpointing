@@ -163,7 +163,7 @@ data instance GenTx (MorphoBlock h c) = MorphoGenTx
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
-type instance ApplyTxErr (MorphoBlock h c) = MorphoError (MorphoBlock h c)
+type instance ApplyTxErr (MorphoBlock h c) = MorphoTransactionError
 
 instance
   ( HashAlgorithm h,
@@ -189,18 +189,17 @@ instance MorphoStateDefaultConstraints h c => CommonProtocolParams (MorphoBlock 
 
 -- Why is this needed if we're already updating the state in `updateMorphoState`???
 applyTxMorpho ::
-  forall blk h c.
-  (blk ~ MorphoBlock h c) =>
+  forall h c.
   MorphoLedgerConfig ->
   SlotNo ->
   GenTx (MorphoBlock h c) ->
   Ticked (LedgerState (MorphoBlock h c)) ->
-  Except (MorphoError blk) (Ticked (LedgerState (MorphoBlock h c)))
+  Except MorphoTransactionError (Ticked (LedgerState (MorphoBlock h c)))
 applyTxMorpho cfg _ tx (MorphoTick (MorphoLedgerState st)) =
   MorphoTick . MorphoLedgerState <$> stateAfterUpdate
   where
     (Tx v) = morphoGenTx tx
-    stateAfterUpdate :: Except (MorphoError blk) (MorphoState (MorphoBlock h c))
+    stateAfterUpdate :: Except MorphoTransactionError (MorphoState (MorphoBlock h c))
     stateAfterUpdate = updateMorphoStateByVote cfg st v
 
 instance (Typeable h, Typeable c) => NoThunks (GenTx (MorphoBlock h c)) where
@@ -273,7 +272,7 @@ updateMorphoStateByTxs cfg txs st@(MorphoState _ _ _ tip) = do
       es <- lift $ runExceptT exs
       case es of
         Left _ -> exs
-        Right s -> updateMorphoStateByVote cfg s v
+        Right s -> withExcept MorphoTransactionError $ updateMorphoStateByVote cfg s v
     mwinner :: Except (MorphoError blk) (Maybe PowBlockRef)
     mwinner = findWinner (requiredMajority cfg) <$> (M.elems . currentVotes <$> stateWithVotesApplied)
     stateVotes :: Except (MorphoError blk) [Vote]
@@ -282,11 +281,10 @@ updateMorphoStateByTxs cfg txs st@(MorphoState _ _ _ tip) = do
     getSig (Vote _ s) = s
 
 updateMorphoStateByVote ::
-  (blk ~ MorphoBlock h c) =>
   MorphoLedgerConfig ->
   MorphoState blk ->
   Vote ->
-  Except (MorphoError blk) (MorphoState blk)
+  Except MorphoTransactionError (MorphoState blk)
 updateMorphoStateByVote cfg st@(MorphoState lc chAt vs tip) v =
   (\xs -> MorphoState lc chAt xs tip) <$> updatedVotes
   where

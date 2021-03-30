@@ -10,6 +10,7 @@
 module Morpho.Ledger.State
   ( -- * State of the mock ledger
     MorphoState (..),
+    MorphoTransactionError (..),
     MorphoError (..),
     MorphoLedgerConfig (..),
 
@@ -45,11 +46,15 @@ data MorphoState blk = MorphoState
 
 deriving instance Serialise (HeaderHash l) => Serialise (MorphoState l)
 
-data MorphoError blk
+data MorphoTransactionError
   = MorphoWrongDistance Vote
   | MorphoInvalidSignature Vote
   | MorphoDuplicateVote Vote
   | MorphoUnknownPublicKey Vote
+  deriving (Show, Eq, Generic, NoThunks, Serialise)
+
+data MorphoError blk
+  = MorphoTransactionError MorphoTransactionError
   | MorphoInvalidHash (ChainHash blk) (ChainHash blk)
   deriving (Generic, NoThunks)
 

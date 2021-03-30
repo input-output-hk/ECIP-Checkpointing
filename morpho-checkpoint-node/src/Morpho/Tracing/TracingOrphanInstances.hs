@@ -229,7 +229,7 @@ instance (BftCrypto c, HashAlgorithm h) => ToObject (GenTx (MorphoBlock h c)) wh
         "txid" .= txid
       ]
 
-instance StandardHash blk => ToObject (MorphoError blk) where
+instance ToObject MorphoTransactionError where
   toObject _verb (MorphoWrongDistance v) =
     mkObject
       [ "kind" .= String "MorphoWrongDistance",
@@ -250,6 +250,9 @@ instance StandardHash blk => ToObject (MorphoError blk) where
       [ "kind" .= String "MorphoUnknownPublicKey",
         "vote" .= show v
       ]
+
+instance StandardHash blk => ToObject (MorphoError blk) where
+  toObject _verb (MorphoTransactionError err) = toObject _verb err
   toObject _verb (MorphoInvalidHash h h') =
     mkObject
       [ "kind" .= String "MorphoInvalidHash",

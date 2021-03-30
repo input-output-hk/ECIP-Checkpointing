@@ -79,6 +79,8 @@ instance (Typeable h, Typeable c) => ShowProxy (TxId (GenTx (MorphoBlock h c)))
 
 instance (Typeable h, Typeable c) => ShowProxy (MorphoBlock h c)
 
+instance ShowProxy MorphoTransactionError
+
 instance (Typeable h, Typeable c) => ShowProxy (MorphoError (MorphoBlock h c))
 
 instance (Typeable h, Typeable c) => ShowProxy (Header (MorphoBlock h c))
