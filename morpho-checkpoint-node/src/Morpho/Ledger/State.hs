@@ -47,14 +47,14 @@ data MorphoState blk = MorphoState
 deriving instance Serialise (HeaderHash l) => Serialise (MorphoState l)
 
 data MorphoTransactionError
-  = MorphoWrongDistance Vote
-  | MorphoInvalidSignature Vote
-  | MorphoDuplicateVote Vote
-  | MorphoUnknownPublicKey Vote
+  = MorphoWrongDistance
+  | MorphoInvalidSignature
+  | MorphoDuplicateVote
+  | MorphoUnknownPublicKey
   deriving (Show, Eq, Generic, NoThunks, Serialise)
 
 data MorphoError blk
-  = MorphoTransactionError MorphoTransactionError
+  = MorphoTransactionError Vote MorphoTransactionError
   | MorphoInvalidHash (ChainHash blk) (ChainHash blk)
   deriving (Generic, NoThunks)
 

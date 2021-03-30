@@ -35,6 +35,7 @@ import qualified Data.Text as Text
 -- network protocols
 
 import Morpho.Ledger.Block
+import Morpho.Ledger.PowTypes
 import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.State
@@ -144,11 +145,6 @@ instance (HashAlgorithm h, BftCrypto c) => ToObject (ExtractStateTrace h c) wher
         "state" .= show st,
         "tip" .= showPoint NormalVerbosity tip
       ]
-  toObject _verb (ExtractTxErrorTrace err) =
-    mkObject
-      [ "kind" .= String "ExtractTxErrorTrace",
-        "err" .= show err
-      ]
   toObject _verb (WontPushCheckpointTrace reason) =
     mkObject
       [ "kind" .= String "WontPushCheckpointTrace",
@@ -162,9 +158,6 @@ instance (HashAlgorithm h, BftCrypto c) => ToObject (ExtractStateTrace h c) wher
 
 instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
   formatText (MorphoStateTrace st) _ = pack $ "Current Ledger State: " ++ show st
-  formatText (ExtractTxErrorTrace err) _ =
-    pack $
-      "Error while trying to extract Tx from PoW BlockRef: " ++ show err
   formatText (WontPushCheckpointTrace reason) _ =
     pack $
       "Checkpoint doesn't need to be pushed: " ++ show reason
@@ -175,7 +168,6 @@ instance HasPrivacyAnnotation (ExtractStateTrace h c)
 
 instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation MorphoStateTrace {} = Info
-  getSeverityAnnotation ExtractTxErrorTrace {} = Error
   getSeverityAnnotation WontPushCheckpointTrace {} = Info
   getSeverityAnnotation VoteErrorTrace {} = Error
 
@@ -230,29 +222,37 @@ instance (BftCrypto c, HashAlgorithm h) => ToObject (GenTx (MorphoBlock h c)) wh
       ]
 
 instance ToObject MorphoTransactionError where
-  toObject _verb (MorphoWrongDistance v) =
+  toObject _verb MorphoWrongDistance =
     mkObject
-      [ "kind" .= String "MorphoWrongDistance",
-        "vote" .= show v
+      [ "kind" .= String "MorphoWrongDistance"
       ]
-  toObject _verb (MorphoInvalidSignature v) =
+  toObject _verb MorphoInvalidSignature =
     mkObject
-      [ "kind" .= String "MorphoInvalidSignature",
-        "vote" .= show v
+      [ "kind" .= String "MorphoInvalidSignature"
       ]
-  toObject _verb (MorphoDuplicateVote v) =
+  toObject _verb MorphoDuplicateVote =
     mkObject
-      [ "kind" .= String "MorphoDuplicateVote",
-        "vote" .= show v
+      [ "kind" .= String "MorphoDuplicateVote"
       ]
-  toObject _verb (MorphoUnknownPublicKey v) =
+  toObject _verb MorphoUnknownPublicKey =
     mkObject
-      [ "kind" .= String "MorphoUnknownPublicKey",
-        "vote" .= show v
+      [ "kind" .= String "MorphoUnknownPublicKey"
+      ]
+
+instance ToObject (Vote, MorphoTransactionError) where
+  toObject _verb (vote, err) =
+    mkObject
+      [ "vote" .= vote,
+        "error" .= toObject _verb err
       ]
 
 instance StandardHash blk => ToObject (MorphoError blk) where
-  toObject _verb (MorphoTransactionError err) = toObject _verb err
+  toObject _verb (MorphoTransactionError vote err) =
+    mkObject
+      [ "kind" .= String "MorphoTransactionError",
+        "vote" .= vote,
+        "error" .= toObject _verb err
+      ]
   toObject _verb (MorphoInvalidHash h h') =
     mkObject
       [ "kind" .= String "MorphoInvalidHash",

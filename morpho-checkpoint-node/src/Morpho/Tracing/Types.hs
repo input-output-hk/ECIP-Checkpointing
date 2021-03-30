@@ -65,7 +65,6 @@ instance HasTextFormatter MorphoInitTrace where
 -- | Traces created while we extract or receive parts of the ledger state
 data ExtractStateTrace h c
   = MorphoStateTrace (MorphoState (MorphoBlock h c))
-  | ExtractTxErrorTrace ExtractTxError
   | VoteErrorTrace VoteError
   | WontPushCheckpointTrace (WontPushCheckpoint (MorphoBlock h c))
   deriving (Eq, Show)

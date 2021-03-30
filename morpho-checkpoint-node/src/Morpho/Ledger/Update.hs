@@ -11,6 +11,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -19,14 +20,12 @@
 
 -- We're going to define several ouroboros-network related orphan
 -- instances in this module.
-
 module Morpho.Ledger.Update
   ( TxId (..),
     GenTx (..),
     LedgerState (..),
     MorphoStateDefaultConstraints,
     Query,
-    ExtractTxError (..),
     VoteError (..),
     WontPushCheckpoint (..),
     Ticked (..),
@@ -163,7 +162,7 @@ data instance GenTx (MorphoBlock h c) = MorphoGenTx
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
-type instance ApplyTxErr (MorphoBlock h c) = MorphoTransactionError
+type instance ApplyTxErr (MorphoBlock h c) = (Vote, MorphoTransactionError)
 
 instance
   ( HashAlgorithm h,
@@ -194,12 +193,12 @@ applyTxMorpho ::
   SlotNo ->
   GenTx (MorphoBlock h c) ->
   Ticked (LedgerState (MorphoBlock h c)) ->
-  Except MorphoTransactionError (Ticked (LedgerState (MorphoBlock h c)))
+  Except (Vote, MorphoTransactionError) (Ticked (LedgerState (MorphoBlock h c)))
 applyTxMorpho cfg _ tx (MorphoTick (MorphoLedgerState st)) =
   MorphoTick . MorphoLedgerState <$> stateAfterUpdate
   where
     (Tx v) = morphoGenTx tx
-    stateAfterUpdate :: Except MorphoTransactionError (MorphoState (MorphoBlock h c))
+    stateAfterUpdate :: Except (Vote, MorphoTransactionError) (MorphoState (MorphoBlock h c))
     stateAfterUpdate = updateMorphoStateByVote cfg st v
 
 instance (Typeable h, Typeable c) => NoThunks (GenTx (MorphoBlock h c)) where
@@ -272,7 +271,7 @@ updateMorphoStateByTxs cfg txs st@(MorphoState _ _ _ tip) = do
       es <- lift $ runExceptT exs
       case es of
         Left _ -> exs
-        Right s -> withExcept MorphoTransactionError $ updateMorphoStateByVote cfg s v
+        Right s -> withExcept (uncurry MorphoTransactionError) $ updateMorphoStateByVote cfg s v
     mwinner :: Except (MorphoError blk) (Maybe PowBlockRef)
     mwinner = findWinner (requiredMajority cfg) <$> (M.elems . currentVotes <$> stateWithVotesApplied)
     stateVotes :: Except (MorphoError blk) [Vote]
@@ -284,31 +283,33 @@ updateMorphoStateByVote ::
   MorphoLedgerConfig ->
   MorphoState blk ->
   Vote ->
-  Except MorphoTransactionError (MorphoState blk)
+  Except (Vote, MorphoTransactionError) (MorphoState blk)
 updateMorphoStateByVote cfg st@(MorphoState lc chAt vs tip) v =
   (\xs -> MorphoState lc chAt xs tip) <$> updatedVotes
   where
-    updatedVotes = do
-      unless distanceValid . throwError . MorphoWrongDistance $ v
-      unless notDuplicate . throwError . MorphoDuplicateVote $ v
-      p <- recoveredPoint
-      unless (pkValid p) . throwError . MorphoUnknownPublicKey $ v
+    updatedVotes = withExceptT (v,) $ do
+      distanceValid
+      notDuplicate
+      p <- recoveredPublicKey
+      pkValid p
       pure $ M.insert p v vs
-    notDuplicate = isNothing $ find (== v) vs
-    distanceValid = isRight $ isAtCorrectInterval cfg st (votedPowBlock v)
-    pkValid p = isJust $ find (p ==) (fedPubKeys cfg)
-    maybeRecoveredPoint = recoverPublicKey (voteSignature v) (powBlockRefToBytes $ votedPowBlock v)
-    recoveredPoint =
-      maybe
-        (throwError $ MorphoInvalidSignature v)
-        pure
-        maybeRecoveredPoint
+    distanceValid = isAtCorrectInterval cfg st (votedPowBlock v)
+    notDuplicate = case find (== v) vs of
+      Nothing -> return ()
+      Just _ -> throwE MorphoDuplicateVote
+    recoveredPublicKey = case recoverPublicKey (voteSignature v) (powBlockRefToBytes $ votedPowBlock v) of
+      Nothing -> throwE MorphoInvalidSignature
+      Just pk -> return pk
+    pkValid p =
+      if p `elem` fedPubKeys cfg
+        then return ()
+        else throwE MorphoUnknownPublicKey
 
-isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Either ExtractTxError ()
+isAtCorrectInterval :: MorphoLedgerConfig -> MorphoState blk -> PowBlockRef -> Except MorphoTransactionError ()
 isAtCorrectInterval cfg st blockRef =
   if (bn - lcNo) `mod` interval == 0 && bn > lcNo
-    then Right ()
-    else Left $ IncorectInterval blockRef bn lcNo interval
+    then return ()
+    else throwE MorphoWrongDistance
   where
     PowBlockNo lcNo = powBlockNo $ checkpointedBlock $ lastCheckpoint st
     PowBlockNo bn = powBlockNo blockRef
@@ -323,11 +324,6 @@ voteBlockRef cfg ref = case sign sk bytes of
     bytes = powBlockRefToBytes ref
 
 newtype VoteError = FailedToSignBlockRef PowBlockRef
-  deriving (Show, Eq)
-
-data ExtractTxError
-  = IncorectInterval PowBlockRef Int Int Int
-  | DuplicatedVote PowBlockRef PublicKey
   deriving (Show, Eq)
 
 findWinner :: Int -> [Vote] -> Maybe PowBlockRef
