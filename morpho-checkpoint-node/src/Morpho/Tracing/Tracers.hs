@@ -90,6 +90,7 @@ data Tracers peer localPeer h c = Tracers
 mkTracers ::
   forall peer localPeer blk h c.
   ( Show peer,
+    ToJSON peer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c),
@@ -210,6 +211,7 @@ mkTracers tracer = do
 
 nodeToNodeTracers' ::
   ( Show peer,
+    ToJSON peer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c
   ) =>

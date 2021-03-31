@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Morpho.Tracing.Types
@@ -21,7 +22,7 @@ data MorphoInitTrace
   | ProducerList CoreNodeId [RemoteAddress]
   | PerformingDBValidation
   | PrometheusException IOException
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance HasSeverityAnnotation MorphoInitTrace where
   getSeverityAnnotation NotFoundInTopology {} = Error
@@ -67,4 +68,4 @@ data ExtractStateTrace h c
   = MorphoStateTrace (MorphoState (MorphoBlock h c))
   | VoteErrorTrace VoteError
   | WontPushCheckpointTrace (WontPushCheckpoint (MorphoBlock h c))
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)

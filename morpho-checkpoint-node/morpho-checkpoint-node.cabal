@@ -38,6 +38,7 @@ library
         Morpho.RPC.Abstract
         Morpho.RPC.JsonRpc
         Morpho.RPC.JsonRpcProtocol
+        Morpho.Tracing.OrphanToJSONInstances
         Morpho.Tracing.TracingOrphanInstances
         Morpho.Tracing.Types
         Morpho.Tracing.Tracers

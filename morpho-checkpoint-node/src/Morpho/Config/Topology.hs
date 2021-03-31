@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -39,7 +40,7 @@ data RemoteAddress = RemoteAddress
     -- a boolean value, @0@ means to ignore the address;
     raValency :: !Int
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON NodeHostAddress where
   parseJSON (String ipStr) = case readMaybe $ T.unpack ipStr of

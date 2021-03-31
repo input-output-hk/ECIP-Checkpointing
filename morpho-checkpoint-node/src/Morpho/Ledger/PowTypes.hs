@@ -24,43 +24,33 @@ import NoThunks.Class
 newtype PowBlockNo = PowBlockNo {unPowBlockNo :: Int}
   deriving stock (Eq, Show, Generic)
   deriving newtype (Num, Ord, Real, Enum, Integral, ToJSON)
-  deriving anyclass (Serialise)
-  deriving anyclass (NoThunks)
+  deriving anyclass (NoThunks, Serialise)
 
 newtype PowBlockHash = PowBlockHash {unPowBlockHash :: Bytes}
   deriving stock (Eq, Show, Ord, Generic)
-  deriving anyclass (Serialise)
-  deriving anyclass (NoThunks)
-
-instance ToJSON PowBlockHash
+  deriving newtype (ToJSON)
+  deriving anyclass (NoThunks, Serialise)
 
 data PowBlockRef = PowBlockRef
   { powBlockNo :: PowBlockNo,
     powBlockHash :: PowBlockHash
   }
   deriving stock (Show, Eq, Ord, Generic)
-  deriving anyclass (Serialise)
-  deriving anyclass (NoThunks)
-
-instance ToJSON PowBlockRef
+  deriving anyclass (ToJSON, NoThunks, Serialise)
 
 data Vote = Vote
   { votedPowBlock :: PowBlockRef,
     voteSignature :: Signature
   }
   deriving stock (Show, Eq, Generic)
-  deriving anyclass (Serialise)
-  deriving (NoThunks)
-
-instance ToJSON Vote
+  deriving anyclass (ToJSON, NoThunks, Serialise)
 
 data Checkpoint = Checkpoint
   { checkpointedBlock :: PowBlockRef,
     chkpSignatures :: [Signature]
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (Serialise, ToJSON)
-  deriving (NoThunks)
+  deriving anyclass (ToJSON, NoThunks, Serialise)
 
 genesisCheckpoint :: Checkpoint
 genesisCheckpoint = Checkpoint (PowBlockRef (PowBlockNo 0) (PowBlockHash empty)) []
