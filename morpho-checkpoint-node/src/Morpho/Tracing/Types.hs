@@ -10,7 +10,6 @@ where
 import Cardano.BM.Data.Severity
 import Cardano.BM.Data.Tracer
 import Cardano.Prelude
-import Data.Aeson hiding (Error)
 import Morpho.Config.Topology
 import Morpho.Ledger.Block
 import Morpho.Ledger.State
@@ -31,31 +30,6 @@ instance HasSeverityAnnotation MorphoInitTrace where
   getSeverityAnnotation PrometheusException {} = Error
 
 instance HasPrivacyAnnotation MorphoInitTrace
-
-instance Transformable Text IO MorphoInitTrace where
-  trTransformer = trStructuredText
-
-instance ToObject MorphoInitTrace where
-  toObject _ (NotFoundInTopology nid) =
-    mkObject
-      [ "kind" .= String "NotFoundInTopology",
-        "nodeId" .= String (show nid)
-      ]
-  toObject _ (ProducerList nid prods) =
-    mkObject
-      [ "kind" .= String "ProducerList",
-        "nodeId" .= String (show nid),
-        "producers" .= String (show prods)
-      ]
-  toObject _ PerformingDBValidation =
-    mkObject
-      [ "kind" .= String "PerformingDBValidation"
-      ]
-  toObject _ (PrometheusException err) =
-    mkObject
-      [ "kind" .= String "PrometheusException",
-        "error" .= String (show err)
-      ]
 
 instance HasTextFormatter MorphoInitTrace where
   formatText (NotFoundInTopology nid) _ = "Own node id " <> show nid <> " not found in topology"

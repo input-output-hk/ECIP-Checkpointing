@@ -74,6 +74,7 @@ data NodeConfiguration_ w f = NodeConfiguration
     ncNodeHost :: Wear w f NodeHostAddress,
     ncNodePort :: Wear w f PortNumber,
     ncValidateDb :: Wear w f Bool,
+    ncVerbosity :: Wear w f Int,
     ncLogging :: Wear w f Representation
   }
   deriving (Generic)
@@ -135,6 +136,7 @@ configFieldName =
       ncNodeHost = "NodeHost",
       ncNodePort = "NodePort",
       ncValidateDb = "ValidateDatabase",
+      ncVerbosity = "Verbosity",
       ncLogging = "Logging"
     }
 
@@ -171,6 +173,7 @@ configFieldParser =
       ncNodeHost = NodeHostAddress . readMaybe . T.unpack <$> Compose fromJSON,
       ncNodePort = (fromIntegral :: Int -> PortNumber) <$> Compose fromJSON,
       ncValidateDb = Compose fromJSON,
+      ncVerbosity = Compose fromJSON,
       ncLogging = Compose fromJSON
     }
 
@@ -184,7 +187,8 @@ configFieldDefault =
       ncSnapshotInterval = Just 60,
       ncPoWBlockFetchInterval = Just 1000000,
       ncNodeHost = Just (NodeHostAddress Nothing),
-      ncValidateDb = Just False
+      ncValidateDb = Just False,
+      ncVerbosity = Just 0
     }
 
 instance FromJSON SystemStart where

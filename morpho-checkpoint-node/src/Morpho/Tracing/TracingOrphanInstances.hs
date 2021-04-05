@@ -1,9 +1,7 @@
-{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -14,28 +12,18 @@ module Morpho.Tracing.TracingOrphanInstances where
 
 import Cardano.BM.Data.Tracer
   ( HasTextFormatter (..),
-    contramap,
-    trStructured,
-    trStructuredText,
   )
 import Cardano.BM.Tracing
   ( HasPrivacyAnnotation (..),
     HasSeverityAnnotation (..),
     Severity (..),
-    ToObject (..),
     TracingVerbosity (..),
-    Transformable (..),
   )
--- We do need some consensus imports to provide useful trace messages for some
--- network protocols
-
 import Cardano.Crypto.DSIGN
 import Cardano.Prelude hiding (show)
-import Data.Aeson (ToJSON (..))
 import Data.Text (pack)
 import qualified Data.Text as Text
 import Morpho.Ledger.Block
-import Morpho.Ledger.PowTypes
 import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.State
@@ -46,21 +34,16 @@ import Morpho.Tracing.Types
 import Network.Mux (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket (SockAddr)
 import Ouroboros.Consensus.Block
-  ( BlockSupportsProtocol,
-    CannotForge,
-    ForgeStateUpdateError,
-    RealPoint,
-    headerPoint,
+  ( headerPoint,
     realPointSlot,
   )
 import Ouroboros.Consensus.BlockchainTime
-import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Extended
-import Ouroboros.Consensus.Ledger.SupportsMempool (ApplyTxErr, GenTxId, HasTxId, txId)
+import Ouroboros.Consensus.Ledger.SupportsMempool (txId)
 import Ouroboros.Consensus.Ledger.SupportsProtocol
   ( LedgerSupportsProtocol,
   )
-import Ouroboros.Consensus.Mempool.API (MempoolSize (..), TraceEventMempool (..))
+import Ouroboros.Consensus.Mempool.API (TraceEventMempool (..))
 import Ouroboros.Consensus.MiniProtocol.BlockFetch.Server
   ( TraceBlockFetchServerEvent,
   )
@@ -116,26 +99,24 @@ import Ouroboros.Network.TxSubmission.Outbound
   )
 import Prelude (String, id, show)
 
+instance HasPrivacyAnnotation (TraceBlockchainTimeEvent t)
+
 instance HasSeverityAnnotation (TraceBlockchainTimeEvent t) where
   getSeverityAnnotation (TraceStartTimeInTheFuture _ _) = Debug
   getSeverityAnnotation (TraceCurrentSlotUnknown _ _) = Debug
   getSeverityAnnotation (TraceSystemClockMovedBack _ _) = Warning
 
+instance HasTextFormatter (TraceBlockchainTimeEvent t) where
+  formatText ev _ = case ev of
+    TraceStartTimeInTheFuture (SystemStart start) toWait ->
+      "Waiting " <> showT toWait <> " until genesis start time at " <> showT start
+    TraceSystemClockMovedBack _ _ -> "System clock moved back an acceptable time span"
+    TraceCurrentSlotUnknown _ _ -> "Current slot is not yet known"
+
 instance HasSeverityAnnotation a => HasSeverityAnnotation (TraceLabelCreds a) where
   getSeverityAnnotation (TraceLabelCreds _ a) = getSeverityAnnotation a
 
 instance HasPrivacyAnnotation (TraceLabelCreds a)
-
-instance ToObject a => ToObject (TraceLabelCreds a) where
-  toObject _verb (TraceLabelCreds _ a) = toObject _verb a
-
-instance (ToObject a, HasTextFormatter a, Transformable Text IO a) => Transformable Text IO (TraceLabelCreds a) where
-  trTransformer _verb tr = contramap (\(TraceLabelCreds _ a) -> a) (trStructuredText _verb tr)
-
-instance (HashAlgorithm h, BftCrypto c) => Transformable Text IO (ExtractStateTrace h c) where
-  trTransformer = trStructuredText
-
-instance (HashAlgorithm h, BftCrypto c) => ToObject (ExtractStateTrace h c)
 
 instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
   formatText (MorphoStateTrace st) _ = pack $ "Current Ledger State: " ++ show st
@@ -152,15 +133,7 @@ instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation WontPushCheckpointTrace {} = Info
   getSeverityAnnotation VoteErrorTrace {} = Error
 
-instance BftCrypto c => ToObject (Header (MorphoBlock h c))
-
-instance (HasSeverityAnnotation e, ToJSON e, Show e) => Transformable Text IO (RpcTrace e i o) where
-  trTransformer = trStructuredText
-
-instance Show e => HasTextFormatter (RpcTrace e i o) where
-  formatText tr _ = pack $ show tr
-
-instance ToJSON e => ToObject (RpcTrace e i o)
+instance Show e => HasTextFormatter (RpcTrace e i o)
 
 instance HasPrivacyAnnotation (RpcTrace e i o)
 
@@ -170,31 +143,13 @@ instance HasSeverityAnnotation e => HasSeverityAnnotation (RpcTrace e i o) where
   getSeverityAnnotation (RpcTrace _ _ (RpcSuccess _)) = Info
   getSeverityAnnotation (RpcTrace _ _ (RpcEvent x)) = getSeverityAnnotation x
 
-instance (HashAlgorithm h, BftCrypto c) => Transformable Text IO (TimeTravelError (MorphoBlock h c)) where
-  trTransformer = trStructured
-
 instance HasPrivacyAnnotation (TimeTravelError blk)
 
 instance HasSeverityAnnotation (TimeTravelError blk) where
   getSeverityAnnotation (ChainNotLongEnough _ _) = Info
   getSeverityAnnotation (LedgerStateNotFoundAt _) = Error
 
-instance (HashAlgorithm h, BftCrypto c) => ToObject (TimeTravelError (MorphoBlock h c))
-
-instance (BftCrypto c, HashAlgorithm h) => ToObject (GenTx (MorphoBlock h c))
-
-instance ToObject MorphoTransactionError
-
-instance ToObject (Vote, MorphoTransactionError)
-
-instance ToObject (MorphoError (MorphoBlock h c))
-
---
-
--- * instances of @HasPrivacyAnnotation@ and @HasSeverityAnnotation@
-
---
--- NOTE: this list is sorted by the unqualified name of the outermost type.
+instance (StandardHash blk) => HasTextFormatter (TimeTravelError blk)
 
 instance HasPrivacyAnnotation (ChainDB.TraceEvent blk)
 
@@ -263,6 +218,8 @@ instance HasSeverityAnnotation (TraceChainSyncClientEvent blk) where
   getSeverityAnnotation TraceException {} = Warning
   getSeverityAnnotation TraceTermination {} = Info
 
+instance HasTextFormatter (TraceChainSyncClientEvent blk)
+
 instance HasPrivacyAnnotation (TraceChainSyncServerEvent blk)
 
 instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
@@ -271,6 +228,8 @@ instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
 instance HasSeverityAnnotation (Either FetchDecline [Point (Header blk)])
 
 instance HasPrivacyAnnotation (Either FetchDecline [Point (Header blk)])
+
+instance (StandardHash blk) => HasTextFormatter (TraceChainSyncServerEvent blk)
 
 instance HasPrivacyAnnotation (TraceEventMempool blk)
 
@@ -327,20 +286,8 @@ instance HasPrivacyAnnotation (TraceLocalTxSubmissionServerEvent blk)
 instance HasSeverityAnnotation (TraceLocalTxSubmissionServerEvent blk) where
   getSeverityAnnotation _ = Info
 
---
-
--- | instances of @Transformable@
---
--- NOTE: this list is sorted by the unqualified name of the outermost type.
-instance
-  ( HasPrivacyAnnotation (ChainDB.TraceAddBlockEvent blk),
-    HasSeverityAnnotation (ChainDB.TraceAddBlockEvent blk),
-    LedgerSupportsProtocol blk,
-    ToObject (ChainDB.TraceAddBlockEvent blk)
-  ) =>
-  Transformable Text IO (ChainDB.TraceAddBlockEvent blk)
-  where
-  trTransformer = trStructuredText
+instance HasTextFormatter (TraceLocalTxSubmissionServerEvent blk) where
+  formatText _ = pack . show . toList
 
 instance
   (LedgerSupportsProtocol blk) =>
@@ -348,26 +295,8 @@ instance
   where
   formatText _ = pack . show . toList
 
-instance Transformable Text IO (TraceBlockFetchServerEvent blk) where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter (TraceBlockFetchServerEvent blk) where
   formatText _ = pack . show . toList
-
-instance (BftCrypto c, HashAlgorithm h) => Transformable Text IO (TraceChainSyncClientEvent (MorphoBlock h c)) where
-  trTransformer = trStructured
-
-instance (BftCrypto c, HashAlgorithm h) => Transformable Text IO (TraceChainSyncServerEvent (MorphoBlock h c)) where
-  trTransformer = trStructured
-
-instance
-  ( Show (GenTx blk),
-    Show (ApplyTxErr blk),
-    blk ~ MorphoBlock h c
-  ) =>
-  Transformable Text IO (TraceEventMempool blk)
-  where
-  trTransformer = trStructuredText
 
 condenseT :: Condense a => a -> Text
 condenseT = pack . condense
@@ -375,24 +304,10 @@ condenseT = pack . condense
 showT :: Show a => a -> Text
 showT = pack . show
 
-instance
-  (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) =>
-  Transformable Text IO (TraceForgeEvent (MorphoBlock h c))
-  where
-  trTransformer = trStructuredText
+instance (Signable (BftDSIGN c) (MorphoStdHeader h c), MorphoStateDefaultConstraints h c) => HasTextFormatter (TraceLabelCreds (TraceForgeEvent (MorphoBlock h c))) where
+  formatText (TraceLabelCreds _ t) = formatText t
 
-instance
-  ( tx ~ GenTx blk,
-    Condense (HeaderHash blk),
-    HasTxId tx,
-    LedgerSupportsProtocol blk,
-    Show (TxId tx),
-    Show blk,
-    Show (CannotForge blk),
-    Show (ForgeStateUpdateError blk)
-  ) =>
-  HasTextFormatter (TraceForgeEvent blk)
-  where
+instance (Signable (BftDSIGN c) (MorphoStdHeader h c), MorphoStateDefaultConstraints h c) => HasTextFormatter (TraceForgeEvent (MorphoBlock h c)) where
   formatText = \case
     TraceAdoptedBlock slotNo blk txs ->
       const $
@@ -469,19 +384,7 @@ instance
           <> " failed with "
           <> showT err
 
-instance Transformable Text IO (TraceLocalTxSubmissionServerEvent (MorphoBlock h c)) where
-  trTransformer = trStructured
-
-instance
-  (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) =>
-  Transformable Text IO (ChainDB.TraceEvent (MorphoBlock h c))
-  where
-  trTransformer = trStructuredText
-
-instance
-  (Condense (HeaderHash blk), LedgerSupportsProtocol blk) =>
-  HasTextFormatter (ChainDB.TraceEvent blk)
-  where
+instance (Signable (BftDSIGN c) (MorphoStdHeader h c), MorphoStateDefaultConstraints h c) => HasTextFormatter (ChainDB.TraceEvent (MorphoBlock h c)) where
   formatText = \case
     ChainDB.TraceAddBlockEvent ev -> case ev of
       ChainDB.IgnoreBlockOlderThanK pt ->
@@ -587,61 +490,11 @@ instance
     ChainDB.TraceImmutableDBEvent ev -> \_o -> Text.append "TraceImmDBEvent" (showT ev)
     ChainDB.TraceVolatileDBEvent ev -> \_o -> Text.append "TraceVolDBEvent " (showT ev)
 
---
-
--- | instances of @ToObject@
---
--- NOTE: this list is sorted by the unqualified name of the outermost type.
-instance ToObject BftValidationErr
-
-instance ToObject LedgerDB.DiskSnapshot
-
-instance
-  (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) =>
-  ToObject (ExtValidationError (MorphoBlock h c))
-
-instance ToObject (HeaderEnvelopeError (MorphoBlock h c))
-
-instance (BlockSupportsProtocol blk, ValidateEnvelope blk) => ToObject (HeaderError blk)
-
-instance
-  (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) =>
-  ToObject (ChainDB.InvalidBlockReason (MorphoBlock h c))
-
-instance ToObject (RealPoint (MorphoBlock h c))
-
-instance
-  (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) =>
-  ToObject (ChainDB.TraceEvent (MorphoBlock h c))
-
-instance ToObject (TraceBlockFetchServerEvent blk)
-
-instance (BftCrypto c, HashAlgorithm h) => ToObject (TraceChainSyncClientEvent (MorphoBlock h c))
-
-instance (BftCrypto c, HashAlgorithm h) => ToObject (TraceChainSyncServerEvent (MorphoBlock h c))
-
-instance ToObject (TraceEventMempool (MorphoBlock h c))
-
-instance
-  (Show (GenTxId blk), Show (ApplyTxErr blk), Show (GenTx blk)) =>
+instance-- (Show (GenTxId blk), Show (ApplyTxErr blk), Show (GenTx blk)) =>
   HasTextFormatter (TraceEventMempool blk)
-  where
-  formatText a _ = pack $ show a
-
-instance ToObject MempoolSize
 
 instance HasTextFormatter () where
   formatText _ = pack . show . toList
-
--- ForgeState default value = ()
-instance Transformable Text IO () where
-  trTransformer = trStructuredText
-
-instance
-  (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) =>
-  ToObject (TraceForgeEvent (MorphoBlock h c))
-
-instance ToObject (TraceLocalTxSubmissionServerEvent (MorphoBlock h c))
 
 -- | Tracing wrapper which includes current tip in the logs (thus it requires
 -- it from the context).
@@ -667,13 +520,6 @@ showPoint verb pt =
       MinimalVerbosity -> take 7
       NormalVerbosity -> take 7
       MaximalVerbosity -> id
-
---
-
--- * instances of @HasPrivacyAnnotation@ and @HasSeverityAnnotation@
-
---
--- NOTE: this list is sorted by the unqualified name of the outermost type.
 
 instance HasPrivacyAnnotation NtC.HandshakeTr
 
@@ -896,68 +742,27 @@ instance HasSeverityAnnotation (WithMuxBearer peer MuxTrace) where
     MuxTraceShutdown -> Debug
     MuxTraceTerminating _ _ -> Debug
 
---
-
--- | instances of @Transformable@
---
--- NOTE: this list is sorted by the unqualified name of the outermost type.
-instance Transformable Text IO NtN.HandshakeTr where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter NtN.HandshakeTr where
   formatText a _ = showT a
-
-instance Transformable Text IO NtC.HandshakeTr where
-  trTransformer = trStructuredText
 
 instance HasTextFormatter NtC.HandshakeTr where
   formatText a _ = showT a
 
-instance Transformable Text IO NtN.AcceptConnectionsPolicyTrace where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter NtN.AcceptConnectionsPolicyTrace where
   formatText a _ = showT a
 
-instance Transformable Text IO DiffusionInitializationTracer where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter DiffusionInitializationTracer
 
-instance Transformable Text IO TraceLedgerPeers where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter TraceLedgerPeers
-
-instance
-  (ToJSON peer, ToJSON (Point header)) =>
-  Transformable Text IO [TraceLabelPeer peer (FetchDecision [Point header])]
-  where
-  trTransformer = trStructuredText
 
 instance HasTextFormatter [TraceLabelPeer peer (FetchDecision [Point header])] where
   formatText _ = pack . show . toList
 
-instance
-  (ToJSON peer, ToJSON a, HasPrivacyAnnotation a, HasSeverityAnnotation a) =>
-  Transformable Text IO (TraceLabelPeer peer a)
-  where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter (TraceLabelPeer peer a) where
   formatText _ = pack . show . toList
 
-instance Transformable Text IO (TraceTxSubmissionInbound txid tx) where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter (TraceTxSubmissionInbound txid tx) where
   formatText _ = pack . show . toList
-
-instance
-  (ToJSON tx, Show tx, ToJSON txid, Show txid) =>
-  Transformable Text IO (TraceTxSubmissionOutbound txid tx)
-  where
-  trTransformer = trStructuredText
 
 instance
   (Show tx, Show txid) =>
@@ -965,35 +770,17 @@ instance
   where
   formatText a _ = showT a
 
-instance ToJSON addr => Transformable Text IO (WithAddr addr ErrorPolicyTrace) where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter (WithAddr addr ErrorPolicyTrace) where
   formatText _ = pack . show . toList
-
-instance Transformable Text IO (WithDomainName (SubscriptionTrace Socket.SockAddr)) where
-  trTransformer = trStructuredText
 
 instance HasTextFormatter (WithDomainName (SubscriptionTrace Socket.SockAddr)) where
   formatText _ = pack . show . toList
 
-instance Transformable Text IO (WithDomainName DnsTrace) where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter (WithDomainName DnsTrace) where
   formatText _ = pack . show . toList
 
-instance Transformable Text IO (WithIPList (SubscriptionTrace Socket.SockAddr)) where
-  trTransformer = trStructuredText
-
 instance HasTextFormatter (WithIPList (SubscriptionTrace Socket.SockAddr)) where
   formatText _ = pack . show . toList
-
-instance
-  (Show peer, ToJSON peer) =>
-  Transformable Text IO (WithMuxBearer peer MuxTrace)
-  where
-  trTransformer = trStructuredText
 
 instance
   (Show peer) =>
@@ -1003,39 +790,3 @@ instance
     "Bearer on " <> pack (show peer)
       <> " event: "
       <> pack (show ev)
-
-instance ToJSON (Point header) => ToObject (FetchDecision [Point header])
-
-instance ToObject NtC.HandshakeTr
-
-instance ToObject NtN.HandshakeTr
-
-instance ToObject NtN.AcceptConnectionsPolicyTrace
-
-instance ToObject DiffusionInitializationTracer
-
-instance ToObject TraceLedgerPeers
-
-instance (BftCrypto c, HashAlgorithm h) => ToObject (Point (MorphoBlock h c))
-
-instance ToObject SlotNo
-
-instance (BftCrypto c, HashAlgorithm h) => ToObject (TraceFetchClientState (Header (MorphoBlock h c)))
-
-instance (ToJSON peer, ToJSON (Point header)) => ToObject [TraceLabelPeer peer (FetchDecision [Point header])]
-
-instance (ToJSON peer, ToJSON a) => ToObject (TraceLabelPeer peer a)
-
-instance ToObject (TraceTxSubmissionInbound txid tx)
-
-instance (ToJSON txid, ToJSON tx) => ToObject (TraceTxSubmissionOutbound txid tx)
-
-instance ToJSON addr => ToObject (WithAddr addr ErrorPolicyTrace)
-
-instance ToObject (WithIPList (SubscriptionTrace Socket.SockAddr))
-
-instance ToObject (WithDomainName DnsTrace)
-
-instance ToObject (WithDomainName (SubscriptionTrace Socket.SockAddr))
-
-instance ToJSON peer => ToObject (WithMuxBearer peer MuxTrace)

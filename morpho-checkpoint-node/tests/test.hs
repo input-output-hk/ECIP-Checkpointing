@@ -4,6 +4,7 @@ import Test.Morpho.Crypto.ECDSASignature
 import Test.Morpho.Golden
 import Test.Morpho.Ledger.State
 import Test.Morpho.Serialisation
+import Test.Morpho.Tracing
 import Test.Tasty
 import Prelude
 
@@ -21,5 +22,6 @@ tests = do
         utilsTests,
         serialiseTests,
         goldenTests,
-        configTests
+        configTests,
+        traceTests
       ]
