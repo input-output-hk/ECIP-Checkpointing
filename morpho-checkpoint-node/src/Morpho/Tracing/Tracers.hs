@@ -73,15 +73,6 @@ data Tracers peer localPeer h c = Tracers
     powNodeRpcTracer :: forall i o ev. (Show ev, ToJSON ev, HasSeverityAnnotation ev) => Tracer IO (RpcTrace ev i o),
     extractStateTracer :: Tracer IO (ExtractStateTrace h c),
     timeTravelErrorTracer :: Tracer IO (TimeTravelError (MorphoBlock h c)),
-    -- | Chain Tip tracer.
-    --
-    --   Note: we're currently not using structured logging approach
-    --   for the chain Tip tracer. Implementing all the required
-    --   typeclasses is a hassle and we're not mining these
-    --   structured logs anyways, we are just plain-text quering
-    --   them. Modeling the chain tip hash as Text should be good
-    --   enough for now.
-    chainTipTracer :: Tracer IO Text,
     nodeToNodeTracers :: NodeToNode.Tracers IO peer (MorphoBlock h c) DeserialiseFailure,
     nodeToClientTracers :: NodeToClient.Tracers IO localPeer (MorphoBlock h c) DeserialiseFailure,
     handshakeTracer :: Tracer IO NtN.HandshakeTr,
@@ -99,7 +90,6 @@ data Tracers peer localPeer h c = Tracers
 mkTracers ::
   forall peer localPeer blk h c.
   ( Show peer,
-    Show localPeer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c),
@@ -145,13 +135,10 @@ mkTracers tracer = do
         timeTravelErrorTracer =
           toLogObject $
             appendName "time-travel" tracer,
-        chainTipTracer =
-          toLogObject $
-            appendName "chain-tip" tracer,
         nodeToNodeTracers =
           nodeToNodeTracers' tracer,
-        nodeToClientTracers =
-          nodeToClientTracers' tracer,
+        -- We don't have any node-to-client queries
+        nodeToClientTracers = NodeToClient.nullTracers,
         handshakeTracer =
           toLogObject $
             appendName "handshake" tracer,
@@ -248,25 +235,6 @@ nodeToNodeTracers' tracer =
       NodeToNode.tTxSubmission2Tracer =
         toLogObject $
           appendName "tx-submission-protocol-2" tracer
-    }
-
-nodeToClientTracers' ::
-  ( Show peer,
-    blk ~ MorphoBlock h c
-  ) =>
-  Trace IO Text ->
-  NodeToClient.Tracers' peer blk DeserialiseFailure (Tracer IO)
-nodeToClientTracers' tracer =
-  NodeToClient.Tracers
-    { NodeToClient.tChainSyncTracer =
-        toLogObject $
-          appendName "local-chain-sync-protocol" tracer,
-      NodeToClient.tTxSubmissionTracer =
-        toLogObject $
-          appendName "local-tx-submission-protocol" tracer,
-      NodeToClient.tStateQueryTracer =
-        toLogObject $
-          appendName "local-state-query-protocol" tracer
     }
 
 instance Show a => Show (WithSeverity a) where
