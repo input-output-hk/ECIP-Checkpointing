@@ -29,7 +29,7 @@ returnsIfLimited = property $ \limit value ->
 
 valueDepth :: Value -> Int
 valueDepth (Object xs) = 1 + maximum (map valueDepth xs)
-valueDepth (Array xs) = 1 + maximum (map valueDepth xs)
+valueDepth (Array xs) = 0 + maximum (map valueDepth xs)
 valueDepth _ = 0
 
 limitDepth :: Property

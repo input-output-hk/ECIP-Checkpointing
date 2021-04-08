@@ -48,7 +48,9 @@ limitRecursion n (Array xs)
   | n <= 0 = (Any True, String "[ ... ]")
   | otherwise =
     -- Also uses above-described Applicative instance
-    second Array $ traverse (limitRecursion (n - 1)) xs
+    -- We don't decrease n here because JSON lists are pretty slim. We're
+    -- mainly just concerned about objects for the recursion
+    second Array $ traverse (limitRecursion n) xs
 limitRecursion _ v = (Any False, v)
 
 class MinLogRecursion a where
