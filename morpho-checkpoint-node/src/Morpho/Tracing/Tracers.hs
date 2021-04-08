@@ -83,6 +83,12 @@ data Tracers peer localPeer h c = Tracers
     ledgerPeersTracer :: Tracer IO TraceLedgerPeers
   }
 
+-- Logs a traversable by logging each item separately
+-- Copied from co-log-core:
+-- https://hackage.haskell.org/package/co-log-core-0.2.1.1/docs/Colog-Core-Action.html#v:separate
+separate :: (Traversable f, Applicative m) => Tracer m msg -> Tracer m (f msg)
+separate (Tracer action) = Tracer (traverse_ action)
+
 -- | Generates all the tracers necessary for the checkpointing node.
 --
 -- Note: the constraint on the morpho block is necessary for the
@@ -173,8 +179,9 @@ mkTracers tracer = do
             toLogObject $
               appendName "chain-sync-server-block" ctracer,
           Consensus.blockFetchDecisionTracer =
-            toLogObject $
-              appendName "block-fetch-decision" ctracer,
+            separate $
+              toLogObject $
+                appendName "block-fetch-decision" ctracer,
           Consensus.blockFetchClientTracer =
             toLogObject $
               appendName "block-fetch-client" ctracer,

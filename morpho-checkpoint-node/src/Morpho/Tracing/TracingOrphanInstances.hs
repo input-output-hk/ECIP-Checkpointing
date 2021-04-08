@@ -268,6 +268,10 @@ instance HasPrivacyAnnotation (TraceChainSyncServerEvent blk)
 instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
   getSeverityAnnotation _ = Info
 
+instance HasSeverityAnnotation (Either FetchDecline [Point (Header blk)])
+
+instance HasPrivacyAnnotation (Either FetchDecline [Point (Header blk)])
+
 instance HasPrivacyAnnotation (TraceEventMempool blk)
 
 instance HasSeverityAnnotation MorphoTransactionError where
