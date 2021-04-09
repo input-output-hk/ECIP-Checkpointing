@@ -121,8 +121,7 @@ instance HasPrivacyAnnotation (TraceLabelCreds a)
 instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
   formatText (MorphoStateTrace st) _ = pack $ "Current Ledger State: " ++ show st
   formatText (WontPushCheckpointTrace reason) _ =
-    pack $
-      "Checkpoint doesn't need to be pushed: " ++ show reason
+    pack $ "Checkpoint won't be pushed: " ++ show reason
   formatText (VoteErrorTrace err) _ =
     pack $ "Error while trying to create a vote: " ++ show err
 
@@ -130,7 +129,7 @@ instance HasPrivacyAnnotation (ExtractStateTrace h c)
 
 instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation MorphoStateTrace {} = Info
-  getSeverityAnnotation WontPushCheckpointTrace {} = Info
+  getSeverityAnnotation WontPushCheckpointTrace {} = Debug
   getSeverityAnnotation VoteErrorTrace {} = Error
 
 instance Show e => HasTextFormatter (RpcTrace e i o)
