@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
@@ -21,7 +22,7 @@ import Ouroboros.Network.Block hiding (Tip)
 data TimeTravelError blk
   = LedgerStateNotFoundAt (Point blk)
   | ChainNotLongEnough Int Int
-  deriving (Show)
+  deriving (Show, Generic)
 
 getLatestStableLedgerState ::
   forall m blk.

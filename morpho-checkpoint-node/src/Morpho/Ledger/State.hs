@@ -21,6 +21,7 @@ where
 
 import Cardano.Prelude
 import Codec.Serialise (Serialise)
+import Data.Aeson
 import qualified Data.Map as M
 import Morpho.Crypto.ECDSASignature
 import Morpho.Ledger.PowTypes
@@ -53,7 +54,7 @@ data MorphoTransactionError
   | MorphoInvalidSignature
   | MorphoDuplicateVote
   | MorphoUnknownPublicKey
-  deriving (Show, Eq, Generic, NoThunks, Serialise)
+  deriving (Show, Eq, Generic, NoThunks, ToJSON, Serialise)
 
 data MorphoError blk
   = MorphoTransactionError Vote MorphoTransactionError

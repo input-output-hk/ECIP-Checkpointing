@@ -203,6 +203,7 @@ exampleNodeConfig =
       ncNodeHost = NodeHostAddress (Just "127.0.0.1"),
       ncNodePort = 2345,
       ncValidateDb = True,
+      ncVerbosity = 2,
       ncLogging =
         Representation
           { minSeverity = Info,

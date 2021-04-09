@@ -13,11 +13,14 @@ module Test.Morpho.Generators where
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
 import Codec.CBOR.Write
+import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Short as SB
+import qualified Data.HashMap.Strict as HM
 import Data.Proxy
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import Morpho.Common.Bytes
 import Morpho.Common.Conversions
 import Morpho.Crypto.ECDSASignature
@@ -222,3 +225,40 @@ testBftConfig =
       bftSignKey = SignKeyMockDSIGN 1,
       bftVerKeys = mempty -- not used to forge blocks
     }
+
+-- Copied from https://github.com/haskell/aeson/blob/d711df76b826942f4a9e791712512c6b19b8c1c8/tests/Instances.hs#L170-L203
+instance Arbitrary Value where
+  arbitrary = sized arb
+    where
+      arb :: Int -> Gen Value
+      arb n
+        | n <= 1 =
+          oneof
+            [ return Null,
+              fmap Bool arbitrary,
+              fmap String arbitrary,
+              fmap Number arbitrary
+            ]
+        | otherwise = oneof [arr n, obj n]
+
+      arr n = do
+        pars <- arbPartition (n - 1)
+        fmap (Array . V.fromList) (traverse arb pars)
+
+      obj n = do
+        pars <- arbPartition (n - 1)
+        fmap (Object . HM.fromList) (traverse pair pars)
+
+      pair n = do
+        k <- arbitrary
+        v <- arb n
+        return (k, v)
+
+      arbPartition :: Int -> Gen [Int]
+      arbPartition k = case compare k 1 of
+        LT -> pure []
+        EQ -> pure [1]
+        GT -> do
+          first <- chooseInt (1, k)
+          rest <- arbPartition $ k - first
+          shuffle (first : rest)

@@ -325,7 +325,8 @@ voteBlockRef cfg ref = case sign sk bytes of
     bytes = powBlockRefToBytes ref
 
 newtype VoteError = FailedToSignBlockRef PowBlockRef
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+  deriving anyclass (ToJSON)
 
 findWinner :: Int -> [Vote] -> Maybe PowBlockRef
 findWinner _ [] = Nothing
@@ -341,7 +342,7 @@ findWinner m votes =
     (winnerBlock, winnerCount) = maximumBy (comparing swap) countVotes
 
 data WontPushCheckpoint blk = WontPushCheckpoint (Point blk) (Point blk)
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
 {-------------------------------------------------------------------------------
    Hard Fork History

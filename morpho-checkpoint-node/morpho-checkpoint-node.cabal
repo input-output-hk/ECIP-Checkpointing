@@ -38,10 +38,12 @@ library
         Morpho.RPC.Abstract
         Morpho.RPC.JsonRpc
         Morpho.RPC.JsonRpcProtocol
+        Morpho.Tracing.OrphanToJSONInstances
         Morpho.Tracing.TracingOrphanInstances
         Morpho.Tracing.Types
         Morpho.Tracing.Tracers
         Morpho.Tracing.Metrics
+        Morpho.Tracing.Verbosity
 
     hs-source-dirs:     src
     default-language:   Haskell2010
@@ -128,6 +130,7 @@ test-suite test
         Test.Morpho.Generators
         Test.Morpho.Golden
         Test.Morpho.Serialisation
+        Test.Morpho.Tracing
 
     default-language:   Haskell2010
     default-extensions: NoImplicitPrelude
@@ -158,7 +161,8 @@ test-suite test
         text,
         time,
         unordered-containers,
-        validation
+        validation,
+        vector
 
 test-suite mantis-integration-tests
     type:               exitcode-stdio-1.0
@@ -211,4 +215,6 @@ test-suite state-machine-tests
         stm,
         tasty,
         tasty-quickcheck,
-        text
+        text,
+        unordered-containers,
+        vector

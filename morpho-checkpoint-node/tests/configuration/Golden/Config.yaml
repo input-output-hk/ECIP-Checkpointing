@@ -31,6 +31,8 @@ NodeHost: "127.0.0.1"
 NodePort: 2345
 ValidateDatabase: True
 
+Verbosity: 2
+
 #####         Tracing         #####
 Logging:
   minSeverity: Info

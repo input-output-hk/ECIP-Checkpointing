@@ -2,17 +2,12 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-all-missed-specialisations #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Morpho.Tracing.Tracers
@@ -21,14 +16,17 @@ module Morpho.Tracing.Tracers
   )
 where
 
-import Cardano.BM.Data.Tracer (WithSeverity (..), showTracing)
+import Cardano.BM.Data.LogItem
+import Cardano.BM.Data.Tracer (HasTextFormatter (formatText))
 import Cardano.BM.Trace
 import Cardano.BM.Tracing
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Prelude hiding (show)
 import Codec.CBOR.Read (DeserialiseFailure)
 import Data.Aeson
-import qualified Data.Text as Text
+import qualified Data.HashMap.Strict as HM
+import GHC.Exts (fromList)
+import Morpho.Config.Types
 import Morpho.Ledger.Block
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.Update
@@ -36,6 +34,7 @@ import Morpho.Node.RunNode ()
 import Morpho.RPC.Abstract
 import Morpho.Tracing.TracingOrphanInstances ()
 import Morpho.Tracing.Types
+import Morpho.Tracing.Verbosity
 import Network.Mux.Trace (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket
 import Ouroboros.Consensus.Ledger.SupportsProtocol
@@ -50,7 +49,6 @@ import Ouroboros.Network.NodeToNode
 import qualified Ouroboros.Network.NodeToNode as NtN
 import Ouroboros.Network.PeerSelection.LedgerPeers
 import Ouroboros.Network.Snocket (LocalAddress)
-import Prelude (String, show)
 
 data Tracers peer localPeer h c = Tracers
   { -- | Used for top-level morpho traces during initialization
@@ -73,15 +71,6 @@ data Tracers peer localPeer h c = Tracers
     powNodeRpcTracer :: forall i o ev. (Show ev, ToJSON ev, HasSeverityAnnotation ev) => Tracer IO (RpcTrace ev i o),
     extractStateTracer :: Tracer IO (ExtractStateTrace h c),
     timeTravelErrorTracer :: Tracer IO (TimeTravelError (MorphoBlock h c)),
-    -- | Chain Tip tracer.
-    --
-    --   Note: we're currently not using structured logging approach
-    --   for the chain Tip tracer. Implementing all the required
-    --   typeclasses is a hassle and we're not mining these
-    --   structured logs anyways, we are just plain-text quering
-    --   them. Modeling the chain tip hash as Text should be good
-    --   enough for now.
-    chainTipTracer :: Tracer IO Text,
     nodeToNodeTracers :: NodeToNode.Tracers IO peer (MorphoBlock h c) DeserialiseFailure,
     nodeToClientTracers :: NodeToClient.Tracers IO localPeer (MorphoBlock h c) DeserialiseFailure,
     handshakeTracer :: Tracer IO NtN.HandshakeTr,
@@ -92,6 +81,41 @@ data Tracers peer localPeer h c = Tracers
     ledgerPeersTracer :: Tracer IO TraceLedgerPeers
   }
 
+-- Logs a traversable by logging each item separately
+-- Copied from co-log-core:
+-- https://hackage.haskell.org/package/co-log-core-0.2.1.1/docs/Colog-Core-Action.html#v:separate
+separate :: (Traversable f, Applicative m) => Tracer m msg -> Tracer m (f msg)
+separate (Tracer action) = Tracer (traverse_ action)
+
+toGenericObject ::
+  ( MonadIO m,
+    HasTextFormatter b,
+    HasSeverityAnnotation b,
+    HasPrivacyAnnotation b,
+    MinLogRecursion b,
+    ToJSON b
+  ) =>
+  NodeConfiguration ->
+  Trace m Text ->
+  Tracer m b
+toGenericObject nc tr = Tracer $ \arg ->
+  let logRec = ncVerbosity nc + minLogRecursion arg
+      value = snd $ limitRecursion logRec (toJSON arg)
+      obj = case value of
+        Object o -> o
+        _ -> fromList ["value" .= value]
+      text = formatText arg obj
+      -- Insert the formatted text into the structured value, so that we can
+      -- easily get a nice-looking value for display
+      finalObj =
+        HM.fromList
+          [ "value" .= value,
+            "text" .= String text
+          ]
+   in traceWith tr =<< do
+        meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
+        return (mempty, LogObject mempty meta (LogStructuredText finalObj text))
+
 -- | Generates all the tracers necessary for the checkpointing node.
 --
 -- Note: the constraint on the morpho block is necessary for the
@@ -99,76 +123,74 @@ data Tracers peer localPeer h c = Tracers
 mkTracers ::
   forall peer localPeer blk h c.
   ( Show peer,
-    Show localPeer,
+    ToJSON peer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c,
     Signable (BftDSIGN c) (MorphoStdHeader h c),
     LedgerSupportsProtocol blk
   ) =>
+  NodeConfiguration ->
   Trace IO Text ->
   IO (Tracers peer localPeer h c)
-mkTracers tracer = do
+mkTracers nc tracer = do
   pure
     Tracers
       { morphoInitTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "morpho-init" tracer,
         chainDBTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "chain-db" tracer,
         consensusTracers =
           mkConsensusTracers (appendName "consensus" tracer),
         ipSubscriptionTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "ip-subs" tracer,
         dnsSubscriptionTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "dns-subs" tracer,
         dnsResolverTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "dns-resolve" tracer,
         muxTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "mux" tracer,
         muxLocalTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "local-mux" tracer,
         errorPolicyTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "error-policy" tracer,
         extractStateTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "extract-state" tracer,
         powNodeRpcTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "rpc" tracer,
         timeTravelErrorTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "time-travel" tracer,
-        chainTipTracer =
-          toLogObject $
-            appendName "chain-tip" tracer,
         nodeToNodeTracers =
-          nodeToNodeTracers' tracer,
-        nodeToClientTracers =
-          nodeToClientTracers' tracer,
+          nodeToNodeTracers' nc tracer,
+        -- We don't have any node-to-client queries
+        nodeToClientTracers = NodeToClient.nullTracers,
         handshakeTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "handshake" tracer,
         handshakeLocalTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "local-handshake" tracer,
         localErrorPolicyTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "local-error-policy" tracer,
         acceptPolicyTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "accept-policy" tracer,
         diffusionInitializationTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "diffusion-init" tracer,
         ledgerPeersTracer =
-          toLogObject $
+          toGenericObject nc $
             appendName "ledger-peers" tracer
       }
   where
@@ -176,41 +198,42 @@ mkTracers tracer = do
     mkConsensusTracers ctracer =
       Consensus.Tracers
         { Consensus.chainSyncClientTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "chain-sync-client" ctracer,
           Consensus.chainSyncServerHeaderTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "chain-sync-server-header" ctracer,
           Consensus.chainSyncServerBlockTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "chain-sync-server-block" ctracer,
           Consensus.blockFetchDecisionTracer =
-            toLogObject $
-              appendName "block-fetch-decision" ctracer,
+            separate $
+              toGenericObject nc $
+                appendName "block-fetch-decision" ctracer,
           Consensus.blockFetchClientTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "block-fetch-client" ctracer,
           Consensus.blockFetchServerTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "block-fetch-server" ctracer,
           Consensus.txInboundTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "tx-in" ctracer,
           Consensus.txOutboundTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "tx-out" ctracer,
           Consensus.localTxSubmissionServerTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "local-tx-submission" ctracer,
           Consensus.mempoolTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "mempool" ctracer,
           Consensus.forgeTracer =
-            toLogObject $
+            toGenericObject nc $
               appendName "forge" ctracer,
           Consensus.blockchainTimeTracer =
-            showTracing $
-              withName "blockchain-time" ctracer,
+            toGenericObject nc $
+              appendName "blockchain-time" ctracer,
           -- TODO: trace the forge state if we add any.
           Consensus.forgeStateInfoTracer = Tracer $ const mempty,
           -- TODO: Trace this
@@ -222,55 +245,31 @@ mkTracers tracer = do
 --------------------------------------------------------------------------------
 
 nodeToNodeTracers' ::
-  ( Show peer,
+  ( ToJSON peer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c
   ) =>
+  NodeConfiguration ->
   Trace IO Text ->
   NodeToNode.Tracers' peer blk DeserialiseFailure (Tracer IO)
-nodeToNodeTracers' tracer =
+nodeToNodeTracers' nc tracer =
   NodeToNode.Tracers
     { NodeToNode.tChainSyncTracer =
-        toLogObject $
+        toGenericObject nc $
           appendName "chain-sync-protocol" tracer,
       NodeToNode.tChainSyncSerialisedTracer =
-        toLogObject $
+        toGenericObject nc $
           appendName "chain-sync-protocol-serialized" tracer,
       NodeToNode.tBlockFetchTracer =
-        toLogObject $
+        toGenericObject nc $
           appendName "block-fetch-protocol" tracer,
       NodeToNode.tBlockFetchSerialisedTracer =
-        showTracing $
-          withName "block-fetch-protocol-serialized" tracer,
+        toGenericObject nc $
+          appendName "block-fetch-protocol-serialized" tracer,
       NodeToNode.tTxSubmissionTracer =
-        toLogObject $
+        toGenericObject nc $
           appendName "tx-submission-protocol" tracer,
       NodeToNode.tTxSubmission2Tracer =
-        toLogObject $
+        toGenericObject nc $
           appendName "tx-submission-protocol-2" tracer
     }
-
-nodeToClientTracers' ::
-  ( Show peer,
-    blk ~ MorphoBlock h c
-  ) =>
-  Trace IO Text ->
-  NodeToClient.Tracers' peer blk DeserialiseFailure (Tracer IO)
-nodeToClientTracers' tracer =
-  NodeToClient.Tracers
-    { NodeToClient.tChainSyncTracer =
-        toLogObject $
-          appendName "local-chain-sync-protocol" tracer,
-      NodeToClient.tTxSubmissionTracer =
-        toLogObject $
-          appendName "local-tx-submission-protocol" tracer,
-      NodeToClient.tStateQueryTracer =
-        toLogObject $
-          appendName "local-state-query-protocol" tracer
-    }
-
-instance Show a => Show (WithSeverity a) where
-  show (WithSeverity _sev a) = show a
-
-withName :: Text -> Trace IO Text -> Tracer IO String
-withName name tr = contramap Text.pack $ toLogObject $ appendName name tr

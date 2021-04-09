@@ -88,7 +88,8 @@ data Signature = Signature
   deriving anyclass (Serialise)
   deriving (NoThunks)
 
-instance ToJSON Signature
+instance ToJSON Signature where
+  toJSON = String . sigToHex
 
 data KeyPair = KeyPair
   { pKey :: PublicKey,

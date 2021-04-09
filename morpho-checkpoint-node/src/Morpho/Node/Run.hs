@@ -22,7 +22,6 @@ import Control.Monad.Class.MonadSTM.Strict (MonadSTM (atomically), newTVar, read
 import Data.Aeson
 import qualified Data.ByteString.Char8 as BSC
 import Data.Map.Strict (size)
-import Data.Text (pack)
 import Morpho.Common.Socket
 import Morpho.Config.Topology
 import Morpho.Config.Types
@@ -38,7 +37,6 @@ import Morpho.Node.RunNode ()
 import Morpho.RPC.Abstract
 import Morpho.Tracing.Metrics
 import Morpho.Tracing.Tracers
-import Morpho.Tracing.TracingOrphanInstances
 import Morpho.Tracing.Types
 import Network.DNS.Utils (normalize)
 import Network.Socket
@@ -160,8 +158,7 @@ handleSimpleNode pInfo nodeTracers env = do
               { wFingerprint = id,
                 wInitial = Nothing,
                 wReader = ChainDB.getTipPoint chainDB,
-                wNotify = \tip -> do
-                  traceWith (chainTipTracer nodeTracers) (pack $ showPoint NormalVerbosity tip)
+                wNotify = \_ -> do
                   setTimeDiff lastBlockTsVar (mMorphoBlockTime metrics)
               }
         --  Track current block number
