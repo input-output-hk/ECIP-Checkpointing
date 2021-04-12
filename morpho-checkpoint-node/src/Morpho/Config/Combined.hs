@@ -89,8 +89,8 @@ getConfiguration cliConfig file = do
   value <- decodeFileThrow file
   case determineConfiguration cliConfig value of
     Failure fails -> do
-      putStrLn $ "Configuration values were either not passed via the CLI or missing from the configuration file " <> file <> ":"
-      forM_ fails $ putStrLn . prettyConfigUnavailable
+      hPutStrLn stderr $ "Configuration values were either not passed via the CLI or missing from the configuration file " <> file <> ":"
+      forM_ fails $ hPutStrLn stderr . prettyConfigUnavailable
       exitFailure
     Success v -> return v
 
