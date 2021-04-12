@@ -341,7 +341,9 @@ findWinner m votes =
     countVotes = M.toList $ foldr f M.empty votes
     (winnerBlock, winnerCount) = maximumBy (comparing swap) countVotes
 
-data WontPushCheckpoint blk = WontPushCheckpoint (Point blk) (Point blk)
+data WontPushCheckpoint blk
+  = WontPushCheckpointNotMorphoTip (Point blk) (Point blk)
+  | WontPushCheckpointIsGenesisBlock
   deriving (Show, Eq, Generic)
 
 {-------------------------------------------------------------------------------

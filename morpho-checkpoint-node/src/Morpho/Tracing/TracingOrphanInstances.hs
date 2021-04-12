@@ -45,10 +45,11 @@ import Ouroboros.Consensus.Ledger.SupportsProtocol
   )
 import Ouroboros.Consensus.Mempool.API (TraceEventMempool (..))
 import Ouroboros.Consensus.MiniProtocol.BlockFetch.Server
-  ( TraceBlockFetchServerEvent,
+  ( TraceBlockFetchServerEvent (..),
   )
 import Ouroboros.Consensus.MiniProtocol.ChainSync.Client
-  ( InvalidBlockReason,
+  ( ChainSyncClientResult (..),
+    InvalidBlockReason,
     TraceChainSyncClientEvent (..),
   )
 import Ouroboros.Consensus.MiniProtocol.ChainSync.Server
@@ -60,7 +61,9 @@ import Ouroboros.Consensus.MiniProtocol.LocalTxSubmission.Server
 import Ouroboros.Consensus.Node.Tracers (TraceForgeEvent (..), TraceLabelCreds (..))
 import Ouroboros.Consensus.Protocol.BFT
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
+import qualified Ouroboros.Consensus.Storage.ImmutableDB.Impl.Types as ImmutableDB
 import qualified Ouroboros.Consensus.Storage.LedgerDB.OnDisk as LedgerDB
+import qualified Ouroboros.Consensus.Storage.VolatileDB.Impl.Types as VolatileDB
 import Ouroboros.Consensus.Util.Condense (Condense, condense)
 import Ouroboros.Consensus.Util.Orphans ()
 import qualified Ouroboros.Network.AnchoredFragment as AF
@@ -86,7 +89,6 @@ import Ouroboros.Network.Snocket (LocalAddress (..))
 import Ouroboros.Network.Subscription
   ( ConnectResult (..),
     DnsTrace (..),
-    SubscriberError (..),
     SubscriptionTrace (..),
     WithDomainName (..),
     WithIPList (..),
@@ -121,8 +123,7 @@ instance HasPrivacyAnnotation (TraceLabelCreds a)
 instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
   formatText (MorphoStateTrace st) _ = pack $ "Current Ledger State: " ++ show st
   formatText (WontPushCheckpointTrace reason) _ =
-    pack $
-      "Checkpoint doesn't need to be pushed: " ++ show reason
+    pack $ "Checkpoint won't be pushed: " ++ show reason
   formatText (VoteErrorTrace err) _ =
     pack $ "Error while trying to create a vote: " ++ show err
 
@@ -130,7 +131,7 @@ instance HasPrivacyAnnotation (ExtractStateTrace h c)
 
 instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation MorphoStateTrace {} = Info
-  getSeverityAnnotation WontPushCheckpointTrace {} = Info
+  getSeverityAnnotation WontPushCheckpointTrace {} = Debug
   getSeverityAnnotation VoteErrorTrace {} = Error
 
 instance Show e => HasTextFormatter (RpcTrace e i o)
@@ -155,28 +156,28 @@ instance HasPrivacyAnnotation (ChainDB.TraceEvent blk)
 
 instance HasSeverityAnnotation (ChainDB.TraceEvent blk) where
   getSeverityAnnotation (ChainDB.TraceAddBlockEvent ev) = case ev of
-    ChainDB.IgnoreBlockOlderThanK {} -> Info
-    ChainDB.IgnoreBlockAlreadyInVolatileDB {} -> Info
-    ChainDB.IgnoreInvalidBlock {} -> Info
+    ChainDB.IgnoreBlockOlderThanK {} -> Notice
+    ChainDB.IgnoreBlockAlreadyInVolatileDB {} -> Debug
+    ChainDB.IgnoreInvalidBlock {} -> Notice
     ChainDB.AddedBlockToQueue {} -> Debug
     ChainDB.BlockInTheFuture {} -> Info
     ChainDB.AddedBlockToVolatileDB {} -> Debug
     ChainDB.TryAddToCurrentChain {} -> Debug
-    ChainDB.TrySwitchToAFork {} -> Info
+    ChainDB.TrySwitchToAFork {} -> Debug
     ChainDB.StoreButDontChange {} -> Debug
-    ChainDB.AddedToCurrentChain {} -> Notice
+    ChainDB.AddedToCurrentChain {} -> Info
     ChainDB.SwitchedToAFork {} -> Notice
     ChainDB.AddBlockValidation ev' -> case ev' of
       ChainDB.InvalidBlock {} -> Error
       ChainDB.InvalidCandidate {} -> Error
-      ChainDB.ValidCandidate {} -> Info
+      ChainDB.ValidCandidate {} -> Debug
       ChainDB.CandidateContainsFutureBlocks {} -> Debug
       ChainDB.CandidateContainsFutureBlocksExceedingClockSkew {} -> Error
     ChainDB.ChainSelectionForFutureBlock {} -> Debug
   getSeverityAnnotation (ChainDB.TraceLedgerReplayEvent ev) = case ev of
     LedgerDB.ReplayFromGenesis {} -> Info
     LedgerDB.ReplayFromSnapshot {} -> Info
-    LedgerDB.ReplayedBlock {} -> Info
+    LedgerDB.ReplayedBlock {} -> Debug
   getSeverityAnnotation (ChainDB.TraceLedgerEvent ev) = case ev of
     LedgerDB.TookSnapshot {} -> Info
     LedgerDB.DeletedSnapshot {} -> Debug
@@ -188,42 +189,85 @@ instance HasSeverityAnnotation (ChainDB.TraceEvent blk) where
     ChainDB.PerformedGC {} -> Debug
     ChainDB.ScheduledGC {} -> Debug
   getSeverityAnnotation (ChainDB.TraceOpenEvent ev) = case ev of
-    ChainDB.OpenedDB {} -> Info
-    ChainDB.ClosedDB {} -> Info
-    ChainDB.OpenedImmutableDB {} -> Info
-    ChainDB.OpenedVolatileDB -> Info
-    ChainDB.OpenedLgrDB -> Info
+    ChainDB.OpenedDB {} -> Debug
+    ChainDB.ClosedDB {} -> Debug
+    ChainDB.OpenedImmutableDB {} -> Debug
+    ChainDB.OpenedVolatileDB -> Debug
+    ChainDB.OpenedLgrDB -> Debug
   getSeverityAnnotation (ChainDB.TraceFollowerEvent ev) = case ev of
     ChainDB.NewFollower {} -> Debug
     ChainDB.FollowerNoLongerInMem {} -> Debug
     ChainDB.FollowerSwitchToMem {} -> Debug
     ChainDB.FollowerNewImmIterator {} -> Debug
   getSeverityAnnotation (ChainDB.TraceInitChainSelEvent ev) = case ev of
-    ChainDB.InitChainSelValidation {} -> Debug
-  getSeverityAnnotation (ChainDB.TraceIteratorEvent _) = Debug
-  getSeverityAnnotation (ChainDB.TraceImmutableDBEvent _) = Debug
-  getSeverityAnnotation (ChainDB.TraceVolatileDBEvent _) = Debug
+    ChainDB.InitChainSelValidation e -> case e of
+      ChainDB.InvalidBlock {} -> Error
+      ChainDB.InvalidCandidate {} -> Error
+      ChainDB.ValidCandidate {} -> Info
+      ChainDB.CandidateContainsFutureBlocks {} -> Info
+      ChainDB.CandidateContainsFutureBlocksExceedingClockSkew {} -> Error
+  getSeverityAnnotation (ChainDB.TraceIteratorEvent ev) = case ev of
+    ChainDB.UnknownRangeRequested _ -> Error
+    ChainDB.StreamFromVolatileDB {} -> Debug
+    ChainDB.StreamFromImmutableDB _ _ -> Debug
+    ChainDB.StreamFromBoth {} -> Debug
+    ChainDB.BlockMissingFromVolatileDB _ -> Debug
+    ChainDB.BlockWasCopiedToImmutableDB _ -> Debug
+    ChainDB.BlockGCedFromVolatileDB _ -> Debug
+    ChainDB.SwitchBackToVolatileDB -> Debug
+  getSeverityAnnotation (ChainDB.TraceImmutableDBEvent ev) = case ev of
+    ImmutableDB.NoValidLastLocation -> Debug
+    ImmutableDB.ValidatedLastLocation {} -> Debug
+    ImmutableDB.ValidatingChunk _ -> Debug
+    ImmutableDB.MissingChunkFile _ -> Error
+    ImmutableDB.InvalidChunkFile {} -> Error
+    ImmutableDB.ChunkFileDoesntFit {} -> Error
+    ImmutableDB.MissingPrimaryIndex _ -> Debug
+    ImmutableDB.MissingSecondaryIndex _ -> Debug
+    ImmutableDB.InvalidPrimaryIndex _ -> Warning
+    ImmutableDB.InvalidSecondaryIndex _ -> Warning
+    ImmutableDB.RewritePrimaryIndex _ -> Debug
+    ImmutableDB.RewriteSecondaryIndex _ -> Debug
+    ImmutableDB.Migrating _ -> Info
+    ImmutableDB.DeletingAfter _ -> Debug
+    ImmutableDB.DBAlreadyClosed -> Debug
+    ImmutableDB.DBClosed -> Debug
+    ImmutableDB.TraceCacheEvent _ -> Debug
+  getSeverityAnnotation (ChainDB.TraceVolatileDBEvent ev) = case ev of
+    VolatileDB.DBAlreadyClosed -> Debug
+    VolatileDB.DBAlreadyOpen -> Debug
+    VolatileDB.BlockAlreadyHere _ -> Debug
+    VolatileDB.TruncateCurrentFile _ -> Debug
+    VolatileDB.Truncate {} -> Error
+    VolatileDB.InvalidFileNames _ -> Warning
 
 instance HasPrivacyAnnotation (TraceBlockFetchServerEvent blk)
 
 instance HasSeverityAnnotation (TraceBlockFetchServerEvent blk) where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation TraceBlockFetchServerSendBlock = Debug
 
 instance HasPrivacyAnnotation (TraceChainSyncClientEvent blk)
 
 instance HasSeverityAnnotation (TraceChainSyncClientEvent blk) where
-  getSeverityAnnotation TraceDownloadedHeader {} = Info
-  getSeverityAnnotation TraceFoundIntersection {} = Info
-  getSeverityAnnotation TraceRolledBack {} = Notice
-  getSeverityAnnotation TraceException {} = Warning
-  getSeverityAnnotation TraceTermination {} = Info
+  getSeverityAnnotation TraceDownloadedHeader {} = Debug
+  getSeverityAnnotation TraceFoundIntersection {} = Debug
+  getSeverityAnnotation TraceRolledBack {} = Debug
+  getSeverityAnnotation TraceException {} = Error
+  getSeverityAnnotation (TraceTermination result) = case result of
+    ForkTooDeep {} -> Error
+    NoMoreIntersection {} -> Error
+    RolledBackPastIntersection {} -> Error
+    AskedToTerminate -> Debug
 
 instance HasTextFormatter (TraceChainSyncClientEvent blk)
 
 instance HasPrivacyAnnotation (TraceChainSyncServerEvent blk)
 
 instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation TraceChainSyncServerRead {} = Debug
+  getSeverityAnnotation TraceChainSyncServerReadBlocked {} = Debug
+  getSeverityAnnotation TraceChainSyncRollForward {} = Debug
+  getSeverityAnnotation TraceChainSyncRollBackward {} = Debug
 
 instance HasSeverityAnnotation (Either FetchDecline [Point (Header blk)])
 
@@ -265,7 +309,7 @@ instance HasSeverityAnnotation (InvalidBlockReason (MorphoBlock h c)) where
 
 instance HasSeverityAnnotation (TraceForgeEvent (MorphoBlock h c)) where
   getSeverityAnnotation TraceForgedBlock {} = Info
-  getSeverityAnnotation TraceStartLeadershipCheck {} = Info
+  getSeverityAnnotation TraceStartLeadershipCheck {} = Debug
   getSeverityAnnotation TraceNodeNotLeader {} = Info
   getSeverityAnnotation TraceNodeCannotForge {} = Error
   getSeverityAnnotation TraceNodeIsLeader {} = Info
@@ -276,15 +320,15 @@ instance HasSeverityAnnotation (TraceForgeEvent (MorphoBlock h c)) where
   getSeverityAnnotation TraceAdoptedBlock {} = Info
   getSeverityAnnotation TraceDidntAdoptBlock {} = Error
   getSeverityAnnotation (TraceForgedInvalidBlock _ _ reason) = getSeverityAnnotation reason
-  getSeverityAnnotation TraceBlockContext {} = Info
-  getSeverityAnnotation TraceLedgerState {} = Info
-  getSeverityAnnotation TraceLedgerView {} = Info
+  getSeverityAnnotation TraceBlockContext {} = Debug
+  getSeverityAnnotation TraceLedgerState {} = Debug
+  getSeverityAnnotation TraceLedgerView {} = Debug
   getSeverityAnnotation TraceForgeStateUpdateError {} = Error
 
 instance HasPrivacyAnnotation (TraceLocalTxSubmissionServerEvent blk)
 
 instance HasSeverityAnnotation (TraceLocalTxSubmissionServerEvent blk) where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation TraceReceivedTx {} = Info
 
 instance HasTextFormatter (TraceLocalTxSubmissionServerEvent blk) where
   formatText _ = pack . show . toList
@@ -524,45 +568,66 @@ showPoint verb pt =
 instance HasPrivacyAnnotation NtC.HandshakeTr
 
 instance HasSeverityAnnotation NtC.HandshakeTr where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation (WithMuxBearer _ ev) = getSeverityAnnotation ev
 
 instance HasPrivacyAnnotation NtN.HandshakeTr
 
 instance HasSeverityAnnotation NtN.HandshakeTr where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation (WithMuxBearer _ ev) = getSeverityAnnotation ev
 
 instance HasPrivacyAnnotation NtN.AcceptConnectionsPolicyTrace
 
 instance HasSeverityAnnotation NtN.AcceptConnectionsPolicyTrace where
-  getSeverityAnnotation NtN.ServerTraceAcceptConnectionRateLimiting {} = Info
+  getSeverityAnnotation NtN.ServerTraceAcceptConnectionRateLimiting {} = Notice
   getSeverityAnnotation NtN.ServerTraceAcceptConnectionHardLimit {} = Warning
 
 instance HasPrivacyAnnotation DiffusionInitializationTracer
 
 instance HasSeverityAnnotation DiffusionInitializationTracer where
-  getSeverityAnnotation (UnsupportedLocalSystemdSocket _) = Error
-  getSeverityAnnotation UnsupportedReadySocketCase = Error
-  getSeverityAnnotation (DiffusionErrored _) = Error
-  getSeverityAnnotation _ = Debug
+  getSeverityAnnotation RunServer {} = Debug
+  getSeverityAnnotation RunLocalServer {} = Debug
+  getSeverityAnnotation UsingSystemdSocket {} = Debug
+  getSeverityAnnotation CreateSystemdSocketForSnocketPath {} = Debug
+  getSeverityAnnotation CreatedLocalSocket {} = Debug
+  getSeverityAnnotation ConfiguringLocalSocket {} = Debug
+  getSeverityAnnotation ListeningLocalSocket {} = Debug
+  getSeverityAnnotation LocalSocketUp {} = Debug
+  getSeverityAnnotation CreatingServerSocket {} = Debug
+  getSeverityAnnotation ConfiguringServerSocket {} = Debug
+  getSeverityAnnotation ListeningServerSocket {} = Debug
+  getSeverityAnnotation ServerSocketUp {} = Debug
+  getSeverityAnnotation UnsupportedLocalSystemdSocket {} = Error
+  getSeverityAnnotation UnsupportedReadySocketCase {} = Error
+  getSeverityAnnotation DiffusionErrored {} = Error
 
 instance HasPrivacyAnnotation TraceLedgerPeers
 
 instance HasSeverityAnnotation TraceLedgerPeers where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation PickedPeer {} = Info
+  getSeverityAnnotation PickedPeers {} = Info
+  getSeverityAnnotation FetchingNewLedgerState {} = Info
 
 instance HasPrivacyAnnotation (TraceFetchClientState header)
 
 instance HasSeverityAnnotation (TraceFetchClientState header) where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation AddedFetchRequest {} = Debug
+  getSeverityAnnotation AcknowledgedFetchRequest {} = Debug
+  getSeverityAnnotation StartedFetchBatch {} = Debug
+  getSeverityAnnotation CompletedBlockFetch {} = Debug
+  getSeverityAnnotation CompletedFetchBatch {} = Debug
+  getSeverityAnnotation RejectedFetchBatch {} = Error
+  getSeverityAnnotation ClientTerminating {} = Debug
 
 instance HasPrivacyAnnotation (TraceSendRecv a)
 
 instance HasSeverityAnnotation (TraceSendRecv a) where
-  getSeverityAnnotation _ = Debug
+  getSeverityAnnotation TraceSendMsg {} = Debug
+  getSeverityAnnotation TraceRecvMsg {} = Debug
 
 instance HasPrivacyAnnotation a => HasPrivacyAnnotation (TraceLabelPeer peer a)
 
-instance HasSeverityAnnotation a => HasSeverityAnnotation (TraceLabelPeer peer a)
+instance HasSeverityAnnotation a => HasSeverityAnnotation (TraceLabelPeer peer a) where
+  getSeverityAnnotation (TraceLabelPeer _ a) = getSeverityAnnotation a
 
 instance HasPrivacyAnnotation [TraceLabelPeer peer (FetchDecision [Point header])]
 
@@ -584,131 +649,91 @@ instance HasSeverityAnnotation [TraceLabelPeer peer (FetchDecision [Point header
           Left FetchDeclineReqsInFlightLimit {} -> Info
           Left FetchDeclineBytesInFlightLimit {} -> Info
           Left FetchDeclinePeerBusy {} -> Info
-          Left FetchDeclineConcurrencyLimit {} -> Info
-          Right _ -> Info
+          Left FetchDeclineConcurrencyLimit {} -> Debug
+          Right _ -> Debug
 
 instance HasPrivacyAnnotation (TraceTxSubmissionInbound txid tx)
 
 instance HasSeverityAnnotation (TraceTxSubmissionInbound txid tx) where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation TraceTxSubmissionCollected {} = Info
+  getSeverityAnnotation TraceTxSubmissionProcessed {} = Info
+  getSeverityAnnotation TraceTxInboundTerminated {} = Debug
+  getSeverityAnnotation TraceTxInboundCanRequestMoreTxs {} = Debug
+  getSeverityAnnotation TraceTxInboundCannotRequestMoreTxs {} = Debug
 
 instance HasPrivacyAnnotation (TraceTxSubmissionOutbound txid tx)
 
 instance HasSeverityAnnotation (TraceTxSubmissionOutbound txid tx) where
-  getSeverityAnnotation _ = Info
+  getSeverityAnnotation TraceTxSubmissionOutboundRecvMsgRequestTxs {} = Info
+  getSeverityAnnotation TraceTxSubmissionOutboundSendMsgReplyTxs {} = Info
+  getSeverityAnnotation TraceControlMessage {} = Debug
 
 instance HasPrivacyAnnotation (WithAddr addr ErrorPolicyTrace)
 
+instance HasSeverityAnnotation ErrorPolicyTrace where
+  getSeverityAnnotation ErrorPolicySuspendPeer {} = Warning -- peer misbehaved
+  getSeverityAnnotation ErrorPolicySuspendConsumer {} = Notice -- peer temporarily not useful
+  getSeverityAnnotation ErrorPolicyLocalNodeError {} = Error
+  getSeverityAnnotation ErrorPolicyResumePeer {} = Debug
+  getSeverityAnnotation ErrorPolicyKeepSuspended {} = Debug
+  getSeverityAnnotation ErrorPolicyResumeConsumer {} = Debug
+  getSeverityAnnotation ErrorPolicyResumeProducer {} = Debug
+  getSeverityAnnotation ErrorPolicyUnhandledApplicationException {} = Error
+  getSeverityAnnotation ErrorPolicyUnhandledConnectionException {} = Error
+  getSeverityAnnotation ErrorPolicyAcceptException {} = Error
+
 instance HasSeverityAnnotation (WithAddr addr ErrorPolicyTrace) where
-  getSeverityAnnotation (WithAddr _ ev) = case ev of
-    ErrorPolicySuspendPeer {} -> Warning -- peer misbehaved
-    ErrorPolicySuspendConsumer {} -> Notice -- peer temporarily not useful
-    ErrorPolicyLocalNodeError {} -> Error
-    ErrorPolicyResumePeer {} -> Debug
-    ErrorPolicyKeepSuspended {} -> Debug
-    ErrorPolicyResumeConsumer {} -> Debug
-    ErrorPolicyResumeProducer {} -> Debug
-    ErrorPolicyUnhandledApplicationException {} -> Error
-    ErrorPolicyUnhandledConnectionException {} -> Error
-    ErrorPolicyAcceptException {} -> Error
+  getSeverityAnnotation (WithAddr _ ev) = getSeverityAnnotation ev
 
 instance HasPrivacyAnnotation (WithDomainName DnsTrace)
 
-instance HasSeverityAnnotation (WithDomainName DnsTrace) where
-  getSeverityAnnotation (WithDomainName _ ev) = case ev of
-    DnsTraceLookupException {} -> Error
-    DnsTraceLookupAError {} -> Error
-    DnsTraceLookupAAAAError {} -> Error
-    DnsTraceLookupSRVError {} -> Error
-    DnsTraceLookupIPv6First -> Debug
-    DnsTraceLookupIPv4First -> Debug
-    DnsTraceLookupAResult {} -> Debug
-    DnsTraceLookupAAAAResult {} -> Debug
-    DnsTraceLookupSRVResult {} -> Debug
+instance HasSeverityAnnotation DnsTrace where
+  getSeverityAnnotation DnsTraceLookupException {} = Error
+  getSeverityAnnotation DnsTraceLookupAError {} = Error
+  getSeverityAnnotation DnsTraceLookupAAAAError {} = Error
+  getSeverityAnnotation DnsTraceLookupSRVError {} = Error
+  getSeverityAnnotation DnsTraceLookupIPv6First = Debug
+  getSeverityAnnotation DnsTraceLookupIPv4First = Debug
+  getSeverityAnnotation DnsTraceLookupAResult {} = Debug
+  getSeverityAnnotation DnsTraceLookupAAAAResult {} = Debug
+  getSeverityAnnotation DnsTraceLookupSRVResult {} = Debug
+
+instance HasSeverityAnnotation a => HasSeverityAnnotation (WithDomainName a) where
+  getSeverityAnnotation (WithDomainName _ ev) = getSeverityAnnotation ev
 
 instance HasPrivacyAnnotation (WithDomainName (SubscriptionTrace Socket.SockAddr))
 
-instance HasSeverityAnnotation (WithDomainName (SubscriptionTrace Socket.SockAddr)) where
-  getSeverityAnnotation (WithDomainName _ ev) = case ev of
-    SubscriptionTraceConnectStart {} -> Notice
-    SubscriptionTraceConnectEnd {} -> Notice
-    SubscriptionTraceConnectException _ e ->
-      case fromException $ SomeException e of
-        Just (_ :: SubscriberError) -> Debug
-        Nothing -> Error
-    SubscriptionTraceSocketAllocationException {} -> Error
-    SubscriptionTraceTryConnectToPeer {} -> Info
-    SubscriptionTraceSkippingPeer {} -> Info
-    SubscriptionTraceSubscriptionRunning -> Debug
-    SubscriptionTraceSubscriptionWaiting {} -> Debug
-    SubscriptionTraceSubscriptionFailed -> Warning
-    SubscriptionTraceSubscriptionWaitingNewConnection {} -> Debug
-    SubscriptionTraceStart {} -> Debug
-    SubscriptionTraceRestart {} -> Debug
-    SubscriptionTraceConnectionExist {} -> Info
-    SubscriptionTraceUnsupportedRemoteAddr {} -> Warning
-    SubscriptionTraceMissingLocalAddress -> Warning
-    SubscriptionTraceApplicationException _ e ->
-      case fromException $ SomeException e of
-        Just (_ :: SubscriberError) -> Debug
-        Nothing -> Error
-    SubscriptionTraceAllocateSocket {} -> Debug
-    SubscriptionTraceCloseSocket {} -> Debug
+instance HasSeverityAnnotation (SubscriptionTrace a) where
+  getSeverityAnnotation SubscriptionTraceConnectStart {} = Debug
+  getSeverityAnnotation (SubscriptionTraceConnectEnd _ ConnectSuccess) = Debug
+  getSeverityAnnotation (SubscriptionTraceConnectEnd _ ConnectSuccessLast) = Debug
+  getSeverityAnnotation (SubscriptionTraceConnectEnd _ ConnectValencyExceeded) = Notice
+  getSeverityAnnotation SubscriptionTraceConnectException {} = Error
+  getSeverityAnnotation SubscriptionTraceSocketAllocationException {} = Error
+  getSeverityAnnotation SubscriptionTraceTryConnectToPeer {} = Debug
+  getSeverityAnnotation SubscriptionTraceSkippingPeer {} = Debug
+  getSeverityAnnotation SubscriptionTraceSubscriptionRunning = Info
+  getSeverityAnnotation SubscriptionTraceSubscriptionWaiting {} = Debug
+  getSeverityAnnotation SubscriptionTraceSubscriptionFailed = Warning
+  getSeverityAnnotation SubscriptionTraceSubscriptionWaitingNewConnection {} = Debug
+  getSeverityAnnotation SubscriptionTraceStart {} = Info
+  getSeverityAnnotation SubscriptionTraceRestart {} = Debug
+  getSeverityAnnotation SubscriptionTraceConnectionExist {} = Debug
+  getSeverityAnnotation SubscriptionTraceUnsupportedRemoteAddr {} = Error
+  getSeverityAnnotation SubscriptionTraceMissingLocalAddress = Error
+  getSeverityAnnotation SubscriptionTraceApplicationException {} = Error
+  getSeverityAnnotation SubscriptionTraceAllocateSocket {} = Debug
+  getSeverityAnnotation SubscriptionTraceCloseSocket {} = Debug
 
 instance HasPrivacyAnnotation (WithIPList (SubscriptionTrace Socket.SockAddr))
 
-instance HasSeverityAnnotation (WithIPList (SubscriptionTrace Socket.SockAddr)) where
-  getSeverityAnnotation (WithIPList _ _ ev) = case ev of
-    SubscriptionTraceConnectStart _ -> Info
-    SubscriptionTraceConnectEnd _ connectResult -> case connectResult of
-      ConnectSuccess -> Info
-      ConnectSuccessLast -> Notice
-      ConnectValencyExceeded -> Warning
-    SubscriptionTraceConnectException _ e ->
-      case fromException $ SomeException e of
-        Just (_ :: SubscriberError) -> Debug
-        Nothing -> Error
-    SubscriptionTraceSocketAllocationException {} -> Error
-    SubscriptionTraceTryConnectToPeer {} -> Info
-    SubscriptionTraceSkippingPeer {} -> Info
-    SubscriptionTraceSubscriptionRunning -> Debug
-    SubscriptionTraceSubscriptionWaiting {} -> Debug
-    SubscriptionTraceSubscriptionFailed -> Error
-    SubscriptionTraceSubscriptionWaitingNewConnection {} -> Notice
-    SubscriptionTraceStart {} -> Debug
-    SubscriptionTraceRestart {} -> Info
-    SubscriptionTraceConnectionExist {} -> Notice
-    SubscriptionTraceUnsupportedRemoteAddr {} -> Error
-    SubscriptionTraceMissingLocalAddress -> Warning
-    SubscriptionTraceApplicationException _ e ->
-      case fromException $ SomeException e of
-        Just (_ :: SubscriberError) -> Debug
-        Nothing -> Error
-    SubscriptionTraceAllocateSocket {} -> Debug
-    SubscriptionTraceCloseSocket {} -> Info
+instance HasSeverityAnnotation a => HasSeverityAnnotation (WithIPList a) where
+  getSeverityAnnotation (WithIPList _ _ a) = getSeverityAnnotation a
 
 instance HasPrivacyAnnotation (Identity (SubscriptionTrace LocalAddress))
 
-instance HasSeverityAnnotation (Identity (SubscriptionTrace LocalAddress)) where
-  getSeverityAnnotation (Identity ev) = case ev of
-    SubscriptionTraceConnectStart {} -> Notice
-    SubscriptionTraceConnectEnd {} -> Notice
-    SubscriptionTraceConnectException {} -> Error
-    SubscriptionTraceSocketAllocationException {} -> Error
-    SubscriptionTraceTryConnectToPeer {} -> Notice
-    SubscriptionTraceSkippingPeer {} -> Info
-    SubscriptionTraceSubscriptionRunning -> Notice
-    SubscriptionTraceSubscriptionWaiting {} -> Debug
-    SubscriptionTraceSubscriptionFailed -> Warning
-    SubscriptionTraceSubscriptionWaitingNewConnection {} -> Debug
-    SubscriptionTraceStart {} -> Notice
-    SubscriptionTraceRestart {} -> Notice
-    SubscriptionTraceConnectionExist {} -> Debug
-    SubscriptionTraceUnsupportedRemoteAddr {} -> Warning
-    SubscriptionTraceMissingLocalAddress -> Warning
-    SubscriptionTraceApplicationException {} -> Error
-    SubscriptionTraceAllocateSocket {} -> Debug
-    SubscriptionTraceCloseSocket {} -> Debug
+instance HasSeverityAnnotation a => HasSeverityAnnotation (Identity a) where
+  getSeverityAnnotation (Identity ev) = getSeverityAnnotation ev
 
 instance HasPrivacyAnnotation (WithMuxBearer peer MuxTrace)
 
@@ -720,15 +745,15 @@ instance HasSeverityAnnotation (WithMuxBearer peer MuxTrace) where
     MuxTraceRecvEnd {} -> Debug
     MuxTraceSendStart {} -> Debug
     MuxTraceSendEnd -> Debug
-    MuxTraceState {} -> Info
-    MuxTraceCleanExit {} -> Notice
+    MuxTraceState {} -> Debug
+    MuxTraceCleanExit {} -> Debug
     MuxTraceExceptionExit {} -> Notice
     MuxTraceChannelRecvStart {} -> Debug
     MuxTraceChannelRecvEnd {} -> Debug
     MuxTraceChannelSendStart {} -> Debug
     MuxTraceChannelSendEnd {} -> Debug
     MuxTraceHandshakeStart -> Debug
-    MuxTraceHandshakeClientEnd {} -> Info
+    MuxTraceHandshakeClientEnd {} -> Debug
     MuxTraceHandshakeServerEnd -> Debug
     MuxTraceHandshakeClientError {} -> Error
     MuxTraceHandshakeServerError {} -> Error
