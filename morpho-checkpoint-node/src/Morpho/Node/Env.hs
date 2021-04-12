@@ -4,10 +4,9 @@ import Cardano.BM.Data.Transformers
 import Cardano.Crypto.DSIGN
 import Cardano.Prelude
 import Cardano.Shell.Lib
-import Control.Monad.Fail
-import Control.Tracer
 import qualified Data.List as List
 import qualified Data.Text as T
+import qualified Data.Text as Text
 import Morpho.Config.Logging
 import Morpho.Config.Topology
 import Morpho.Config.Types
@@ -17,7 +16,6 @@ import Morpho.Ledger.Update
 import Morpho.RPC.Abstract
 import Morpho.RPC.JsonRpc
 import Morpho.Tracing.Tracers
-import Morpho.Tracing.Types
 import Network.HostName
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config
@@ -39,47 +37,48 @@ withEnv ::
   NodeConfiguration ->
   (Env JsonRpcEvent h c -> IO ()) ->
   IO ()
-withEnv nc action = do
+withEnv nc action = withTracing nc $ \tracers -> do
   privKey <- initPrivateKey nc
 
-  withTracing nc $ \tracers -> do
-    prods <- initProducers tracers nc
+  prods <- initProducers nc
 
-    databaseDir <- initDatabaseDir nc
+  rpcUpstream <- initRpcUpstream nc
 
-    rpcUpstream <- initRpcUpstream nc
+  databaseDir <- initDatabaseDir nc
 
-    action
-      Env
-        { eNodeId = ncNodeId nc,
-          eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
-          eCheckpointingInterval = ncCheckpointInterval nc,
-          eRequiredMajority = ncRequiredMajority nc,
-          eFedPubKeys = ncFedPubKeys nc,
-          eTimeslotLength = ncTimeslotLength nc,
-          eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
-          eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
-          eSystemStart = ncSystemStart nc,
-          ePrivateKey = privKey,
-          eTracers = tracers,
-          ePrometheusPort = ncPrometheusPort nc,
-          eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
-          eSnapshotInterval = ncSnapshotInterval nc,
-          ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
-          eRpcUpstream = rpcUpstream,
-          eStableLedgerDepth = ncStableLedgerDepth nc,
-          eProducers = prods,
-          eDatabaseDir = databaseDir,
-          eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
-          eValidateDb = ncValidateDb nc
-        }
+  action
+    Env
+      { eNodeId = ncNodeId nc,
+        eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
+        eCheckpointingInterval = ncCheckpointInterval nc,
+        eRequiredMajority = ncRequiredMajority nc,
+        eFedPubKeys = ncFedPubKeys nc,
+        eTimeslotLength = ncTimeslotLength nc,
+        eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
+        eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
+        eSystemStart = ncSystemStart nc,
+        ePrivateKey = privKey,
+        eTracers = tracers,
+        ePrometheusPort = ncPrometheusPort nc,
+        eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
+        eSnapshotInterval = ncSnapshotInterval nc,
+        ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
+        eRpcUpstream = rpcUpstream,
+        eStableLedgerDepth = ncStableLedgerDepth nc,
+        eProducers = prods,
+        eDatabaseDir = databaseDir,
+        eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
+        eValidateDb = ncValidateDb nc
+      }
 
 -- Read and import private key
 initPrivateKey :: NodeConfiguration -> IO PrivateKey
 initPrivateKey nc = do
   mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
   case mprivKey of
-    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
+    Left err -> do
+      hPutStrLn stderr $ "Failed to import private key from " <> Text.pack (show (ncNodePrivKeyFile nc)) <> ": " <> show err
+      exitFailure
     Right pk -> return pk
 
 -- Set up tracers from logging config
@@ -99,8 +98,8 @@ withTracing nc action = do
     CardanoApplication $ action tracers
 
 -- Read and import topology file
-initProducers :: Tracers RemoteConnectionId LocalConnectionId h c -> NodeConfiguration -> IO [RemoteAddress]
-initProducers tracers nc = do
+initProducers :: NodeConfiguration -> IO [RemoteAddress]
+initProducers nc = do
   let file = unTopology $ ncTopologyFile nc
       nid = ncNodeId nc
   Right (NetworkTopology topology) <- readTopologyFile file
@@ -109,7 +108,7 @@ initProducers tracers nc = do
     map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) topology of
     Just ps -> return ps
     Nothing -> do
-      traceWith (morphoInitTracer tracers) $ NotFoundInTopology nid
+      hPutStrLn stderr $ "Node " <> Text.pack (show nid) <> " not found in topology file " <> Text.pack (show file)
       exitFailure
 
 -- Make database path absolute
@@ -120,7 +119,9 @@ initRpcUpstream :: NodeConfiguration -> IO (RpcUpstream JsonRpcEvent IO)
 initRpcUpstream nc = do
   mrpcUpstream <- runExceptT $ jsonRpcUpstream (ncPoWNodeRpcUrl nc)
   case mrpcUpstream of
-    Left err -> fail $ show err
+    Left err -> do
+      hPutStrLn stderr $ "Failed to initialize JSON RPC: " <> Text.pack (show err)
+      exitFailure
     Right result -> return result
 
 -- | The application environment, a read-only structure that configures how
