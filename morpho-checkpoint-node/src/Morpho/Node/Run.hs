@@ -133,6 +133,8 @@ handleSimpleNode pInfo nodeTracers env = do
           }
   when (eValidateDb env) $
     traceWith (morphoInitTracer nodeTracers) PerformingDBValidation
+
+  traceWith (morphoInitTracer nodeTracers) $ ProducerList (eNodeId env) (eProducers env)
   (metrics, irs) <- setupPrometheus
 
   let kernelHook ::

@@ -107,9 +107,7 @@ initProducers tracers nc = do
 
   case List.lookup nid $
     map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) topology of
-    Just ps -> do
-      traceWith (morphoInitTracer tracers) $ ProducerList nid ps
-      return ps
+    Just ps -> return ps
     Nothing -> do
       traceWith (morphoInitTracer tracers) $ NotFoundInTopology nid
       exitFailure
