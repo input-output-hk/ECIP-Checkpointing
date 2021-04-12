@@ -33,7 +33,7 @@ data JsonRpcMethod o = JsonRpcMethod
   }
 
 jsonRpcMethod :: RpcMethod i o -> i -> JsonRpcMethod o
-jsonRpcMethod GetLatestBlock (k, Checkpoint {checkpointedBlock = PowBlockRef {powBlockHash}}) =
+jsonRpcMethod GetLatestBlock (k, PowBlockRef {powBlockHash}) =
   JsonRpcMethod
     { methodName = "checkpointing_getLatestBlock",
       methodParams = [toJSON k, toJSON (JsonRpcBlockHash <$> hash)],

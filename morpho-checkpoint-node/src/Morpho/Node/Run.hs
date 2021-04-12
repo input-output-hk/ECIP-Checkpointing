@@ -249,7 +249,7 @@ requestCurrentBlock ::
 requestCurrentBlock kernel env nodeTracers metrics = forever $ do
   threadDelay (ePoWBlockFetchInterval env)
   st <- atomically $ morphoLedgerState . ledgerState <$> ChainDB.getCurrentLedger chainDB
-  rpcCall (powNodeRpcTracer nodeTracers) (eRpcUpstream env) GetLatestBlock (eCheckpointingInterval env, lastCheckpoint st) processResponse
+  rpcCall (powNodeRpcTracer nodeTracers) (eRpcUpstream env) GetLatestBlock (eCheckpointingInterval env, checkpointedBlock (lastCheckpoint st)) processResponse
   where
     processResponse :: Maybe PowBlockRef -> IO ()
     processResponse Nothing = return ()
