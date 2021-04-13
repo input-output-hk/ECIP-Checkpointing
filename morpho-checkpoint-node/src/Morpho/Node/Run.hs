@@ -57,8 +57,8 @@ import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import System.Metrics.Prometheus.Metric.Gauge
 import Prelude (id)
 
-run :: (Show rpce, ToJSON rpce, HasSeverityAnnotation rpce) => Env rpce MorphoMockHash ConsensusMockCrypto -> IO ()
-run env = handleSimpleNode (protocolInfoMorpho env) (eTracers env) env
+run :: (Show rpce, ToJSON rpce, HasSeverityAnnotation rpce) => ValidatedEnv rpce MorphoMockHash ConsensusMockCrypto -> IO ()
+run (ValidatedEnv env) = handleSimpleNode (protocolInfoMorpho env) (eTracers env) env
 
 -- | Sets up a simple node, which will run the chain sync protocol and block
 -- fetch protocol, and, if core, will also look at the mempool when trying to

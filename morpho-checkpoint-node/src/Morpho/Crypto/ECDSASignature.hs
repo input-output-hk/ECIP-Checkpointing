@@ -20,6 +20,7 @@ module Morpho.Crypto.ECDSASignature
     PrivateKey,
     KeyPair (..),
     keyPairFromPrivate,
+    derivePubKey,
   )
 where
 
@@ -99,8 +100,11 @@ data KeyPair = KeyPair
   deriving anyclass (Serialise)
   deriving (NoThunks)
 
+derivePubKey :: PrivateKey -> PublicKey
+derivePubKey = toPublicKey . EC.derivePubKey . getSecKey
+
 keyPairFromPrivate :: PrivateKey -> KeyPair
-keyPairFromPrivate d = KeyPair (toPublicKey $ EC.derivePubKey $ getSecKey d) d
+keyPairFromPrivate d = KeyPair (derivePubKey d) d
 
 sign :: PrivateKey -> B.Bytes -> Maybe Signature
 sign sk (B.Bytes msgBytestr) =

@@ -1,12 +1,6 @@
 [
   {
     "nodeId": 0,
-    "producers": [
-      {
-        "addr": "127.0.0.1",
-        "port": 3000,
-        "valency": 1
-      }
-    ]
+    "producers": []
   }
 ]
