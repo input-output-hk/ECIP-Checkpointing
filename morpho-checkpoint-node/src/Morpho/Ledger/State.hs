@@ -29,6 +29,7 @@ import NoThunks.Class
 import Ouroboros.Consensus.Block.Abstract hiding (blockNo)
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config.SecurityParam
+import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Network.Block
   ( genesisPoint,
   )
@@ -64,7 +65,7 @@ data MorphoError blk
 data MorphoLedgerConfig = MorphoLedgerConfig
   { checkpointingInterval :: Int,
     securityParam :: SecurityParam,
-    requiredMajority :: Int,
+    requiredMajority :: NumCoreNodes,
     fedPubKeys :: [PublicKey],
     -- Used to reconstruct `EraParams`
     slotLength :: !SlotLength,
@@ -72,7 +73,7 @@ data MorphoLedgerConfig = MorphoLedgerConfig
     --       See MorphoBlockConfig for more informations.
     nodeKeyPair :: !KeyPair
   }
-  deriving stock (Show, Eq, Generic)
+  deriving stock (Show, Generic)
   deriving (NoThunks)
 
 deriving instance StandardHash blk => Show (MorphoError blk)

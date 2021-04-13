@@ -58,6 +58,7 @@ import Ouroboros.Consensus.Ledger.Abstract
 import Ouroboros.Consensus.Ledger.CommonProtocolParams
 import Ouroboros.Consensus.Ledger.Query
 import Ouroboros.Consensus.Ledger.SupportsMempool
+import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Consensus.Ticked
 import Ouroboros.Consensus.Util
@@ -328,7 +329,13 @@ newtype VoteError = FailedToSignBlockRef PowBlockRef
   deriving (Show, Eq, Generic)
   deriving anyclass (ToJSON)
 
-findWinner :: Int -> [Vote] -> Maybe PowBlockRef
+deriving newtype instance Eq NumCoreNodes
+
+deriving newtype instance Ord NumCoreNodes
+
+deriving newtype instance Num NumCoreNodes
+
+findWinner :: NumCoreNodes -> [Vote] -> Maybe PowBlockRef
 findWinner _ [] = Nothing
 findWinner m votes =
   if winnerCount < m

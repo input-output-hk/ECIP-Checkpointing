@@ -271,7 +271,7 @@ testConfig =
   MorphoLedgerConfig
     { checkpointingInterval = 4,
       securityParam = SecurityParam 4,
-      requiredMajority = 3,
+      requiredMajority = NumCoreNodes 3,
       fedPubKeys = publicKeys,
       nodeKeyPair = keyPairs !! 0,
       slotLength = mkSlotLength 2000
