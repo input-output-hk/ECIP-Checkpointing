@@ -1,8 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -10,39 +8,23 @@
 
 module Morpho.Tracing.TracingOrphanInstances where
 
-import Cardano.BM.Data.Tracer
-  ( HasTextFormatter (..),
-  )
 import Cardano.BM.Tracing
   ( HasPrivacyAnnotation (..),
     HasSeverityAnnotation (..),
     Severity (..),
-    TracingVerbosity (..),
   )
-import Cardano.Crypto.DSIGN
 import Cardano.Prelude hiding (show)
-import Data.Text (pack)
-import qualified Data.Text as Text
 import Morpho.Ledger.Block
 import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.State
-import Morpho.Ledger.Update
 import Morpho.RPC.Abstract
 import Morpho.Tracing.OrphanToJSONInstances ()
 import Morpho.Tracing.Types
 import Network.Mux (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket (SockAddr)
-import Ouroboros.Consensus.Block
-  ( headerPoint,
-    realPointSlot,
-  )
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Ledger.Extended
-import Ouroboros.Consensus.Ledger.SupportsMempool (txId)
-import Ouroboros.Consensus.Ledger.SupportsProtocol
-  ( LedgerSupportsProtocol,
-  )
 import Ouroboros.Consensus.Mempool.API (TraceEventMempool (..))
 import Ouroboros.Consensus.MiniProtocol.BlockFetch.Server
   ( TraceBlockFetchServerEvent (..),
@@ -59,14 +41,11 @@ import Ouroboros.Consensus.MiniProtocol.LocalTxSubmission.Server
   ( TraceLocalTxSubmissionServerEvent (..),
   )
 import Ouroboros.Consensus.Node.Tracers (TraceForgeEvent (..), TraceLabelCreds (..))
-import Ouroboros.Consensus.Protocol.BFT
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import qualified Ouroboros.Consensus.Storage.ImmutableDB.Impl.Types as ImmutableDB
 import qualified Ouroboros.Consensus.Storage.LedgerDB.OnDisk as LedgerDB
 import qualified Ouroboros.Consensus.Storage.VolatileDB.Impl.Types as VolatileDB
-import Ouroboros.Consensus.Util.Condense (Condense, condense)
 import Ouroboros.Consensus.Util.Orphans ()
-import qualified Ouroboros.Network.AnchoredFragment as AF
 import Ouroboros.Network.Block
 import Ouroboros.Network.BlockFetch.ClientState
   ( TraceFetchClientState (..),
@@ -99,7 +78,6 @@ import Ouroboros.Network.TxSubmission.Inbound
 import Ouroboros.Network.TxSubmission.Outbound
   ( TraceTxSubmissionOutbound (..),
   )
-import Prelude (String, id, show)
 
 instance HasPrivacyAnnotation (TraceBlockchainTimeEvent t)
 
@@ -108,24 +86,10 @@ instance HasSeverityAnnotation (TraceBlockchainTimeEvent t) where
   getSeverityAnnotation (TraceCurrentSlotUnknown _ _) = Debug
   getSeverityAnnotation (TraceSystemClockMovedBack _ _) = Warning
 
-instance HasTextFormatter (TraceBlockchainTimeEvent t) where
-  formatText ev _ = case ev of
-    TraceStartTimeInTheFuture (SystemStart start) toWait ->
-      "Waiting " <> showT toWait <> " until genesis start time at " <> showT start
-    TraceSystemClockMovedBack _ _ -> "System clock moved back an acceptable time span"
-    TraceCurrentSlotUnknown _ _ -> "Current slot is not yet known"
-
 instance HasSeverityAnnotation a => HasSeverityAnnotation (TraceLabelCreds a) where
   getSeverityAnnotation (TraceLabelCreds _ a) = getSeverityAnnotation a
 
 instance HasPrivacyAnnotation (TraceLabelCreds a)
-
-instance (HashAlgorithm h, BftCrypto c) => HasTextFormatter (ExtractStateTrace h c) where
-  formatText (MorphoStateTrace st) _ = pack $ "Current Ledger State: " ++ show st
-  formatText (WontPushCheckpointTrace reason) _ =
-    pack $ "Checkpoint won't be pushed: " ++ show reason
-  formatText (VoteErrorTrace err) _ =
-    pack $ "Error while trying to create a vote: " ++ show err
 
 instance HasPrivacyAnnotation (ExtractStateTrace h c)
 
@@ -133,8 +97,6 @@ instance HasSeverityAnnotation (ExtractStateTrace h c) where
   getSeverityAnnotation MorphoStateTrace {} = Info
   getSeverityAnnotation WontPushCheckpointTrace {} = Debug
   getSeverityAnnotation VoteErrorTrace {} = Error
-
-instance Show e => HasTextFormatter (RpcTrace e i o)
 
 instance HasPrivacyAnnotation (RpcTrace e i o)
 
@@ -149,8 +111,6 @@ instance HasPrivacyAnnotation (TimeTravelError blk)
 instance HasSeverityAnnotation (TimeTravelError blk) where
   getSeverityAnnotation (ChainNotLongEnough _ _) = Info
   getSeverityAnnotation (LedgerStateNotFoundAt _) = Error
-
-instance (StandardHash blk) => HasTextFormatter (TimeTravelError blk)
 
 instance HasPrivacyAnnotation (ChainDB.TraceEvent blk)
 
@@ -259,8 +219,6 @@ instance HasSeverityAnnotation (TraceChainSyncClientEvent blk) where
     RolledBackPastIntersection {} -> Error
     AskedToTerminate -> Debug
 
-instance HasTextFormatter (TraceChainSyncClientEvent blk)
-
 instance HasPrivacyAnnotation (TraceChainSyncServerEvent blk)
 
 instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
@@ -272,8 +230,6 @@ instance HasSeverityAnnotation (TraceChainSyncServerEvent blk) where
 instance HasSeverityAnnotation (Either FetchDecline [Point (Header blk)])
 
 instance HasPrivacyAnnotation (Either FetchDecline [Point (Header blk)])
-
-instance (StandardHash blk) => HasTextFormatter (TraceChainSyncServerEvent blk)
 
 instance HasPrivacyAnnotation (TraceEventMempool blk)
 
@@ -329,241 +285,6 @@ instance HasPrivacyAnnotation (TraceLocalTxSubmissionServerEvent blk)
 
 instance HasSeverityAnnotation (TraceLocalTxSubmissionServerEvent blk) where
   getSeverityAnnotation TraceReceivedTx {} = Info
-
-instance HasTextFormatter (TraceLocalTxSubmissionServerEvent blk) where
-  formatText _ = pack . show . toList
-
-instance
-  (LedgerSupportsProtocol blk) =>
-  HasTextFormatter (ChainDB.TraceAddBlockEvent blk)
-  where
-  formatText _ = pack . show . toList
-
-instance HasTextFormatter (TraceBlockFetchServerEvent blk) where
-  formatText _ = pack . show . toList
-
-condenseT :: Condense a => a -> Text
-condenseT = pack . condense
-
-showT :: Show a => a -> Text
-showT = pack . show
-
-instance (Signable (BftDSIGN c) (MorphoStdHeader h c), MorphoStateDefaultConstraints h c) => HasTextFormatter (TraceLabelCreds (TraceForgeEvent (MorphoBlock h c))) where
-  formatText (TraceLabelCreds _ t) = formatText t
-
-instance (Signable (BftDSIGN c) (MorphoStdHeader h c), MorphoStateDefaultConstraints h c) => HasTextFormatter (TraceForgeEvent (MorphoBlock h c)) where
-  formatText = \case
-    TraceAdoptedBlock slotNo blk txs ->
-      const $
-        "Adopted forged block for slot " <> showT (unSlotNo slotNo)
-          <> ": "
-          <> condenseT (blockHash blk)
-          <> "; TxIds: "
-          <> showT (map txId txs)
-    TraceBlockFromFuture currentSlot tip ->
-      const $
-        "Forged block from future: current slot " <> showT (unSlotNo currentSlot)
-          <> ", tip being "
-          <> condenseT tip
-    TraceSlotIsImmutable slotNo tipPoint tipBlkNo ->
-      const $
-        "Forged for immutable slot " <> showT (unSlotNo slotNo)
-          <> ", tip: "
-          <> pack (showPoint MaximalVerbosity tipPoint)
-          <> ", block no: "
-          <> showT (unBlockNo tipBlkNo)
-    TraceDidntAdoptBlock slotNo _ ->
-      const $
-        "Didn't adopt forged block at slot " <> showT (unSlotNo slotNo)
-    TraceForgedBlock slotNo _ blk _ ->
-      const $
-        "Forged block for slot " <> showT (unSlotNo slotNo) <> " " <> showT blk
-    TraceForgedInvalidBlock slotNo _ reason ->
-      const $
-        "Forged invalid block for slot " <> showT (unSlotNo slotNo)
-          <> ", reason: "
-          <> showT reason
-    TraceNodeIsLeader slotNo ->
-      const $
-        "Leading slot " <> showT (unSlotNo slotNo)
-    TraceNodeNotLeader slotNo ->
-      const $
-        "Not leading slot " <> showT (unSlotNo slotNo)
-    TraceNodeCannotForge slotNo reason ->
-      const $
-        "We are the leader for slot "
-          <> showT (unSlotNo slotNo)
-          <> ", but we cannot lead because: "
-          <> showT reason
-    TraceNoLedgerState slotNo _blk ->
-      const $
-        "No ledger state at slot " <> showT (unSlotNo slotNo)
-    TraceNoLedgerView slotNo _ ->
-      const $
-        "No ledger view at slot " <> showT (unSlotNo slotNo)
-    TraceStartLeadershipCheck slotNo ->
-      const $
-        "Testing for leadership at slot " <> showT (unSlotNo slotNo)
-    TraceBlockContext slotNo _blk point ->
-      const $
-        "The block to connect to is at slot "
-          <> showT (unSlotNo slotNo)
-          <> ", with point"
-          <> showT point
-    TraceLedgerState slotNo point ->
-      const $
-        "The ledger state at the block to connect to is at slot "
-          <> showT (unSlotNo slotNo)
-          <> ", with point"
-          <> showT point
-    TraceLedgerView slotNo ->
-      const $
-        "Ledger view for the current slot number "
-          <> showT (unSlotNo slotNo)
-          <> " obtained"
-    TraceForgeStateUpdateError slotNo err ->
-      const $
-        "Updating the forge state at slot "
-          <> showT (unSlotNo slotNo)
-          <> " failed with "
-          <> showT err
-
-instance (Signable (BftDSIGN c) (MorphoStdHeader h c), MorphoStateDefaultConstraints h c) => HasTextFormatter (ChainDB.TraceEvent (MorphoBlock h c)) where
-  formatText = \case
-    ChainDB.TraceAddBlockEvent ev -> case ev of
-      ChainDB.IgnoreBlockOlderThanK pt ->
-        const $
-          "Ignoring block older than K: " <> condenseT pt
-      ChainDB.IgnoreBlockAlreadyInVolatileDB pt -> \_o ->
-        "Ignoring block already in DB: " <> condenseT pt
-      ChainDB.IgnoreInvalidBlock pt _reason -> \_o ->
-        "Ignoring previously seen invalid block: " <> condenseT pt
-      ChainDB.AddedBlockToQueue pt sz -> \_o ->
-        "Block added to queue: " <> condenseT pt <> " queue size " <> condenseT sz
-      ChainDB.BlockInTheFuture pt slot -> \_o ->
-        "Ignoring block from future: " <> condenseT pt <> ", slot " <> condenseT slot
-      ChainDB.StoreButDontChange pt -> \_o ->
-        "Ignoring block: " <> condenseT pt
-      ChainDB.TryAddToCurrentChain pt -> \_o ->
-        "Block fits onto the current chain: " <> condenseT pt
-      ChainDB.TrySwitchToAFork pt _ -> \_o ->
-        "Block fits onto some fork: " <> condenseT pt
-      ChainDB.AddedToCurrentChain _ _ _ c -> \_o ->
-        "Chain extended, new tip: " <> condenseT (AF.headPoint c)
-      ChainDB.SwitchedToAFork _ _ _ c -> \_o ->
-        "Switched to a fork, new tip: " <> condenseT (AF.headPoint c)
-      ChainDB.AddBlockValidation ev' -> case ev' of
-        ChainDB.InvalidBlock err pt -> \_o ->
-          "Invalid block " <> condenseT pt <> ": " <> showT err
-        ChainDB.InvalidCandidate c -> \_o ->
-          "Invalid candidate " <> condenseT (AF.headPoint c)
-        ChainDB.ValidCandidate c -> \_o ->
-          "Valid candidate " <> condenseT (AF.headPoint c)
-        ChainDB.CandidateContainsFutureBlocks c hdrs -> \_o ->
-          "Candidate contains blocks from near future:  "
-            <> condenseT (AF.headPoint c)
-            <> ", slots "
-            <> Text.intercalate ", " (map (condenseT . headerPoint) hdrs)
-        ChainDB.CandidateContainsFutureBlocksExceedingClockSkew c hdrs -> \_o ->
-          "Candidate contains blocks from future exceeding clock skew limit: "
-            <> condenseT (AF.headPoint c)
-            <> ", slots "
-            <> Text.intercalate ", " (map (condenseT . headerPoint) hdrs)
-      ChainDB.AddedBlockToVolatileDB pt _ _ -> \_o ->
-        "Chain added block " <> condenseT pt
-      ChainDB.ChainSelectionForFutureBlock pt -> \_o ->
-        "Chain selection run for block previously from future: " <> condenseT pt
-    ChainDB.TraceLedgerReplayEvent ev -> case ev of
-      LedgerDB.ReplayFromGenesis _replayTo ->
-        const
-          "Replaying ledger from genesis"
-      LedgerDB.ReplayFromSnapshot snap tip' _replayTo -> \_o ->
-        "Replaying ledger from snapshot " <> showT snap <> " at "
-          <> condenseT tip'
-      LedgerDB.ReplayedBlock pt _ replayTo -> \_o ->
-        "Replayed block: slot " <> showT (realPointSlot pt) <> " of " <> showT (pointSlot replayTo)
-    ChainDB.TraceLedgerEvent ev -> case ev of
-      LedgerDB.TookSnapshot snap pt -> \_o ->
-        "Took ledger snapshot " <> showT snap <> " at " <> condenseT pt
-      LedgerDB.DeletedSnapshot snap -> \_o ->
-        "Deleted old snapshot " <> showT snap
-      LedgerDB.InvalidSnapshot snap failure -> \_o ->
-        "Invalid snapshot " <> showT snap <> showT failure
-    ChainDB.TraceCopyToImmutableDBEvent ev -> case ev of
-      ChainDB.CopiedBlockToImmutableDB pt -> \_o ->
-        "Copied block " <> condenseT pt <> " to the ImmutableDB"
-      ChainDB.NoBlocksToCopyToImmutableDB ->
-        const
-          "There are no blocks to copy to the ImmutableDB"
-    ChainDB.TraceGCEvent ev -> case ev of
-      ChainDB.PerformedGC slot -> \_o ->
-        "Performed a garbage collection for " <> condenseT slot
-      ChainDB.ScheduledGC slot _difft -> \_o ->
-        "Scheduled a garbage collection for " <> condenseT slot
-    ChainDB.TraceOpenEvent ev -> case ev of
-      ChainDB.OpenedDB immTip tip' -> \_o ->
-        "Opened db with immutable tip at " <> condenseT immTip
-          <> " and tip "
-          <> condenseT tip'
-      ChainDB.ClosedDB immTip tip' -> \_o ->
-        "Closed db with immutable tip at " <> condenseT immTip
-          <> " and tip "
-          <> condenseT tip'
-      ChainDB.OpenedImmutableDB immTip epoch -> \_o ->
-        "Opened imm db with immutable tip at " <> condenseT immTip
-          <> " and epoch "
-          <> showT epoch
-      ChainDB.OpenedVolatileDB -> const "Opened vol db"
-      ChainDB.OpenedLgrDB -> const "Opened lgr db"
-    ChainDB.TraceFollowerEvent ev -> case ev of
-      ChainDB.NewFollower -> const "New follower was created"
-      ChainDB.FollowerNoLongerInMem _ -> const "FollowerNoLongerInMem"
-      ChainDB.FollowerSwitchToMem _ _ -> const "FollowerSwitchToMem"
-      ChainDB.FollowerNewImmIterator _ _ -> const "FollowerNewImmIterator"
-    ChainDB.TraceInitChainSelEvent ev -> case ev of
-      ChainDB.InitChainSelValidation _ -> const "InitChainSelValidation"
-    ChainDB.TraceIteratorEvent ev -> case ev of
-      ChainDB.UnknownRangeRequested _ -> const "UnknownRangeRequested"
-      ChainDB.BlockMissingFromVolatileDB _ -> const "BlockMissingFromVolDB"
-      ChainDB.StreamFromImmutableDB _ _ -> const "StreamFromImmDB"
-      ChainDB.StreamFromBoth {} -> const "StreamFromBoth"
-      ChainDB.StreamFromVolatileDB {} -> const "StreamFromVolDB"
-      ChainDB.BlockWasCopiedToImmutableDB _ -> const "BlockWasCopiedToImmDB"
-      ChainDB.BlockGCedFromVolatileDB _ -> const "BlockGCedFromVolDB"
-      ChainDB.SwitchBackToVolatileDB -> const "SwitchBackToVolDB"
-    ChainDB.TraceImmutableDBEvent ev -> \_o -> Text.append "TraceImmDBEvent" (showT ev)
-    ChainDB.TraceVolatileDBEvent ev -> \_o -> Text.append "TraceVolDBEvent " (showT ev)
-
-instance-- (Show (GenTxId blk), Show (ApplyTxErr blk), Show (GenTx blk)) =>
-  HasTextFormatter (TraceEventMempool blk)
-
-instance HasTextFormatter () where
-  formatText _ = pack . show . toList
-
--- | Tracing wrapper which includes current tip in the logs (thus it requires
--- it from the context).
-showTip ::
-  Condense (HeaderHash blk) =>
-  TracingVerbosity ->
-  Tip blk ->
-  String
-showTip verb = showPoint verb . getTipPoint
-
-showPoint ::
-  Condense (HeaderHash blk) =>
-  TracingVerbosity ->
-  Point blk ->
-  String
-showPoint verb pt =
-  case pt of
-    GenesisPoint -> "genesis (origin)"
-    BlockPoint slot h -> trim (condense h) ++ "@" ++ condense slot
-  where
-    trim :: [a] -> [a]
-    trim = case verb of
-      MinimalVerbosity -> take 7
-      NormalVerbosity -> take 7
-      MaximalVerbosity -> id
 
 instance HasPrivacyAnnotation NtC.HandshakeTr
 
@@ -766,52 +487,3 @@ instance HasSeverityAnnotation (WithMuxBearer peer MuxTrace) where
     MuxTraceStartedOnDemand _ _ -> Debug
     MuxTraceShutdown -> Debug
     MuxTraceTerminating _ _ -> Debug
-
-instance HasTextFormatter NtN.HandshakeTr where
-  formatText a _ = showT a
-
-instance HasTextFormatter NtC.HandshakeTr where
-  formatText a _ = showT a
-
-instance HasTextFormatter NtN.AcceptConnectionsPolicyTrace where
-  formatText a _ = showT a
-
-instance HasTextFormatter DiffusionInitializationTracer
-
-instance HasTextFormatter TraceLedgerPeers
-
-instance HasTextFormatter [TraceLabelPeer peer (FetchDecision [Point header])] where
-  formatText _ = pack . show . toList
-
-instance HasTextFormatter (TraceLabelPeer peer a) where
-  formatText _ = pack . show . toList
-
-instance HasTextFormatter (TraceTxSubmissionInbound txid tx) where
-  formatText _ = pack . show . toList
-
-instance
-  (Show tx, Show txid) =>
-  HasTextFormatter (TraceTxSubmissionOutbound txid tx)
-  where
-  formatText a _ = showT a
-
-instance HasTextFormatter (WithAddr addr ErrorPolicyTrace) where
-  formatText _ = pack . show . toList
-
-instance HasTextFormatter (WithDomainName (SubscriptionTrace Socket.SockAddr)) where
-  formatText _ = pack . show . toList
-
-instance HasTextFormatter (WithDomainName DnsTrace) where
-  formatText _ = pack . show . toList
-
-instance HasTextFormatter (WithIPList (SubscriptionTrace Socket.SockAddr)) where
-  formatText _ = pack . show . toList
-
-instance
-  (Show peer) =>
-  HasTextFormatter (WithMuxBearer peer MuxTrace)
-  where
-  formatText (WithMuxBearer peer ev) = \_o ->
-    "Bearer on " <> pack (show peer)
-      <> " event: "
-      <> pack (show ev)

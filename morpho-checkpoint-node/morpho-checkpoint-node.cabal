@@ -38,6 +38,7 @@ library
         Morpho.RPC.Abstract
         Morpho.RPC.JsonRpc
         Morpho.RPC.JsonRpcProtocol
+        Morpho.Tracing.Pretty
         Morpho.Tracing.OrphanToJSONInstances
         Morpho.Tracing.TracingOrphanInstances
         Morpho.Tracing.Types
@@ -100,7 +101,8 @@ library
         yaml,
         wai,
         http-types,
-        warp
+        warp,
+        prettyprinter
 
 executable morpho-checkpoint-node
     main-is:            morpho-checkpoint-node.hs

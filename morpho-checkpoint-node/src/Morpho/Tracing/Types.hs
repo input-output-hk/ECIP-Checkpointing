@@ -14,7 +14,10 @@ import Morpho.Config.Topology
 import Morpho.Ledger.Block
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
+import Morpho.Tracing.Pretty (MPretty (..))
 import Ouroboros.Consensus.NodeId
+import Ouroboros.Consensus.Protocol.BFT (BftCrypto)
+import Prettyprinter (viaShow, (<+>))
 
 data MorphoInitTrace
   = ProducerList CoreNodeId [RemoteAddress]
@@ -29,10 +32,10 @@ instance HasSeverityAnnotation MorphoInitTrace where
 
 instance HasPrivacyAnnotation MorphoInitTrace
 
-instance HasTextFormatter MorphoInitTrace where
-  formatText (ProducerList nid prods) _ = "I am node id " <> show nid <> ". My producers are " <> show prods
-  formatText PerformingDBValidation _ = "Performing DB validation"
-  formatText (PrometheusException err) _ = "Prometheus exception: " <> show err
+instance MPretty MorphoInitTrace where
+  mpretty (ProducerList nid prods) = "I am node id" <+> viaShow nid <> ". My producers are" <+> viaShow prods
+  mpretty PerformingDBValidation = "Performing DB validation"
+  mpretty (PrometheusException err) = "Prometheus exception:" <+> viaShow err
 
 -- | Traces created while we extract or receive parts of the ledger state
 data ExtractStateTrace h c
@@ -40,3 +43,10 @@ data ExtractStateTrace h c
   | VoteErrorTrace VoteError
   | WontPushCheckpointTrace (WontPushCheckpoint (MorphoBlock h c))
   deriving (Eq, Show, Generic)
+
+instance (HashAlgorithm h, BftCrypto c) => MPretty (ExtractStateTrace h c) where
+  mpretty (MorphoStateTrace st) = "Current Ledger State:" <+> viaShow st
+  mpretty (WontPushCheckpointTrace reason) =
+    "Checkpoint won't be pushed:" <+> viaShow reason
+  mpretty (VoteErrorTrace err) =
+    "Error while trying to create a vote:" <+> viaShow err

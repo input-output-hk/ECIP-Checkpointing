@@ -7,8 +7,6 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Morpho.RPC.Abstract where
@@ -18,6 +16,8 @@ import Cardano.Prelude
 import Data.Aeson
 import qualified Data.Text as Text
 import Morpho.Ledger.PowTypes (Checkpoint, PowBlockRef)
+import Morpho.Tracing.Pretty (MPretty (..))
+import Prettyprinter (viaShow)
 import Prelude (show)
 
 -- | Abstract definition of RPC methods supported
@@ -64,6 +64,9 @@ instance ToJSON ev => ToJSON (RpcTrace ev i o) where
         "request" .= request,
         "event" .= event
       ]
+
+instance Show e => MPretty (RpcTrace e i o) where
+  mpretty = viaShow
 
 -- | An upstream where the RPC calls can be issued to
 -- An implementation of this is in Morpho.RPC.JsonRpc

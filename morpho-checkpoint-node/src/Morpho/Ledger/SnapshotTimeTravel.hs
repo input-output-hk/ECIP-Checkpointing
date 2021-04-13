@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -11,6 +12,7 @@ module Morpho.Ledger.SnapshotTimeTravel
 where
 
 import Cardano.Prelude hiding (Handle, ReadMode, atomically, to, withFile)
+import Morpho.Tracing.Pretty (MPretty (..))
 import Ouroboros.Consensus.Ledger.Basics
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Ledger.SupportsProtocol
@@ -18,11 +20,15 @@ import Ouroboros.Consensus.Storage.ChainDB.API
 import Ouroboros.Consensus.Util.IOLike
 import qualified Ouroboros.Network.AnchoredFragment as AF
 import Ouroboros.Network.Block hiding (Tip)
+import Prettyprinter (viaShow)
 
 data TimeTravelError blk
   = LedgerStateNotFoundAt (Point blk)
   | ChainNotLongEnough Int Int
   deriving (Show, Generic)
+
+instance (StandardHash blk) => MPretty (TimeTravelError blk) where
+  mpretty = viaShow
 
 getLatestStableLedgerState ::
   forall m blk.

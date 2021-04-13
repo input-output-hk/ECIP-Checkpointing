@@ -17,7 +17,6 @@ module Morpho.Tracing.Tracers
 where
 
 import Cardano.BM.Data.LogItem
-import Cardano.BM.Data.Tracer (HasTextFormatter (formatText))
 import Cardano.BM.Trace
 import Cardano.BM.Tracing
 import Cardano.Crypto.DSIGN.Class
@@ -25,13 +24,13 @@ import Cardano.Prelude hiding (show)
 import Codec.CBOR.Read (DeserialiseFailure)
 import Data.Aeson
 import qualified Data.HashMap.Strict as HM
-import GHC.Exts (fromList)
 import Morpho.Config.Types
 import Morpho.Ledger.Block
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.Update
 import Morpho.Node.RunNode ()
 import Morpho.RPC.Abstract
+import Morpho.Tracing.Pretty (MPretty (..))
 import Morpho.Tracing.TracingOrphanInstances ()
 import Morpho.Tracing.Types
 import Morpho.Tracing.Verbosity
@@ -49,6 +48,8 @@ import Ouroboros.Network.NodeToNode
 import qualified Ouroboros.Network.NodeToNode as NtN
 import Ouroboros.Network.PeerSelection.LedgerPeers
 import Ouroboros.Network.Snocket (LocalAddress)
+import Prettyprinter (layoutCompact)
+import Prettyprinter.Render.Text (renderStrict)
 
 data Tracers peer localPeer h c = Tracers
   { -- | Used for top-level morpho traces during initialization
@@ -89,7 +90,7 @@ separate (Tracer action) = Tracer (traverse_ action)
 
 toGenericObject ::
   ( MonadIO m,
-    HasTextFormatter b,
+    MPretty b,
     HasSeverityAnnotation b,
     HasPrivacyAnnotation b,
     MinLogRecursion b,
@@ -101,10 +102,7 @@ toGenericObject ::
 toGenericObject nc tr = Tracer $ \arg ->
   let logRec = ncVerbosity nc + minLogRecursion arg
       value = snd $ limitRecursion logRec (toJSON arg)
-      obj = case value of
-        Object o -> o
-        _ -> fromList ["value" .= value]
-      text = formatText arg obj
+      text = renderStrict $ layoutCompact $ mpretty arg
       -- Insert the formatted text into the structured value, so that we can
       -- easily get a nice-looking value for display
       finalObj =
@@ -246,6 +244,7 @@ mkTracers nc tracer = do
 
 nodeToNodeTracers' ::
   ( ToJSON peer,
+    Show peer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c
   ) =>
