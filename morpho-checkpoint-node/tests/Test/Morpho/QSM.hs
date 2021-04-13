@@ -366,11 +366,12 @@ runDualNode createDir testId nodeId = do
   nodeConfig <- getConfiguration cliConfig configFile
 
   node <- async $
-    withEnv nodeConfig $ \env -> do
-      run
-        env
-          { eRpcUpstream = rpcUpstream
-          }
+    withEnv nodeConfig $ \(ValidatedEnv env) -> do
+      run $
+        ValidatedEnv $
+          env
+            { eRpcUpstream = rpcUpstream
+            }
 
   link node
   return $ NodeHandle nodeId mockNode node

@@ -17,14 +17,12 @@ import Morpho.Ledger.Update
 import Ouroboros.Consensus.NodeId
 
 data MorphoInitTrace
-  = NotFoundInTopology CoreNodeId
-  | ProducerList CoreNodeId [RemoteAddress]
+  = ProducerList CoreNodeId [RemoteAddress]
   | PerformingDBValidation
   | PrometheusException IOException
   deriving (Eq, Show, Generic)
 
 instance HasSeverityAnnotation MorphoInitTrace where
-  getSeverityAnnotation NotFoundInTopology {} = Error
   getSeverityAnnotation ProducerList {} = Info
   getSeverityAnnotation PerformingDBValidation {} = Info
   getSeverityAnnotation PrometheusException {} = Error
@@ -32,7 +30,6 @@ instance HasSeverityAnnotation MorphoInitTrace where
 instance HasPrivacyAnnotation MorphoInitTrace
 
 instance HasTextFormatter MorphoInitTrace where
-  formatText (NotFoundInTopology nid) _ = "Own node id " <> show nid <> " not found in topology"
   formatText (ProducerList nid prods) _ = "I am node id " <> show nid <> ". My producers are " <> show prods
   formatText PerformingDBValidation _ = "Performing DB validation"
   formatText (PrometheusException err) _ = "Prometheus exception: " <> show err

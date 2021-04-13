@@ -86,13 +86,20 @@ loggingConfigFields =
 -- and throws errors
 getConfiguration :: NodeConfigurationFunctor (Either CliUnavailable) -> FilePath -> IO NodeConfiguration
 getConfiguration cliConfig file = do
-  value <- decodeFileThrow file
-  case determineConfiguration cliConfig value of
-    Failure fails -> do
-      putStrLn $ "Configuration values were either not passed via the CLI or missing from the configuration file " <> file <> ":"
-      forM_ fails $ putStrLn . prettyConfigUnavailable
+  mvalue <- decodeFileEither file
+  case mvalue of
+    Left parseErr -> do
+      hPutStrLn stderr $
+        "Error while parsing configuration file " <> file
+          <> ": \n"
+          <> prettyPrintParseException parseErr
       exitFailure
-    Success v -> return v
+    Right value -> case determineConfiguration cliConfig value of
+      Failure fails -> do
+        hPutStrLn stderr $ "Configuration values were either not passed via the CLI or missing from the configuration file " <> file <> ":"
+        forM_ fails $ hPutStrLn stderr . prettyConfigUnavailable
+        exitFailure
+      Success v -> return v
 
 -- | Determines the final configuration by combining the value from the CLI,
 -- the JSON object from the config file, and the defaults for each field.

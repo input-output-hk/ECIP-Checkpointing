@@ -1,13 +1,16 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Morpho.Node.Env where
 
 import Cardano.BM.Data.Transformers
 import Cardano.Crypto.DSIGN
 import Cardano.Prelude
 import Cardano.Shell.Lib
-import Control.Monad.Fail
-import Control.Tracer
 import qualified Data.List as List
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
+import qualified Data.Text as Text
+import Data.Validation
 import Morpho.Config.Logging
 import Morpho.Config.Topology
 import Morpho.Config.Types
@@ -17,7 +20,6 @@ import Morpho.Ledger.Update
 import Morpho.RPC.Abstract
 import Morpho.RPC.JsonRpc
 import Morpho.Tracing.Tracers
-import Morpho.Tracing.Types
 import Network.HostName
 import Ouroboros.Consensus.BlockchainTime
 import Ouroboros.Consensus.Config
@@ -37,49 +39,57 @@ withEnv ::
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
   NodeConfiguration ->
-  (Env JsonRpcEvent h c -> IO ()) ->
+  (ValidatedEnv JsonRpcEvent h c -> IO ()) ->
   IO ()
-withEnv nc action = do
+withEnv nc action = withTracing nc $ \tracers -> do
   privKey <- initPrivateKey nc
 
-  withTracing nc $ \tracers -> do
-    prods <- initProducers tracers nc
+  prods <- initProducers nc
 
-    databaseDir <- initDatabaseDir nc
+  rpcUpstream <- initRpcUpstream nc
 
-    rpcUpstream <- initRpcUpstream nc
+  databaseDir <- initDatabaseDir nc
 
-    action
-      Env
-        { eNodeId = ncNodeId nc,
-          eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
-          eCheckpointingInterval = ncCheckpointInterval nc,
-          eRequiredMajority = ncRequiredMajority nc,
-          eFedPubKeys = ncFedPubKeys nc,
-          eTimeslotLength = ncTimeslotLength nc,
-          eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
-          eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
-          eSystemStart = ncSystemStart nc,
-          ePrivateKey = privKey,
-          eTracers = tracers,
-          ePrometheusPort = ncPrometheusPort nc,
-          eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
-          eSnapshotInterval = ncSnapshotInterval nc,
-          ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
-          eRpcUpstream = rpcUpstream,
-          eStableLedgerDepth = ncStableLedgerDepth nc,
-          eProducers = prods,
-          eDatabaseDir = databaseDir,
-          eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
-          eValidateDb = ncValidateDb nc
-        }
+  let env =
+        Env
+          { eNodeId = ncNodeId nc,
+            eNumCoreNodes = NumCoreNodes $ ncNumCoreNodes nc,
+            eCheckpointingInterval = ncCheckpointInterval nc,
+            eRequiredMajority = NumCoreNodes $ ncRequiredMajority nc,
+            eFedPubKeys = ncFedPubKeys nc,
+            eTimeslotLength = ncTimeslotLength nc,
+            eNetworkMagic = NetworkMagic $ ncNetworkMagic nc,
+            eSecurityParameter = SecurityParam $ ncSecurityParameter nc,
+            eSystemStart = ncSystemStart nc,
+            ePrivateKey = privKey,
+            eTracers = tracers,
+            ePrometheusPort = ncPrometheusPort nc,
+            eSnapshotsOnDisk = fromIntegral $ ncSnapshotsOnDisk nc,
+            eSnapshotInterval = ncSnapshotInterval nc,
+            ePoWBlockFetchInterval = ncPoWBlockFetchInterval nc,
+            eRpcUpstream = rpcUpstream,
+            eStableLedgerDepth = ncStableLedgerDepth nc,
+            eProducers = prods,
+            eDatabaseDir = databaseDir,
+            eNodeAddress = NodeAddress (ncNodeHost nc) (ncNodePort nc),
+            eValidateDb = ncValidateDb nc
+          }
+
+  case validateEnv env of
+    Failure errs -> do
+      hPutStrLn stderr ("Configuration validation errors:" :: Text)
+      forM_ errs $ \err -> hPutStrLn stderr ("- " <> err)
+      exitFailure
+    Success validEnv -> action validEnv
 
 -- Read and import private key
 initPrivateKey :: NodeConfiguration -> IO PrivateKey
 initPrivateKey nc = do
   mprivKey <- liftIO . readPrivateKey $ ncNodePrivKeyFile nc
   case mprivKey of
-    Left err -> fail $ "Failed to import private key from " <> show (ncNodePrivKeyFile nc) <> ": " <> show err
+    Left err -> do
+      hPutStrLn stderr $ "Failed to import private key from " <> Text.pack (show (ncNodePrivKeyFile nc)) <> ": " <> show err
+      exitFailure
     Right pk -> return pk
 
 -- Set up tracers from logging config
@@ -99,19 +109,17 @@ withTracing nc action = do
     CardanoApplication $ action tracers
 
 -- Read and import topology file
-initProducers :: Tracers RemoteConnectionId LocalConnectionId h c -> NodeConfiguration -> IO [RemoteAddress]
-initProducers tracers nc = do
+initProducers :: NodeConfiguration -> IO [RemoteAddress]
+initProducers nc = do
   let file = unTopology $ ncTopologyFile nc
       nid = ncNodeId nc
   Right (NetworkTopology topology) <- readTopologyFile file
 
   case List.lookup nid $
     map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) topology of
-    Just ps -> do
-      traceWith (morphoInitTracer tracers) $ ProducerList nid ps
-      return ps
+    Just ps -> return ps
     Nothing -> do
-      traceWith (morphoInitTracer tracers) $ NotFoundInTopology nid
+      hPutStrLn stderr $ "Node " <> Text.pack (show nid) <> " not found in topology file " <> Text.pack (show file)
       exitFailure
 
 -- Make database path absolute
@@ -122,7 +130,9 @@ initRpcUpstream :: NodeConfiguration -> IO (RpcUpstream JsonRpcEvent IO)
 initRpcUpstream nc = do
   mrpcUpstream <- runExceptT $ jsonRpcUpstream (ncPoWNodeRpcUrl nc)
   case mrpcUpstream of
-    Left err -> fail $ show err
+    Left err -> do
+      hPutStrLn stderr $ "Failed to initialize JSON RPC: " <> Text.pack (show err)
+      exitFailure
     Right result -> return result
 
 -- | The application environment, a read-only structure that configures how
@@ -133,7 +143,7 @@ data Env rpce h c = Env
   { eNodeId :: CoreNodeId,
     eNumCoreNodes :: NumCoreNodes,
     eCheckpointingInterval :: Int,
-    eRequiredMajority :: Int,
+    eRequiredMajority :: NumCoreNodes,
     eFedPubKeys :: [PublicKey],
     eTimeslotLength :: SlotLength,
     eNetworkMagic :: NetworkMagic,
@@ -152,3 +162,94 @@ data Env rpce h c = Env
     eNodeAddress :: NodeAddress,
     eValidateDb :: Bool
   }
+
+-- Validation
+
+newtype ValidatedEnv rpce h c = ValidatedEnv (Env rpce h c)
+
+-- | Validates some parameters of Env
+validateEnv :: Env rpce h c -> Validation (NE.NonEmpty Text) (ValidatedEnv rpce h c)
+validateEnv env@Env {..} =
+  ValidatedEnv env
+    <$ validationNel validateNodeId
+    <* validationNel validateRequiredMajority
+    <* validationNel validatePubkeyCount
+    <* validationNel validateSecurityParam
+    <* validationNel validateProducerCount
+    <* validationNel validatePrivateKey
+  where
+    (NumCoreNodes n) = eNumCoreNodes
+    (NumCoreNodes maj) = eRequiredMajority
+
+    validateNodeId :: Either Text ()
+    validateNodeId
+      | eNodeId `elem` coreNodes = Right ()
+      | otherwise =
+        Left $
+          "NodeId " <> show (unCoreNodeId eNodeId)
+            <> " is not part of the core nodes "
+            <> show (unCoreNodeId <$> coreNodes)
+            <> " derived from NumCoreNodes being "
+            <> show n
+      where
+        coreNodes = enumCoreNodes eNumCoreNodes
+
+    validateRequiredMajority :: Either Text ()
+    validateRequiredMajority
+      | eRequiredMajority <= eNumCoreNodes = Right ()
+      | otherwise =
+        Left $
+          "RequiredMajority ("
+            <> show maj
+            <> ") can't be larger than NumCoreNodes ("
+            <> show n
+            <> ")"
+
+    validatePubkeyCount :: Either Text ()
+    validatePubkeyCount
+      | pubkeyCount == n = Right ()
+      | otherwise =
+        Left $
+          "The number of public keys in FedPubKeys ("
+            <> show pubkeyCount
+            <> ") doesn't match NumCoreNodes ("
+            <> show n
+            <> ")"
+      where
+        pubkeyCount = genericLength eFedPubKeys
+
+    validateSecurityParam :: Either Text ()
+    validateSecurityParam
+      | maxRollbacks eSecurityParameter > fromIntegral eStableLedgerDepth = Right ()
+      | otherwise =
+        Left $
+          "SecurityParam ("
+            <> show (maxRollbacks eSecurityParameter)
+            <> ") should be bigger than StableLedgerDepth ("
+            <> show eStableLedgerDepth
+            <> "), ideally a lot bigger in fact"
+
+    validateProducerCount :: Either Text ()
+    validateProducerCount
+      | producerCount >= n - 1 = Right ()
+      | otherwise =
+        Left $
+          "The number of producers ("
+            <> show producerCount
+            <> "), as declared in the topology file for this node, "
+            <> "should be at least one less than NumCoreNodes ("
+            <> show n
+            <> "), meaning that we have a connection to all other nodes, minus ourselves"
+      where
+        producerCount = genericLength eProducers
+
+    validatePrivateKey :: Either Text ()
+    validatePrivateKey
+      | derivedPubKey `elem` eFedPubKeys = Right ()
+      | otherwise =
+        Left $
+          "Public key "
+            <> pubToHex derivedPubKey
+            <> " derived from private key is not included in FedPubKeys"
+      where
+        derivedPubKey = derivePubKey ePrivateKey

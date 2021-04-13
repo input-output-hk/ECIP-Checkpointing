@@ -66,7 +66,7 @@ data NodeConfiguration_ w f = NodeConfiguration
     ncPrometheusPort :: Wear w f Int,
     -- FIXME: separate data type: CheckpointingConfiguration
     ncCheckpointInterval :: Wear w f Int,
-    ncRequiredMajority :: Wear w f Int,
+    ncRequiredMajority :: Wear w f Word64,
     ncFedPubKeys :: Wear w f [PublicKey],
     ncNodePrivKeyFile :: Wear w f FilePath,
     ncTopologyFile :: Wear w f TopologyFile,
