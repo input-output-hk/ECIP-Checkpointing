@@ -44,9 +44,9 @@ data ExtractStateTrace h c
   | WontPushCheckpointTrace (WontPushCheckpoint (MorphoBlock h c))
   deriving (Eq, Show, Generic)
 
-instance (HashAlgorithm h, BftCrypto c) => MPretty (ExtractStateTrace h c) where
-  mpretty (MorphoStateTrace st) = "Current Ledger State:" <+> viaShow st
+instance (BftCrypto c) => MPretty (ExtractStateTrace h c) where
+  mpretty (MorphoStateTrace st) = "Current Ledger State:" <+> mpretty st
   mpretty (WontPushCheckpointTrace reason) =
-    "Checkpoint won't be pushed:" <+> viaShow reason
+    "Checkpoint won't be pushed:" <+> mpretty reason
   mpretty (VoteErrorTrace err) =
-    "Error while trying to create a vote:" <+> viaShow err
+    "Error while trying to create a vote:" <+> mpretty err

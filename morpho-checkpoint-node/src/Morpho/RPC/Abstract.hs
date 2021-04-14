@@ -17,7 +17,7 @@ import Data.Aeson
 import qualified Data.Text as Text
 import Morpho.Ledger.PowTypes (Checkpoint, PowBlockRef)
 import Morpho.Tracing.Pretty (MPretty (..))
-import Prettyprinter (viaShow)
+import Prettyprinter (Pretty (pretty), viaShow, (<+>))
 import Prelude (show)
 
 -- | Abstract definition of RPC methods supported
@@ -28,7 +28,6 @@ data RpcMethod i o where
   -- | Push a checkpoint to the Pow chain
   PushCheckpoint :: RpcMethod Checkpoint Bool
 
---deriving instance Show (RpcMethod i o)
 instance Show (RpcMethod i o) where
   show GetLatestBlock = "GetLatestBlock"
   show PushCheckpoint = "PushCheckpoint"
@@ -44,10 +43,6 @@ data RpcEvent ev o
 
 data RpcTrace ev i o
   = RpcTrace (RpcMethod i o) i (RpcEvent ev o)
-
-instance Show ev => Show (RpcTrace ev i o) where
-  show (RpcTrace method@GetLatestBlock request event) = "RpcTrace " <> Prelude.show method <> " " <> Prelude.show request <> " " <> Prelude.show event
-  show (RpcTrace method@PushCheckpoint request event) = "RpcTrace " <> Prelude.show method <> " " <> Prelude.show request <> " " <> Prelude.show event
 
 instance ToJSON ev => ToJSON (RpcTrace ev i o) where
   toJSON (RpcTrace method@GetLatestBlock request event) =
@@ -66,13 +61,63 @@ instance ToJSON ev => ToJSON (RpcTrace ev i o) where
       ]
 
 instance Show e => MPretty (RpcTrace e i o) where
-  mpretty = viaShow
+  mpretty (RpcTrace GetLatestBlock (ckptInterval, powBlock) RpcStart) =
+    "Starting RPC call GetLatestBlock(interval:"
+      <+> pretty ckptInterval
+      <> ", parent:"
+      <+> mpretty powBlock
+      <> ")"
+  mpretty (RpcTrace GetLatestBlock (ckptInterval, powBlock) (RpcEvent ev)) =
+    "Event for RPC call GetLatestBlock(interval:"
+      <+> pretty ckptInterval
+      <> ", parent:"
+      <+> mpretty powBlock
+      <> ")"
+      <+> "returned:"
+      <+> viaShow ev
+  mpretty (RpcTrace GetLatestBlock (ckptInterval, powBlock) (RpcSuccess o)) =
+    "Successful RPC call GetLatestBlock(interval:"
+      <+> pretty ckptInterval
+      <> ", parent:"
+      <+> mpretty powBlock
+      <> ")"
+      <+> "returned:"
+      <+> mpretty o
+  mpretty (RpcTrace PushCheckpoint checkpoint RpcStart) =
+    "Starting RPC call PushCheckpoint(" <+> mpretty checkpoint <> ")"
+  mpretty (RpcTrace PushCheckpoint checkpoint (RpcEvent ev)) =
+    "Event for RPC call PushCheckpoint("
+      <+> mpretty checkpoint
+      <> ")"
+      <+> "returned:"
+      <+> viaShow ev
+  mpretty (RpcTrace PushCheckpoint checkpoint (RpcSuccess o)) =
+    "Successful RPC call PushCheckpoint("
+      <+> mpretty checkpoint
+      <> ")"
+      <+> "returned:"
+      <+> mpretty o
 
 -- | An upstream where the RPC calls can be issued to
 -- An implementation of this is in Morpho.RPC.JsonRpc
-newtype RpcUpstream ev m = RpcUpstream (forall i o. Tracer m ev -> RpcMethod i o -> i -> (o -> m ()) -> m ())
+newtype RpcUpstream ev m
+  = RpcUpstream
+      ( forall i o.
+        Tracer m ev ->
+        RpcMethod i o ->
+        i ->
+        (o -> m ()) ->
+        m ()
+      )
 
-rpcCall :: Monad m => Tracer m (RpcTrace ev i o) -> RpcUpstream ev m -> RpcMethod i o -> i -> (o -> m ()) -> m ()
+rpcCall ::
+  Monad m =>
+  Tracer m (RpcTrace ev i o) ->
+  RpcUpstream ev m ->
+  RpcMethod i o ->
+  i ->
+  (o -> m ()) ->
+  m ()
 rpcCall tracer (RpcUpstream rpcUpstream) method request cont = do
   traceWith tracer' RpcStart
   rpcUpstream (contramap RpcEvent tracer') method request $ \result -> do

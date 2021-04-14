@@ -293,7 +293,7 @@ publishStableCheckpoint env nodeTracers metrics chainDB ledgerState = do
               when result $ updatePushedCheckpointMetrics stableLedgerState
   where
     checkpointToPush st
-      | morphoTip st == genesisPoint = Left WontPushCheckpointIsGenesisBlock
+      | morphoTip st == genesisPoint = Left WontPushCheckpointNoGeneratedCheckpoint
       | morphoTip st /= checkpointAt st =
         Left $ WontPushCheckpointNotMorphoTip (checkpointAt st) (morphoTip st)
       | otherwise = Right $ lastCheckpoint st

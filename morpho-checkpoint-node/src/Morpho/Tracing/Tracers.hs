@@ -117,7 +117,7 @@ toGenericObject nc tr = Tracer $ \arg ->
 -- Condense implementations.
 mkTracers ::
   forall peer blk h c.
-  ( Show peer,
+  ( MPretty peer,
     ToJSON peer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c,
@@ -239,7 +239,7 @@ mkTracers nc tracer = do
 
 nodeToNodeTracers' ::
   ( ToJSON peer,
-    Show peer,
+    MPretty peer,
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c
   ) =>
