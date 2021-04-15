@@ -46,7 +46,6 @@ module Morpho.Ledger.Block
   )
 where
 
-import Cardano.Binary (ToCBOR (..), toStrictByteString)
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.DSIGN.Ed25519
 import Cardano.Crypto.DSIGN.Mock (MockDSIGN)
@@ -55,6 +54,7 @@ import Cardano.Crypto.Util
 import Cardano.Prelude
 import qualified Codec.CBOR.Decoding as CBOR
 import qualified Codec.CBOR.Encoding as CBOR
+import Codec.CBOR.Write
 import Codec.Serialise (Serialise (..), serialise)
 import qualified Data.ByteString.Lazy as Lazy
 import qualified Data.Map as Map
@@ -143,12 +143,6 @@ newtype MorphoBody = MorphoBody
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
-instance ToCBOR MorphoBody where
-  toCBOR = encode
-
-instance (Typeable h, Typeable c) => ToCBOR (MorphoStdHeader h c) where
-  toCBOR = encode
-
 instance SignableRepresentation (MorphoStdHeader h c) where
   getSignableRepresentation = toStrictByteString . encode
 
@@ -204,7 +198,7 @@ matchesMorphoHeader ::
   MorphoBlock h c ->
   Bool
 matchesMorphoHeader MorphoHeader {..} MorphoBlock {..} =
-  morphoBodyHash == hashWithSerialiser toCBOR morphoBody
+  morphoBodyHash == hashWithSerialiser encode morphoBody
   where
     MorphoStdHeader {..} = morphoHeaderStd
 

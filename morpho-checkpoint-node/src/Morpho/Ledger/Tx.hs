@@ -14,7 +14,6 @@ module Morpho.Ledger.Tx
   )
 where
 
-import Cardano.Binary (ToCBOR (..))
 import Cardano.Crypto.Hash
 import Cardano.Prelude
 import Codec.Serialise (Serialise (..))
@@ -39,9 +38,6 @@ data InvalidTx = InvalidTx Prelude.String
   deriving stock (Show, Eq, Generic)
   deriving anyclass (Serialise)
   deriving (NoThunks)
-
-instance ToCBOR Tx where
-  toCBOR = encode
 
 instance Condense Tx where
   condense (Tx vote) = show vote

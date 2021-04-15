@@ -10,10 +10,10 @@ module Test.Morpho.Ledger.State
   )
 where
 
-import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
 import Cardano.Prelude hiding ((.))
+import Codec.Serialise
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
@@ -337,7 +337,7 @@ makeVotes ref signers = makeVote ref <$> signers
 
 makePoint :: Int -> Point TestBlock
 makePoint slotNo =
-  Point $ block (SlotNo $ fromIntegral slotNo) (castHash $ hashWithSerialiser toCBOR slotNo)
+  Point $ block (SlotNo $ fromIntegral slotNo) (castHash $ hashWithSerialiser encode slotNo)
 
 makeBlock :: Point TestBlock -> [Vote] -> TestBlock
 makeBlock point votes =
