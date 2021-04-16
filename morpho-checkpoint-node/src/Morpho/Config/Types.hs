@@ -28,7 +28,6 @@ where
 import Barbies
 import Barbies.Bare
 import Cardano.BM.Data.Configuration
-import Cardano.BM.Data.Tracer (TracingVerbosity (..))
 import Cardano.Prelude
 import Data.Aeson
 import Data.Functor.Compose
@@ -193,22 +192,6 @@ configFieldDefault =
 
 instance FromJSON SystemStart where
   parseJSON v = SystemStart <$> parseJSON v
-
-instance FromJSON TracingVerbosity where
-  parseJSON (String str) = case str of
-    "MinimalVerbosity" -> pure MinimalVerbosity
-    "MaximalVerbosity" -> pure MaximalVerbosity
-    "NormalVerbosity" -> pure NormalVerbosity
-    err ->
-      panic $
-        "Parsing of TracingVerbosity failed, "
-          <> err
-          <> " is not a valid TracingVerbosity"
-  parseJSON invalid =
-    panic $
-      "Parsing of TracingVerbosity failed due to type mismatch. "
-        <> "Encountered: "
-        <> T.pack (Prelude.show invalid)
 
 instance FromJSON Protocol where
   parseJSON (String str) = case str of

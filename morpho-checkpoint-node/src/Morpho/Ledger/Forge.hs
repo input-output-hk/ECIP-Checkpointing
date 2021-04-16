@@ -14,11 +14,10 @@ module Morpho.Ledger.Forge
   )
 where
 
-import Cardano.Binary
 import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.Hash
 import Cardano.Prelude
-import Codec.Serialise (serialise)
+import Codec.Serialise (Serialise (encode), serialise)
 import qualified Data.ByteString.Lazy as Lazy
 import Morpho.Ledger.Block
 import Morpho.Ledger.State
@@ -85,7 +84,7 @@ forgeMorpho ccfg curSlot curBlock prevHash txs =
         { morphoPrev = prevHash,
           morphoSlotNo = curSlot,
           morphoBlockNo = curBlock,
-          morphoBodyHash = hashWithSerialiser toCBOR body
+          morphoBodyHash = hashWithSerialiser encode body
         }
     -- We use the size of the body, not of the whole block (= header + body),
     -- since the header size is fixed and this size is only used for

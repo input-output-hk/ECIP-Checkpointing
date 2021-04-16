@@ -19,7 +19,7 @@ module Morpho.Ledger.Serialise where
 import Cardano.Prelude
 import qualified Codec.CBOR.Encoding as CBOR
 import Codec.Serialise (Serialise (..))
-import Control.Monad.Except
+import Control.Monad.Fail
 import qualified Data.ByteString.Lazy as Lazy
 import Morpho.Ledger.Block
 import Morpho.Ledger.PowTypes

@@ -37,11 +37,10 @@ module Morpho.Ledger.Update
   )
 where
 
-import Cardano.Binary
 import Cardano.Crypto.Hash
 import Cardano.Prelude
 import Codec.Serialise (Serialise (..))
-import Data.Aeson hiding ((.:))
+import Data.Aeson hiding (encode, (.:))
 import qualified Data.Map as M
 import Data.Text (pack)
 import Morpho.Crypto.ECDSASignature
@@ -215,7 +214,7 @@ mkMorphoGenTx :: Tx -> GenTx (MorphoBlock h c)
 mkMorphoGenTx tx =
   MorphoGenTx
     { morphoGenTx = tx,
-      morphoGenTxId = hashWithSerialiser toCBOR tx
+      morphoGenTxId = hashWithSerialiser encode tx
     }
 
 updateMorphoState ::

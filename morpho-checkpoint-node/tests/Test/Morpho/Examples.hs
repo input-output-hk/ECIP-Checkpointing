@@ -13,9 +13,9 @@ import Cardano.BM.Data.Backend
 import Cardano.BM.Data.Configuration
 import Cardano.BM.Data.Output
 import Cardano.BM.Data.Severity
-import Cardano.Binary
 import Cardano.Crypto.DSIGN
 import Cardano.Crypto.Hash
+import Codec.Serialise
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Maybe
@@ -81,7 +81,7 @@ exampleStdHeader =
     { morphoPrev = GenesisHash,
       morphoSlotNo = SlotNo 5,
       morphoBlockNo = BlockNo 3,
-      morphoBodyHash = castHash $ hashWithSerialiser toCBOR (1 :: Int)
+      morphoBodyHash = castHash $ hashWithSerialiser encode (1 :: Int)
     }
 
 exampleBody :: MorphoBody
@@ -101,17 +101,17 @@ exampleGenTx = mkMorphoGenTx exampleTx
 exampleHeader :: Header TestBlock
 exampleHeader =
   MorphoHeader
-    { morphoHeaderHash = castHash $ hashWithSerialiser toCBOR (10 :: Int),
+    { morphoHeaderHash = castHash $ hashWithSerialiser encode (10 :: Int),
       morphoHeaderStd = exampleStdHeader,
       morphoBftFields =
-        BftFields $ SignedDSIGN $ SigMockDSIGN (castHash $ hashWithSerialiser toCBOR (10 :: Int)) 20,
+        BftFields $ SignedDSIGN $ SigMockDSIGN (castHash $ hashWithSerialiser encode (10 :: Int)) 20,
       morphoBlockSize = 100
     }
 
 examplePoint :: Point TestBlock
 examplePoint =
   Point
-    { getPoint = block 4 (castHash $ hashWithSerialiser toCBOR True)
+    { getPoint = block 4 (castHash $ hashWithSerialiser encode True)
     }
 
 examplePublicKey :: PublicKey
@@ -150,7 +150,7 @@ examplePowBlockRef =
     }
 
 exampleHeaderHash :: HeaderHash TestBlock
-exampleHeaderHash = castHash $ hashWithSerialiser toCBOR (10 :: Int)
+exampleHeaderHash = castHash $ hashWithSerialiser encode (10 :: Int)
 
 exampleExtLedgerState :: ExtLedgerState TestBlock
 exampleExtLedgerState =

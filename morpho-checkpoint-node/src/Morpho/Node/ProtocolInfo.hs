@@ -5,7 +5,6 @@ where
 
 import Cardano.Crypto.DSIGN
 import Cardano.Prelude
-import Cardano.Slotting.Slot (WithOrigin (..))
 import qualified Data.Map as Map
 import Morpho.Crypto.ECDSASignature (keyPairFromPrivate)
 import Morpho.Ledger.Block
@@ -13,6 +12,7 @@ import Morpho.Ledger.Forge (morphoBlockForging)
 import Morpho.Ledger.State
 import Morpho.Ledger.Update
 import Morpho.Node.Env
+import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.HeaderValidation
 import Ouroboros.Consensus.Ledger.Extended
