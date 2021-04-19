@@ -4,9 +4,10 @@
   inputs = {
     haskell-nix.url = "github:input-output-hk/haskell.nix";
     utils.url = "github:numtide/flake-utils";
+    mantis.url = "github:input-output-hk/mantis/00a44422cd9a8ade2c6a93859cd369b6f1b0225b";
   };
 
-  outputs = { self, utils, haskell-nix, ... }:
+  outputs = { self, utils, mantis, haskell-nix, ... }:
     utils.lib.eachSystem [ "x86_64-linux" "x86_64-darwin" ] (system:
     let
       pkgs = haskell-nix.legacyPackages.${system}.extend (final: prev: prev.lib.recursiveUpdate prev {
@@ -23,17 +24,6 @@
       });
 
       inherit (pkgs) lib;
-
-      # Not using fetchGit { submodules = true; } for older Nix compatibility
-      mantisSrc = pkgs.fetchFromGitHub {
-        owner = "input-output-hk";
-        repo = "mantis";
-        rev = "dac4214e78cf0ed103f2194accf9f5a1e44d6062";
-        sha256 = "1nxw39f4zhn8a2rkjcsmsic0khhd000a7d4q5b2nps2zv2w4rf6i";
-        fetchSubmodules = true;
-      };
-
-      mantis = import mantisSrc { inherit system; };
 
       profile = false;
       src = ./.;
@@ -72,7 +62,7 @@
           haskell-language-server = "latest";
         };
         nativeBuildInputs = [
-          mantis
+          self.packages.${system}.mantis
 
           # Used by scripts/bin/cabal
           (pkgs.bubblewrap.overrideAttrs (old: {
@@ -104,7 +94,7 @@
         mantis-integration-tests = pkgs.haskell-nix.haskellLib.check
           (morpho.components.tests.mantis-integration-tests.overrideAttrs (old: {
             srcSubDir = "morpho-checkpoint-node";
-            nativeBuildInputs = old.nativeBuildInputs ++ [ mantis ];
+            nativeBuildInputs = old.nativeBuildInputs ++ [ self.packages.${system}.mantis ];
           }));
 
         state-machine-tests = pkgs.haskell-nix.haskellLib.check
@@ -159,6 +149,7 @@
 
     in {
       packages.morpho = morpho.components.exes.morpho-checkpoint-node;
+      packages.mantis = mantis.defaultPackage.${system};
       packages.checkFormatting = checkFormatting;
       packages.checks = pkgs.linkFarm "morpho-checkpoint-node-checks"
         (lib.forEach (lib.attrNames checks) (n: {
