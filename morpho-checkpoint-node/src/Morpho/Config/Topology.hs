@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -102,11 +103,10 @@ instance FromJSON RemoteAddress where
 readTopologyFile :: FilePath -> IO (Either String NetworkTopology)
 readTopologyFile topo = do
   eBs <- Exception.try $ BS.readFile topo
-  case eBs of
-    Left e -> pure . Left $ handler e
-    Right bs -> pure . eitherDecode $ LBS.fromStrict bs
-  where
-    handler :: IOException -> String
-    handler e =
-      "Cardano.Node.Configuration.Topology.readTopologyFile: "
-        ++ displayException e
+  pure $ case eBs of
+    Left (e :: IOException) ->
+      Left $ "Failed to read topology file " <> topo <> ": " <> displayException e
+    Right bs -> case eitherDecode $ LBS.fromStrict bs of
+      Left e ->
+        Left $ "Failed to decode topology file " <> topo <> ": " <> e
+      Right topology -> Right topology

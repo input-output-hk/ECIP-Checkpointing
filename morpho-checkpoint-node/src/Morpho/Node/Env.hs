@@ -113,14 +113,17 @@ initProducers :: NodeConfiguration -> IO [RemoteAddress]
 initProducers nc = do
   let file = unTopology $ ncTopologyFile nc
       nid = ncNodeId nc
-  Right (NetworkTopology topology) <- readTopologyFile file
-
-  case List.lookup nid $
-    map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) topology of
-    Just ps -> return ps
-    Nothing -> do
-      hPutStrLn stderr $ "Node " <> Text.pack (show nid) <> " not found in topology file " <> Text.pack (show file)
+  mtopology <- readTopologyFile file
+  case mtopology of
+    Left err -> do
+      hPutStrLn stderr $ Text.pack err
       exitFailure
+    Right (NetworkTopology topology) -> case List.lookup nid $
+      map (\ns -> (CoreNodeId $ nodeId ns, producers ns)) topology of
+      Just ps -> return ps
+      Nothing -> do
+        hPutStrLn stderr $ "Node " <> Text.pack (show nid) <> " not found in topology file " <> Text.pack (show file)
+        exitFailure
 
 -- Make database path absolute
 initDatabaseDir :: NodeConfiguration -> IO FilePath
