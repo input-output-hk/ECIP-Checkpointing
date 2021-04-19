@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+cabal run morpho-checkpoint-node:exe:morpho-checkpoint-node -- --config config.yaml

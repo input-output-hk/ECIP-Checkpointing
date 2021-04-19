@@ -1,0 +1,128 @@
+# How many nodes are in the checkpointing federation, needs to match among federation
+NumCoreNodes: 2
+
+# The id of this node, 0-indexed. Each node in the federation needs a separate node id
+NodeId: 1
+
+# Currently the only supported OBFT crypto scheme, insecure!
+Protocol: MockedBFT
+
+# Network magic used to identify Morpho network, needs to match among federation
+# Generate your own value with `shuf -i 0-4294967295 -n 1`!
+NetworkMagic: 1774970916
+
+# The generated start time of the system, this is when the 0th OBFT slot starts, needs to match among federation
+SystemStart: "2021-03-26T12:00:00Z"
+
+# How long each OBFT slot lasts, in seconds, needs to match among federation
+SlotDuration: 5
+
+# How many blocks can be rolled back on the OBFT chain
+SecurityParam: 2000
+
+# The public keys of all Morpho federation members, including this node's key
+FedPubKeys:
+  - 813abe586ed99372d5642408c0b883a177e2a5c4fd95ed9f210226a5265e5a5a26f230bf52473105da493d08ce1db60da07bc7e96ed52461fc0857ccabb4f0ac
+  - 290f0ab42c31bf54a66c29bbdef0d0c38c58576bb8a0e151fe95a0f8a324de8f6696e91b1f9fba549680a37c9e8cf5ee6d32a983a767becd2e701d81d8939930
+
+# The interval on the proof-of-work chain to issue checkpoints at. A value of 4 means that every 4th block is a checkpoint.
+CheckpointInterval: 4
+
+# How many Morpho nodes are required to vote on the same proof-of-work block for it to be checkpointed
+RequiredMajority: 2
+
+# How many blocks until a checkpoint is considered stable. Only when this is the case it is pushed.
+StableLedgerDepth: 4
+
+# Where to reach the proof-of-work node's RPC interface
+PoWNodeRpcUrl: http://127.0.0.1:8546
+
+# At which interval (in microseconds) the proof-of-work node should be asked for a block to checkpoint
+PoWBlockFetchInterval: 5000000
+
+# On which port to listen in order to connect to other Morpho nodes
+NodePort: 3001
+
+# Where to persist state (relative to working directory)
+DatabaseDirectory: data
+
+# Where to find the private key (relative to working directory)
+NodePrivKeyFile: private-key
+
+# Where to find the topology file (relative to working directory)
+TopologyFile: ../morpho-topology.json
+
+# On which port to publish prometheus metrics
+PrometheusPort: 13789
+
+# iohk-monitoring logging configuration
+Logging:
+
+  # Only display messages that have a severity of Info or higher
+  # To debug specific components, prefer using mapSeverity instead, see below
+  minSeverity: Info
+
+  # Which logging backend to use
+  setupBackends:
+    - KatipBK
+  defaultBackends:
+    - KatipBK
+
+  # For the Katip logging backend we must set up outputs (called scribes)
+  setupScribes:
+    # Log json to a file
+    - scKind: FileSK
+      scName: logs
+      scFormat: ScJson
+
+    # Log text to stdout
+    - scKind: StdoutSK
+      scName: stdout
+      scFormat: ScText
+
+  defaultScribes:
+    - - FileSK
+      - logs
+
+    - - StdoutSK
+      - stdout
+
+  options:
+    # Uncomment to enable debug messages for a specific component
+    mapSeverity:
+      # morpho.morpho-init: Debug
+      # morpho.chain-db: Debug
+      # morpho.consensus: Debug
+      # morpho.ip-subs: Debug
+      # morpho.dns-subs: Debug
+      # morpho.dns-resolve: Debug
+      # morpho.mux: Debug
+      # morpho.local-mux: Debug
+      # morpho.error-policy: Debug
+      # morpho.extract-state: Debug
+      # morpho.rpc: Debug
+      # morpho.time-travel: Debug
+      # morpho.chain-sync-protocol: Debug
+      # morpho.chain-sync-protocol-serialized: Debug
+      # morpho.block-fetch-protocol: Debug
+      # morpho.block-fetch-protocol-serialized: Debug
+      # morpho.tx-submission-protocol: Debug
+      # morpho.tx-submission-protocol-2: Debug
+      # morpho.handshake: Debug
+      # morpho.local-handshake: Debug
+      # morpho.local-error-policy: Debug
+      # morpho.accept-policy: Debug
+      # morpho.diffusion-init: Debug
+      # morpho.ledger-peers: Debug
+      # morpho.consensus.chain-sync-client: Debug
+      # morpho.consensus.chain-sync-server-header: Debug
+      # morpho.consensus.chain-sync-server-block: Debug
+      # morpho.consensus.block-fetch-decision: Debug
+      # morpho.consensus.block-fetch-client: Debug
+      # morpho.consensus.block-fetch-server: Debug
+      # morpho.consensus.tx-in: Debug
+      # morpho.consensus.tx-out: Debug
+      # morpho.consensus.local-tx-submission: Debug
+      # morpho.consensus.mempool: Debug
+      # morpho.consensus.forge: Debug
+      # morpho.consensus.blockchain-time: Debug

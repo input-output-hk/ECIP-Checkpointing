@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# https://stackoverflow.com/a/246128/6605742
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' exit
+
+# Copies mantis' conf directory (which is immutable in the nix store) into the temporary directory
+cp -r --no-preserve=mode "$(dirname "$(realpath "$(which mantis)")")/../conf" "$tmp"
+# So we can modify it to contain our own config file. This is needed so it can do HOCON includes with relative paths
+cp "$DIR/testnet-morpho.conf" "$tmp"/conf
+
+mantis -Duser.home="$DIR/data" -Dconfig.file="$tmp/conf/testnet-morpho.conf"
