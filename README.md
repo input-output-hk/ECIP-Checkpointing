@@ -61,7 +61,7 @@ The following subsections assume to be run in such development shell.
 
 To build the main executable:
 ```
-$ cabal build morpho-checkpoint-node:exe:morpho-checkpoint-node
+$ cabal build exe:morpho-checkpoint-node
 ```
 
 ### Interactive Development
@@ -92,7 +92,7 @@ Also included in the environment is a working [Haskell Language Server](https://
 
 For every commit and PR, all tests are run by Hydra. To run all tests locally:
 ```
-$ cabal test morpho-checkpoint-node
+$ cabal test all
 ```
 
 There are currently three test suites which can also be ran independently:
@@ -105,7 +105,7 @@ on the checkpoint node. They are pretty fast to complete (>5s).
 You can run those using:
 
 ```
-$ cabal test morpho-checkpoint-node:test
+$ cabal test test
 ```
 
 ### State Machine Tests
@@ -117,7 +117,7 @@ very frequently.
 You can run those using:
 
 ```
-$ cabal test morpho-checkpoint-node:state-machine-tests
+$ cabal test state-machine-tests
 ```
 
 ### Mantis Integration Tests
@@ -129,7 +129,7 @@ running them. This is already taken care of by the Nix environment.
 You can run those using:
 
 ```
-$ cabal test morpho-checkpoint-node:mantis-integration-tests
+$ cabal test mantis-integration-tests
 ```
 
 ## Code Formatting
