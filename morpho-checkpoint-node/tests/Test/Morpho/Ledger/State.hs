@@ -142,7 +142,7 @@ assert_stateUpdateSingleVote = case newStateResult of
     newTip = headerPoint (getHeader newBlock)
     expectedState =
       currentState
-        { currentVotes = M.insert (publicKeys !! 0) (newVote) (currentVotes currentState),
+        { currentVotes = M.insert (publicKeys !! 0) newVote (currentVotes currentState),
           morphoTip = newTip
         }
     b1 = makeBlockRef 0 powBlockHash1

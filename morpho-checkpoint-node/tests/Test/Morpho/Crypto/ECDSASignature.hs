@@ -52,7 +52,7 @@ prop_randomKeyPairs =
   forAll generateKP $ \(KeyPair pk sk) ->
     forAll generateBytes $ \bytes ->
       let signature = sign sk bytes
-          recoveredKey = signature >>= (\sig -> recoverPublicKey sig bytes)
+          recoveredKey = signature >>= (`recoverPublicKey` bytes)
        in recoveredKey == Just pk
 
 generateKP :: Gen KeyPair

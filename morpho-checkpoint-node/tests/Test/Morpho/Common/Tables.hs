@@ -60,7 +60,7 @@ class Table r where
   default showHeader :: Show (Header r) => Header r -> String
   showHeader = show
 
-data SingleColumn a = SingleColumn a
+newtype SingleColumn a = SingleColumn a
 
 instance Show a => Show (SingleColumn a) where
   show (SingleColumn a) = show a
