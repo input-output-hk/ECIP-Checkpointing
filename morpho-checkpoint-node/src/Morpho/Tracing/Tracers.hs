@@ -37,7 +37,6 @@ import Morpho.Tracing.Verbosity
 import Network.Mux.Trace (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket
 import Ouroboros.Consensus.Ledger.SupportsProtocol
-import qualified Ouroboros.Consensus.Network.NodeToClient as NodeToClient
 import qualified Ouroboros.Consensus.Network.NodeToNode as NodeToNode
 import qualified Ouroboros.Consensus.Node.Tracers as Consensus
 import Ouroboros.Consensus.Protocol.BFT
@@ -51,13 +50,13 @@ import Ouroboros.Network.Snocket (LocalAddress)
 import Prettyprinter (layoutCompact)
 import Prettyprinter.Render.Text (renderStrict)
 
-data Tracers peer localPeer h c = Tracers
+data Tracers peer h c = Tracers
   { -- | Used for top-level morpho traces during initialization
     morphoInitTracer :: Tracer IO MorphoInitTrace,
     -- | Trace the ChainDB (flag '--trace-chain-db' will turn on textual output)
     chainDBTracer :: Tracer IO (ChainDB.TraceEvent (MorphoBlock h c)),
     -- | Consensus-specific tracers.
-    consensusTracers :: Consensus.Tracers IO peer localPeer (MorphoBlock h c),
+    consensusTracers :: forall localPeer. Consensus.Tracers IO peer localPeer (MorphoBlock h c),
     -- | Trace the IP subscription manager (flag '--trace-ip-subscription' will turn on textual output)
     ipSubscriptionTracer :: Tracer IO (WithIPList (SubscriptionTrace Socket.SockAddr)),
     -- | Trace the DNS subscription manager (flag '--trace-dns-subscription' will turn on textual output)
@@ -73,7 +72,6 @@ data Tracers peer localPeer h c = Tracers
     extractStateTracer :: Tracer IO (ExtractStateTrace h c),
     timeTravelErrorTracer :: Tracer IO (TimeTravelError (MorphoBlock h c)),
     nodeToNodeTracers :: NodeToNode.Tracers IO peer (MorphoBlock h c) DeserialiseFailure,
-    nodeToClientTracers :: NodeToClient.Tracers IO localPeer (MorphoBlock h c) DeserialiseFailure,
     handshakeTracer :: Tracer IO NtN.HandshakeTr,
     handshakeLocalTracer :: Tracer IO NtC.HandshakeTr,
     localErrorPolicyTracer :: Tracer IO (NtN.WithAddr NtC.LocalAddress NtN.ErrorPolicyTrace),
@@ -119,7 +117,7 @@ toGenericObject nc tr = Tracer $ \arg ->
 -- Note: the constraint on the morpho block is necessary for the
 -- Condense implementations.
 mkTracers ::
-  forall peer localPeer blk h c.
+  forall peer blk h c.
   ( Show peer,
     ToJSON peer,
     MorphoStateDefaultConstraints h c,
@@ -129,7 +127,7 @@ mkTracers ::
   ) =>
   NodeConfiguration ->
   Trace IO Text ->
-  IO (Tracers peer localPeer h c)
+  IO (Tracers peer h c)
 mkTracers nc tracer = do
   pure
     Tracers
@@ -170,8 +168,6 @@ mkTracers nc tracer = do
             appendName "time-travel" tracer,
         nodeToNodeTracers =
           nodeToNodeTracers' nc tracer,
-        -- We don't have any node-to-client queries
-        nodeToClientTracers = NodeToClient.nullTracers,
         handshakeTracer =
           toGenericObject nc $
             appendName "handshake" tracer,

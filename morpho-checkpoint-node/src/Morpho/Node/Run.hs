@@ -44,6 +44,7 @@ import Ouroboros.Consensus.Block.Abstract
 import Ouroboros.Consensus.Config
 import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Mempool.API
+import qualified Ouroboros.Consensus.Network.NodeToClient as NodeToClient
 import Ouroboros.Consensus.Node hiding (Tracers, cfg, chainDB, registry, run, tracers)
 import qualified Ouroboros.Consensus.Node as Node (runWith)
 import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
@@ -67,7 +68,7 @@ handleSimpleNode ::
   forall blk rpce h c.
   (Show rpce, ToJSON rpce, HasSeverityAnnotation rpce, RunNode blk, blk ~ MorphoBlock h c, MorphoStateDefaultConstraints h c) =>
   ProtocolInfo IO blk ->
-  Tracers RemoteConnectionId LocalConnectionId h c ->
+  Tracers RemoteConnectionId h c ->
   Env rpce h c ->
   IO ()
 handleSimpleNode pInfo nodeTracers env = do
@@ -207,7 +208,7 @@ handleSimpleNode pInfo nodeTracers env = do
         RunNodeArgs
           { rnTraceConsensus = consensusTracers nodeTracers,
             rnTraceNTN = nodeToNodeTracers nodeTracers,
-            rnTraceNTC = nodeToClientTracers nodeTracers,
+            rnTraceNTC = NodeToClient.nullTracers,
             rnProtocolInfo = pInfo,
             rnNodeKernelHook = kernelHook
           }
@@ -245,7 +246,7 @@ requestCurrentBlock ::
   (Show rpce, ToJSON rpce, HasSeverityAnnotation rpce, MorphoStateDefaultConstraints h c) =>
   NodeKernel IO peer localPeer (MorphoBlock h c) ->
   Env rpce h c ->
-  Tracers peer localPeer h c ->
+  Tracers peer h c ->
   MorphoMetrics ->
   IO ()
 requestCurrentBlock kernel env nodeTracers metrics = forever $ do
@@ -267,10 +268,10 @@ requestCurrentBlock kernel env nodeTracers metrics = forever $ do
     Mempool {tryAddTxs} = getMempool kernel
 
 publishStableCheckpoint ::
-  forall blk rpce h c peer localpeer.
+  forall blk rpce h c peer.
   (blk ~ MorphoBlock h c, RunNode blk, Show rpce, ToJSON rpce, HasSeverityAnnotation rpce) =>
   Env rpce h c ->
-  Tracers peer localpeer h c ->
+  Tracers peer h c ->
   MorphoMetrics ->
   ChainDB.ChainDB IO blk ->
   LedgerState blk ->

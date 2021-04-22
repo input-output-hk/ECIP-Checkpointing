@@ -27,7 +27,6 @@ import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.NodeId
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Network.Magic
-import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode (RemoteConnectionId)
 import System.Directory
 
@@ -98,7 +97,7 @@ withTracing ::
     Signable (BftDSIGN c) (MorphoStdHeader h c)
   ) =>
   NodeConfiguration ->
-  (Tracers RemoteConnectionId LocalConnectionId h c -> IO ()) ->
+  (Tracers RemoteConnectionId h c -> IO ()) ->
   IO ()
 withTracing nc action = do
   host <- T.take 8 . fst . T.breakOn "." . T.pack <$> getHostName
@@ -153,7 +152,7 @@ data Env rpce h c = Env
     eSecurityParameter :: SecurityParam,
     eSystemStart :: SystemStart,
     ePrivateKey :: PrivateKey,
-    eTracers :: Tracers RemoteConnectionId LocalConnectionId h c,
+    eTracers :: Tracers RemoteConnectionId h c,
     ePrometheusPort :: Int,
     eSnapshotsOnDisk :: Word,
     eSnapshotInterval :: Word64,
