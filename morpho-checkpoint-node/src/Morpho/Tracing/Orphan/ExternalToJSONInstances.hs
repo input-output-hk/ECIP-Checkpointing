@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
@@ -12,14 +11,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Morpho.Tracing.OrphanToJSONInstances where
+module Morpho.Tracing.Orphan.ExternalToJSONInstances where
 
-import Cardano.Crypto.DSIGN.Class
 import Cardano.Crypto.Hash.Class
 import Cardano.Prelude hiding (show)
 import Codec.CBOR.Read (DeserialiseFailure (..))
 import Codec.CBOR.Term
-import Codec.CBOR.Write
 import Control.Monad.Class.MonadTime
 import Data.Aeson (Options (tagSingleConstructors, unwrapUnaryRecords), ToJSON (..), ToJSONKey, Value (..), defaultOptions, genericToJSON, object, (.=))
 import qualified Data.ByteString.Base16 as B16
@@ -28,15 +25,6 @@ import Data.IP
 import qualified Data.Text as Text
 import qualified GHC.Exts
 import qualified GHC.Stack.Types
-import qualified Morpho.Config.Topology as MT
-import Morpho.Crypto.ECDSASignature
-import Morpho.Ledger.Block
-import Morpho.Ledger.Serialise
-import Morpho.Ledger.SnapshotTimeTravel
-import Morpho.Ledger.State
-import Morpho.Ledger.Update
-import Morpho.Node.RunNode ()
-import Morpho.Tracing.Types
 import Network.DNS.Types
 import Network.Mux (MuxTrace (..), WithMuxBearer (..))
 import Network.Mux.Trace (MuxBearerState (..))
@@ -48,7 +36,6 @@ import Ouroboros.Consensus.Forecast
 import Ouroboros.Consensus.Fragment.Diff
 import Ouroboros.Consensus.HardFork.History
 import Ouroboros.Consensus.HeaderValidation
-import Ouroboros.Consensus.Ledger.Extended
 import Ouroboros.Consensus.Ledger.Inspect
 import Ouroboros.Consensus.Mempool.API (MempoolSize (..), TraceEventMempool (..))
 import Ouroboros.Consensus.MiniProtocol.BlockFetch.Server (TraceBlockFetchServerEvent (..))
@@ -66,22 +53,17 @@ import Ouroboros.Consensus.Node.Tracers (TraceForgeEvent (..), TraceLabelCreds (
 import Ouroboros.Consensus.NodeId
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Consensus.Storage.ChainDB hiding (InvalidBlock, getTipPoint)
-import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
-import qualified Ouroboros.Consensus.Storage.ChainDB.Impl.Types as ChainDB
 import Ouroboros.Consensus.Storage.FS.API.Types
 import Ouroboros.Consensus.Storage.ImmutableDB hiding (Tip, getTipPoint)
-import qualified Ouroboros.Consensus.Storage.ImmutableDB.API as ImmutableDB
 import qualified Ouroboros.Consensus.Storage.ImmutableDB.Impl.Types as ImmutableDB
 import Ouroboros.Consensus.Storage.LedgerDB.OnDisk
-import qualified Ouroboros.Consensus.Storage.LedgerDB.OnDisk as LedgerDB
-import Ouroboros.Consensus.Storage.Serialisation
 import qualified Ouroboros.Consensus.Storage.VolatileDB.Impl.Types as VolatileDB
 import qualified Ouroboros.Consensus.Util as OCU
 import Ouroboros.Consensus.Util.CBOR
-import Ouroboros.Consensus.Util.Orphans ()
+-- import Ouroboros.Consensus.Util.Orphans ()
 import qualified Ouroboros.Network.AnchoredFragment as AF
 import qualified Ouroboros.Network.AnchoredSeq as AS
-import Ouroboros.Network.Block (MaxSlotNo, Serialised (..), Tip, getTipPoint)
+import Ouroboros.Network.Block (MaxSlotNo, Serialised (..), getTipPoint)
 import Ouroboros.Network.BlockFetch.ClientState
 import Ouroboros.Network.BlockFetch.Decision
 import Ouroboros.Network.BlockFetch.DeltaQ
@@ -238,12 +220,6 @@ jsonOptions =
       unwrapUnaryRecords = True
     }
 
-instance ToJSON MT.RemoteAddress where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON MorphoInitTrace where
-  toJSON = genericToJSON jsonOptions
-
 deriving newtype instance ToJSON BlockNo
 
 instance ToJSON SafeZone where
@@ -376,21 +352,6 @@ instance ToJSON LocalAddress where
 instance (ToJSON a, ToJSON b) => ToJSON (WithAddr a b) where
   toJSON = genericToJSON jsonOptions
 
-instance (BftCrypto c, HashAlgorithm h, ToJSON a) => ToJSON (AF.ChainUpdate (MorphoBlock h c) a) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TraceChainSyncServerEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (TraceLocalTxSubmissionServerEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (LedgerEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (RealPoint (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
 instance Show (HeaderHash blk) => ToJSON (Point blk) where
   toJSON GenesisPoint = String "GenesisPoint"
   toJSON (BlockPoint (SlotNo s) h) =
@@ -401,143 +362,6 @@ instance Show (HeaderHash blk) => ToJSON (Point blk) where
         -- quantification in other parts only giving us the Show instance
         "hash" .= String (Text.filter (/= '"') $ Text.pack (show h))
       ]
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TraceReplayEvent (MorphoBlock h c) (Point (MorphoBlock h c))) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (VolatileDB.ParseError (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (VolatileDB.TraceEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (ImmutableDB.Tip (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (ChainHash (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (ImmutableDB.ChunkFileError (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (ImmutableDB.TraceEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (LedgerDB.TraceEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (InitFailure (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (StreamFrom (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (StreamTo (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (UnknownRange (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (ChainDB.TraceIteratorEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TraceOpenEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (Tip (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (HeaderEnvelopeError (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TraceChainSyncClientEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TraceFetchClientState (Header (MorphoBlock h c))) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (GenTx (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (TraceEventMempool (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance BftCrypto c => ToJSON (MorphoBlock h c) where
-  toJSON = genericToJSON jsonOptions
-
-instance BftCrypto c => ToJSON (BftFields c (MorphoBlock h c)) where
-  toJSON (BftFields x) = String $ decodeUtf8 $ B16.encode $ toStrictByteString $ encodeSignedDSIGN x
-
-instance (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) => ToJSON (ExtValidationError (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c), HashAlgorithm h, BftCrypto c, ToJSON (Header (MorphoBlock h c))) => ToJSON (TraceValidationEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (MorphoStdHeader h c) where
-  toJSON = genericToJSON jsonOptions
-
-instance BftCrypto c => ToJSON (Header (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c), BftCrypto c, HashAlgorithm h) => ToJSON (TraceInitChainSelEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (TraceGCEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TraceCopyToImmutableDBEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (ChainDB.FollowerRollState (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TraceFollowerEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) => ToJSON (InvalidBlockReason (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (HeaderFields (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c), BftCrypto c, HashAlgorithm h) => ToJSON (TraceAddBlockEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c), BftCrypto c, HashAlgorithm h) => ToJSON (ChainDB.TraceEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON PublicKey where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSONKey PublicKey
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (MorphoState (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (TimeTravelError (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON MorphoBlockTx where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (WontPushCheckpoint (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance (BftCrypto c, HashAlgorithm h) => ToJSON (ExtractStateTrace h c) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON (MorphoError (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance ToJSON MorphoBody where
-  toJSON = genericToJSON jsonOptions
-
-instance (MorphoStateDefaultConstraints h c, Signable (BftDSIGN c) (MorphoStdHeader h c)) => ToJSON (TraceForgeEvent (MorphoBlock h c)) where
-  toJSON = genericToJSON jsonOptions
-
-instance BftCrypto c => ToJSON (BftFields c (MorphoStdHeader h c)) where
-  toJSON (BftFields x) = String $ decodeUtf8 $ B16.encode $ toStrictByteString $ encodeSignedDSIGN x
 
 instance ToJSON (AnyMessageAndAgency ps) => ToJSON (TraceSendRecv ps) where
   toJSON = genericToJSON jsonOptions
@@ -638,9 +462,6 @@ instance
   toJSON BlockFetch.MsgNoBlocks = object ["tag" .= String "MsgNoBlocks"]
   toJSON BlockFetch.MsgBatchDone = object ["tag" .= String "MsgBatchDone"]
   toJSON BlockFetch.MsgClientDone = object ["tag" .= String "MsgClientDone"]
-
-instance BftCrypto c => ToJSON (SerialisedHeader (MorphoBlock h c)) where
-  toJSON (SerialisedHeaderFromDepPair (GenDepPair (NestedCtxt CtxtMorpho) b)) = toJSON b
 
 instance ToJSON (ClientHasAgency (st :: TxSubmission.TxSubmission txid tx)) where
   toJSON (TxSubmission.TokTxIds TxSubmission.TokBlocking) = "TokTxIds TokBlocking"

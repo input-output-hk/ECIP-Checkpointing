@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-
 module Test.Morpho.Tracing (traceTests) where
 
 import Cardano.Prelude

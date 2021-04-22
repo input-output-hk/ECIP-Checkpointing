@@ -6,7 +6,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Morpho.Tracing.TracingOrphanInstances where
+module Morpho.Tracing.Orphan.TracingInstances where
 
 import Cardano.BM.Tracing
   ( HasPrivacyAnnotation (..),
@@ -15,11 +15,10 @@ import Cardano.BM.Tracing
   )
 import Cardano.Prelude hiding (show)
 import Morpho.Ledger.Block
-import Morpho.Ledger.Serialise ()
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.State
 import Morpho.RPC.Abstract
-import Morpho.Tracing.OrphanToJSONInstances ()
+import Morpho.Tracing.Orphan.MorphoToJSONInstances ()
 import Morpho.Tracing.Types
 import Network.Mux (MuxTrace (..), WithMuxBearer (..))
 import qualified Network.Socket as Socket (SockAddr)
@@ -45,7 +44,6 @@ import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import qualified Ouroboros.Consensus.Storage.ImmutableDB.Impl.Types as ImmutableDB
 import qualified Ouroboros.Consensus.Storage.LedgerDB.OnDisk as LedgerDB
 import qualified Ouroboros.Consensus.Storage.VolatileDB.Impl.Types as VolatileDB
-import Ouroboros.Consensus.Util.Orphans ()
 import Ouroboros.Network.Block
 import Ouroboros.Network.BlockFetch.ClientState
   ( TraceFetchClientState (..),
