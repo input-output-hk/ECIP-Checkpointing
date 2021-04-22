@@ -1,7 +1,5 @@
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
@@ -33,7 +31,6 @@ import Data.Aeson
 import Data.Functor.Compose
 import qualified Data.IP as IP
 import qualified Data.Text as T
-import Data.Time ()
 import Morpho.Config.Orphans ()
 import Morpho.Crypto.ECDSASignature
 import Network.Socket

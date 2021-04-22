@@ -19,7 +19,6 @@ import Ouroboros.Consensus.Util (Dict (..))
 import Test.Morpho.Generators
 import Test.Tasty
 import Test.Tasty.QuickCheck
-import Test.Util.Orphans.Arbitrary ()
 import Test.Util.Serialisation.Roundtrip
 
 serialiseTests :: TestTree

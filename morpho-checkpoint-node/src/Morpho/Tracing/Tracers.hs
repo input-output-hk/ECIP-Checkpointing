@@ -28,10 +28,9 @@ import Morpho.Config.Types
 import Morpho.Ledger.Block
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.Update
-import Morpho.Node.RunNode ()
 import Morpho.RPC.Abstract
+import Morpho.Tracing.Orphan.TracingInstances ()
 import Morpho.Tracing.Pretty (MPretty (..))
-import Morpho.Tracing.TracingOrphanInstances ()
 import Morpho.Tracing.Types
 import Morpho.Tracing.Verbosity
 import Network.Mux.Trace (MuxTrace (..), WithMuxBearer (..))

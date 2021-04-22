@@ -39,7 +39,6 @@ import Test.Morpho.MockRpc
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (monadicIO)
 import Test.StateMachine
-import Test.StateMachine.Sequential ()
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import Test.StateMachine.Utils
 import Test.Tasty
