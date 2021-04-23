@@ -5,7 +5,7 @@
 
 NodeId: 0
 Protocol: MockedBFT
-NumCoreNodes: 2
+NumCoreNodes: 1
 NetworkMagic : 12345
 SystemStart: "2020-11-22T04:45:09Z"
 SecurityParam : 5
@@ -20,10 +20,9 @@ PrometheusPort: 13888
 
 # Checkpointing parameters
 CheckpointInterval: 4
-RequiredMajority: 2
+RequiredMajority: 1
 FedPubKeys:
   - ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167
-  - 3ea6ebf308a16b45bbf3392d1cd226aa6858d2ea6a2402799eeffc576f0187af62ed11677c8d4d01ef03bbf638f49f2fd77e181924a52dd01b86a187af07b724
 NodePrivKeyFile: tests/configuration/QSM/prop_4/secret-key-0
 
 

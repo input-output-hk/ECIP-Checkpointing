@@ -45,9 +45,12 @@ mockCall MockNodeHandle {..} _ PushCheckpoint chkp cont = do
     putTMVar checkPointLock ()
   cont True
 
-waitCheckpoint :: Int -> MockNodeHandle -> IO (Maybe Checkpoint)
-waitCheckpoint time MockNodeHandle {..} = timeout (time * 1000 * 1000) $ do
-  Just chkp <- atomically $ do
+waitCheckpoint :: Int -> Maybe PowBlockRef -> MockNodeHandle -> IO (Maybe Checkpoint)
+waitCheckpoint time expectedBlockM MockNodeHandle {..} = timeout (time * 1000 * 1000) $ do
+  atomically $ do
     takeTMVar checkPointLock
-    readTVar currentCheckPoint
-  return chkp
+    chkpM <- readTVar currentCheckPoint
+    case (chkpM, expectedBlockM) of
+      (Just chkp, Just expectedBlock)
+        | checkpointedBlock chkp == expectedBlock -> return chkp
+      _ -> retry

@@ -51,7 +51,7 @@ import qualified Ouroboros.Consensus.Storage.ChainDB as ChainDB
 import Ouroboros.Consensus.Storage.LedgerDB.DiskPolicy
 import Ouroboros.Consensus.Util.ResourceRegistry
 import Ouroboros.Consensus.Util.STM
-import Ouroboros.Network.Block
+-- import Ouroboros.Network.Block
 import Ouroboros.Network.NodeToClient
 import Ouroboros.Network.NodeToNode hiding (RemoteAddress)
 import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
@@ -293,9 +293,9 @@ publishStableCheckpoint env nodeTracers metrics chainDB ledgerState = do
               when result $ updatePushedCheckpointMetrics stableLedgerState
   where
     checkpointToPush st
-      | morphoTip st == genesisPoint = Left WontPushCheckpointNoGeneratedCheckpoint
-      | morphoTip st /= checkpointAt st =
-        Left $ WontPushCheckpointNotMorphoTip (checkpointAt st) (morphoTip st)
+      | lastCheckpoint st == genesisCheckpoint = Left WontPushCheckpointNoGeneratedCheckpoint
+      -- | morphoTip st /= checkpointAt st =
+      --   Left $ WontPushCheckpointNotMorphoTip (checkpointAt st) (morphoTip st)
       | otherwise = Right $ lastCheckpoint st
     updatePushedCheckpointMetrics st = do
       set (ledgerStateToBlockNum st) $ mPushedCheckpoint metrics

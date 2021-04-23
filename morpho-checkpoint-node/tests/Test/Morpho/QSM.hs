@@ -60,9 +60,9 @@ qsmTests :: TestTree
 qsmTests =
   testGroup
     "qsm-tests"
-    [ testProperty "1 node  majority = 1" prop_1,
-      testProperty "2 nodes majority = 1" prop_2,
-      testProperty "2 nodes majority = 2" prop_3,
+    [ -- testProperty "1 node  majority = 1" prop_1,
+      -- testProperty "2 nodes majority = 1" prop_2,
+      -- testProperty "2 nodes majority = 2" prop_3,
       testProperty "restart node" prop_4
     ]
 
@@ -192,16 +192,16 @@ semantics cfg handles (SendPowBlock toNodes blockRef) = do
           (M.lookup node handles)
   let sendHandles = getHandle <$> toNodes
   forM_ sendHandles (`addPoWBlock` blockRef)
-  res <- waitAll cfg $ M.toList handles
+  res <- waitAll cfg (Just blockRef) $ M.toList handles
   return $ Response res
 
 -- | Wait and get the next nextpoint from all the nodes.
-waitAll :: Config -> [(Node, MockNodeHandle)] -> IO [(Node, CheckpointResult)]
-waitAll cfg = mapConcurrently $ waitNode cfg
+waitAll :: Config -> Maybe PowBlockRef -> [(Node, MockNodeHandle)] -> IO [(Node, CheckpointResult)]
+waitAll cfg powBlockRef = mapConcurrently $ waitNode cfg powBlockRef
 
-waitNode :: Config -> (Node, MockNodeHandle) -> IO (Node, CheckpointResult)
-waitNode cfg (node, mockHandle) = do
-  mCheckpoint <- waitCheckpoint 15 mockHandle
+waitNode :: Config -> Maybe PowBlockRef -> (Node, MockNodeHandle) -> IO (Node, CheckpointResult)
+waitNode cfg powBlockRef (node, mockHandle) = do
+  mCheckpoint <- waitCheckpoint 15 powBlockRef mockHandle
   let res = case mCheckpoint of
         Nothing -> NoCheckpoint
         Just chkp -> NewCheckpoint (powBlockHash $ checkpointedBlock chkp) (majority cfg)
@@ -255,61 +255,71 @@ mkSM cfg@Config {..} handles =
 unusedSM :: Config -> StateMachine Model Command IO Response
 unusedSM cfg = mkSM cfg $ error "NodeHandle not used on generation or shrinking"
 
--- | Run one node and send him block references. Test if it generates checkpoints
-prop_1 :: Property
-prop_1 = noShrinking $
-  withMaxSuccess 1 $
-    forAllCommands (unusedSM config) (Just 2) $
-      \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 1 1
-        let sm = mkSM config nodeHandles
-        (hist, _model, res) <- runCommands sm cmds
-        liftIO $ mapM_ cleanup nodeHandles
-        prettyCommands sm hist (res === Ok)
-  where
-    config =
-      Config
-        { nodesNumber = 1,
-          majority = 1
-        }
+-- -- | Run one node and send him block references. Test if it generates checkpoints
+-- prop_1 :: Property
+-- prop_1 = noShrinking $
+--   withMaxSuccess 1 $
+--     forAllCommands (unusedSM config) (Just 2) $
+--       \cmds -> monadicIO $ do
+--         nodeHandles <- liftIO $ setup 1 1
+--         let sm = mkSM config nodeHandles
+--         (hist, _model, res) <- runCommands sm cmds
+--         liftIO $ mapM_ cleanup nodeHandles
+--         prettyCommands sm hist (res === Ok)
+--   where
+--     config =
+--       Config
+--         { nodesNumber = 1,
+--           majority = 1
+--         }
 
--- | Same as 'prop_1', but with two nodes. We select the node to send block refs
--- randomly. Majority is one, so on node is enough to produce checkpoints.
-prop_2 :: Property
-prop_2 = noShrinking $
-  withMaxSuccess 1 $
-    forAllCommands (unusedSM config) (Just 2) $
-      \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 2 2
-        let sm = mkSM config nodeHandles
-        (hist, _model, res) <- runCommands sm cmds
-        liftIO $ mapM_ cleanup nodeHandles
-        prettyCommands sm hist (res === Ok)
-  where
-    config =
-      Config
-        { nodesNumber = 2,
-          majority = 1
-        }
+-- -- | Same as 'prop_1', but with two nodes. We select the node to send block refs
+-- -- randomly. Majority is one, so on node is enough to produce checkpoints.
+-- prop_2 :: Property
+-- prop_2 = noShrinking $
+--   withMaxSuccess 1 $
+--     forAllCommands (unusedSM config) (Just 2) $
+--       \cmds -> monadicIO $ do
+--         nodeHandles <- liftIO $ setup 2 2
+--         let sm = mkSM config nodeHandles
+--         (hist, _model, res) <- runCommands sm cmds
+--         liftIO $ mapM_ cleanup nodeHandles
+--         prettyCommands sm hist (res === Ok)
+--   where
+--     config =
+--       Config
+--         { nodesNumber = 2,
+--           majority = 1
+--         }
 
--- | Same as 'prop_2', but with majority 2. Of we send a block ref to only one, no
--- checkpoint should be created. If we later send to to the second we should get a checkpoint.
-prop_3 :: Property
-prop_3 = noShrinking $
-  withMaxSuccess 3 $
-    forAllCommands (unusedSM config) (Just 1) $
-      \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 2 3
-        let sm = mkSM config nodeHandles
-        (hist, _model, res) <- runCommands sm cmds
-        liftIO $ mapM_ cleanup nodeHandles
-        prettyCommands sm hist (res === Ok)
-  where
-    config =
-      Config
-        { nodesNumber = 2,
-          majority = 2
-        }
+-- -- | Same as 'prop_2', but with majority 2. Of we send a block ref to only one, no
+-- -- checkpoint should be created. If we later send to to the second we should get a checkpoint.
+-- prop_3 :: Property
+-- prop_3 = noShrinking $
+--   withMaxSuccess 3 $
+--     forAllCommands (unusedSM config) (Just 1) $
+--       \cmds -> monadicIO $ do
+--         nodeHandles <- liftIO $ setup 2 3
+--         let sm = mkSM config nodeHandles
+--         (hist, _model, res) <- runCommands sm cmds
+--         liftIO $ mapM_ cleanup nodeHandles
+--         prettyCommands sm hist (res === Ok)
+--   where
+--     config =
+--       Config
+--         { nodesNumber = 2,
+--           majority = 2
+--         }
+--
+--
+--   withMaxSuccess 1 $
+--     forAllCommands (unusedSM config) (Just 2) $
+--       \cmds -> monadicIO $ do
+--         nodeHandles <- liftIO $ setup 1 1
+--         let sm = mkSM config nodeHandles
+--         (hist, _model, res) <- runCommands sm cmds
+--         liftIO $ mapM_ cleanup nodeHandles
+--         prettyCommands sm hist (res === Ok)
 
 -- | Same as 'prop_3', but creates a bigger chain and then closes both nodes and
 -- reopens one of them. The target is to test if we can sync from an existing
@@ -319,20 +329,20 @@ prop_4 = noShrinking $
   withMaxSuccess 1 $
     forAllCommands (unusedSM config) (Just 15) $
       \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 2 4
+        nodeHandles <- liftIO $ setup 1 4
         let sm = mkSM config nodeHandles
         (hist, model, res) <- runCommands sm cmds
         liftIO $ mapM_ cleanup nodeHandles
         h <- liftIO $ runDualNode False 4 0
-        (_, chkp) <- liftIO $ waitNode config (Node 0, mockNode h)
+        (_, chkp) <- liftIO $ waitNode config (lastCheckpoint model) (Node 0, mockNode h)
         liftIO $ cleanup h
         prettyCommands sm hist (res === Ok)
         whenFailM (return ()) $ toBlockRef chkp === (powBlockHash <$> lastCheckpoint model)
   where
     config =
       Config
-        { nodesNumber = 2,
-          majority = 2
+        { nodesNumber = 1,
+          majority = 1
         }
 
 setup :: Int -> Int -> IO [NodeHandle]
