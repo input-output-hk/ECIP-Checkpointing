@@ -7,14 +7,12 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -349,7 +347,7 @@ findWinner m votes =
 
 data WontPushCheckpoint blk
   = WontPushCheckpointNotMorphoTip (Point blk) (Point blk)
-  | WontPushCheckpointIsGenesisBlock
+  | WontPushCheckpointNoGeneratedCheckpoint
   deriving (Show, Eq, Generic)
 
 {-------------------------------------------------------------------------------

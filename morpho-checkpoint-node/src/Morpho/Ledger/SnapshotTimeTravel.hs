@@ -12,6 +12,7 @@ module Morpho.Ledger.SnapshotTimeTravel
 where
 
 import Cardano.Prelude hiding (Handle, ReadMode, atomically, to, withFile)
+import Morpho.Ledger.Block (MorphoBlock)
 import Morpho.Tracing.Pretty (MPretty (..))
 import Ouroboros.Consensus.Ledger.Basics
 import Ouroboros.Consensus.Ledger.Extended
@@ -20,15 +21,22 @@ import Ouroboros.Consensus.Storage.ChainDB.API
 import Ouroboros.Consensus.Util.IOLike
 import qualified Ouroboros.Network.AnchoredFragment as AF
 import Ouroboros.Network.Block hiding (Tip)
-import Prettyprinter (viaShow)
+import Prettyprinter (Pretty (pretty), (<+>))
 
 data TimeTravelError blk
   = LedgerStateNotFoundAt (Point blk)
   | ChainNotLongEnough Int Int
   deriving (Show, Generic)
 
-instance (StandardHash blk) => MPretty (TimeTravelError blk) where
-  mpretty = viaShow
+instance MPretty (TimeTravelError (MorphoBlock h c)) where
+  mpretty (LedgerStateNotFoundAt pt) =
+    "Ledger state not found at point" <+> mpretty pt
+  mpretty (ChainNotLongEnough needed len) =
+    "Can't get ledger state from"
+      <+> pretty needed
+      <+> "blocks ago because the chain is only"
+      <+> pretty len
+      <+> "blocks long"
 
 getLatestStableLedgerState ::
   forall m blk.
