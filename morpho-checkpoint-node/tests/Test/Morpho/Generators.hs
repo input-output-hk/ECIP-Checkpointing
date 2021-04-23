@@ -95,8 +95,8 @@ instance Arbitrary MorphoBody where
 
 instance Arbitrary MorphoBlockTx where
   arbitrary = do
-    MorphoGenTx {..} <- arbitrary @(GenTx TestBlock)
-    return $ MorphoBlockTx morphoGenTx morphoGenTxId
+    MorphoGenTx x <- arbitrary @(GenTx TestBlock)
+    return x
 
 instance Arbitrary (GenTx TestBlock) where
   arbitrary = mkMorphoGenTx <$> arbitrary

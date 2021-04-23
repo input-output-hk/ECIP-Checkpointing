@@ -135,7 +135,7 @@ data MorphoBlockTx = MorphoBlockTx
     morphoBlockGenTxId :: !MorphoTxId
   }
   deriving stock (Generic, Show, Eq)
-  deriving anyclass (Serialise)
+  deriving anyclass (Serialise, NoThunks)
 
 newtype MorphoBody = MorphoBody
   { morphoTxs :: [MorphoBlockTx]

@@ -166,10 +166,10 @@ instance MPretty (Header (MorphoBlock h c)) where
 
 instance MPretty MorphoBlockTx where
   mpretty (MorphoBlockTx genTx genTxId) =
-    "MorphoBlockTx(transaction:"
-      <+> mpretty genTx
-      <> ", transactionId:"
+    "Transaction(id:"
       <+> mpretty genTxId
+      <> ", tx:"
+      <+> mpretty genTx
       <> ")"
 
 instance MPretty (ChainHash (MorphoBlock h c)) where
@@ -287,12 +287,7 @@ instance
     "Client has terminated:" <+> viaShow result
 
 instance MPretty (GenTx (MorphoBlock h c)) where
-  mpretty (MorphoGenTx tx morphoTxId) =
-    "Transaction(id:"
-      <+> mpretty morphoTxId
-      <> ", tx:"
-      <+> mpretty tx
-      <> ")"
+  mpretty (MorphoGenTx x) = mpretty x
 
 instance MPretty (GenTxId (MorphoBlock h c)) where
   mpretty (MorphoGenTxId mTxId) = mpretty mTxId

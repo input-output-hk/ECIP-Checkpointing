@@ -59,7 +59,6 @@ import Ouroboros.Consensus.Node.ProtocolInfo
 import Ouroboros.Consensus.Protocol.BFT
 import Ouroboros.Consensus.Ticked
 import Ouroboros.Consensus.Util
-import Ouroboros.Consensus.Util.Condense
 
 newtype instance LedgerState (MorphoBlock h c) = MorphoLedgerState
   { morphoLedgerState :: MorphoState (MorphoBlock h c)
@@ -129,14 +128,9 @@ genesisMorphoLedgerState :: LedgerState (MorphoBlock h c)
 genesisMorphoLedgerState = MorphoLedgerState genesisMorphoState
 
 instance HasTxs (MorphoBlock h c) where
-  extractTxs b = extractTx <$> blockTxs
+  extractTxs b = MorphoGenTx <$> blockTxs
     where
       blockTxs = morphoTxs $ morphoBody b
-      extractTx btx =
-        MorphoGenTx
-          { morphoGenTx = morphoBlockGenTx btx,
-            morphoGenTxId = morphoBlockGenTxId btx
-          }
 
 {-------------------------------------------------------------------------------
   Support for the mempool
@@ -148,15 +142,13 @@ newtype instance TxId (GenTx (MorphoBlock h c)) = MorphoGenTxId
   deriving anyclass (Serialise, NoThunks)
 
 instance HasTxId (GenTx (MorphoBlock h c)) where
-  txId = MorphoGenTxId . morphoGenTxId
+  txId (MorphoGenTx x) = MorphoGenTxId $ morphoBlockGenTxId x
 
 instance ToJSON (TxId (GenTx (MorphoBlock h c))) where
   toJSON (MorphoGenTxId txid) = String . pack $ show txid
 
-data instance GenTx (MorphoBlock h c) = MorphoGenTx
-  { morphoGenTx :: !Tx,
-    morphoGenTxId :: !MorphoTxId
-  }
+newtype instance GenTx (MorphoBlock h c) = MorphoGenTx
+  {unMorphoGenTx :: MorphoBlockTx}
   deriving stock (Generic, Show, Eq)
   deriving anyclass (Serialise)
 
@@ -195,25 +187,20 @@ applyTxMorpho ::
 applyTxMorpho cfg _ tx (MorphoTick (MorphoLedgerState st)) =
   MorphoTick . MorphoLedgerState <$> stateAfterUpdate
   where
-    (Tx v) = morphoGenTx tx
+    (Tx v) = morphoBlockGenTx $ unMorphoGenTx tx
     stateAfterUpdate :: Except (Vote, MorphoTransactionError) (MorphoState (MorphoBlock h c))
     stateAfterUpdate = updateMorphoStateByVote cfg st v
 
 instance (Typeable h, Typeable c) => NoThunks (GenTx (MorphoBlock h c)) where
   showTypeOf _ = show $ typeRep (Proxy @(GenTx (MorphoBlock h c)))
 
-instance Condense (GenTx (MorphoBlock h c)) where
-  condense = condense . morphoGenTx
-
-instance Condense (GenTxId (MorphoBlock h c)) where
-  condense = condense . unMorphoGenTxId
-
 mkMorphoGenTx :: Tx -> GenTx (MorphoBlock h c)
 mkMorphoGenTx tx =
   MorphoGenTx
-    { morphoGenTx = tx,
-      morphoGenTxId = hashWithSerialiser encode tx
-    }
+    MorphoBlockTx
+      { morphoBlockGenTx = tx,
+        morphoBlockGenTxId = hashWithSerialiser encode tx
+      }
 
 updateMorphoState ::
   ( GetHeader blk,
@@ -228,7 +215,7 @@ updateMorphoState ::
   Except (MorphoError blk) (MorphoState blk)
 updateMorphoState cfg b st = do
   st' <- updateMorphoTip (getHeader b) st
-  updateMorphoStateByTxs cfg (morphoGenTx <$> extractTxs b) st'
+  updateMorphoStateByTxs cfg (morphoBlockGenTx . unMorphoGenTx <$> extractTxs b) st'
 
 updateMorphoTip ::
   ( HasHeader (Header blk),
