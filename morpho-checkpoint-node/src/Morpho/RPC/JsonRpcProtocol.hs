@@ -33,17 +33,12 @@ data JsonRpcMethod o = JsonRpcMethod
   }
 
 jsonRpcMethod :: RpcMethod i o -> i -> JsonRpcMethod o
-jsonRpcMethod GetLatestBlock (k, PowBlockRef {powBlockHash}) =
+jsonRpcMethod GetLatestBlock (k, mref) =
   JsonRpcMethod
     { methodName = "checkpointing_getLatestBlock",
-      methodParams = [toJSON k, toJSON (JsonRpcBlockHash <$> hash)],
+      methodParams = [toJSON k, toJSON (JsonRpcBlockHash . powBlockHash <$> mref)],
       methodResultParser = fmap fromJsonRpcBlockRef . parseJSON
     }
-  where
-    hash =
-      if unPowBlockHash powBlockHash == B.empty
-        then Nothing
-        else Just powBlockHash
 jsonRpcMethod PushCheckpoint Checkpoint {checkpointedBlock = PowBlockRef {powBlockHash}, chkpSignatures = sigs} =
   JsonRpcMethod
     { methodName = "checkpointing_pushCheckpoint",

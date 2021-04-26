@@ -20,6 +20,7 @@ import qualified Data.ByteString.Base16 as B16
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Data.Word
+import GHC.Exts
 import GHC.Generics (Generic)
 import NoThunks.Class
 import Prelude hiding (length)
@@ -28,6 +29,9 @@ newtype Bytes = Bytes {unBytes :: ByteString}
   deriving newtype (Eq, Ord)
   deriving stock (Generic)
   deriving anyclass (Serialise, NoThunks)
+
+instance IsString Bytes where
+  fromString = Bytes . B16.decodeLenient . TE.encodeUtf8 . T.pack
 
 instance Show Bytes where
   show (Bytes bs) = T.unpack $ TE.decodeUtf8 $ B16.encode bs

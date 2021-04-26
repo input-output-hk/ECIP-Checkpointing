@@ -185,6 +185,7 @@ test-suite state-machine-tests
         barbies,
         bytestring,
         cardano-prelude,
+        tree-diff,
         cardano-crypto-class,
         cborg,
         containers,

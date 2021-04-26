@@ -24,7 +24,7 @@ import Prelude (show)
 -- @i@ is the input type, @o@ the output type
 data RpcMethod i o where
   -- | Get the latest checkpoint candidate block
-  GetLatestBlock :: RpcMethod (Int, PowBlockRef) (Maybe PowBlockRef)
+  GetLatestBlock :: RpcMethod (Int, Maybe PowBlockRef) (Maybe PowBlockRef)
   -- | Push a checkpoint to the Pow chain
   PushCheckpoint :: RpcMethod Checkpoint Bool
 
