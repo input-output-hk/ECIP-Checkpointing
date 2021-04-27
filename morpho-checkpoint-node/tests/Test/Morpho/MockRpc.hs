@@ -23,7 +23,6 @@ import Data.TreeDiff.Expr
 import Morpho.Common.Bytes (Bytes)
 import Morpho.Ledger.PowTypes
 import Morpho.RPC.Abstract
-import System.Timeout
 import Test.Morpho.Generators ()
 import Prelude (error, show)
 
@@ -63,14 +62,26 @@ mockCall var _ PushCheckpoint Checkpoint {checkpointedBlock} cont = do
   cont result
 
 receiveChain :: ProofOfWorkHandle -> SomeBlockchain -> IO ()
-receiveChain = undefined
+receiveChain var receivedChain = atomically $ do
+  existingChain <- readTVar var
+  writeTVar var $ existingChain <> receivedChain
 
-waitCheckpoint :: Int -> ProofOfWorkHandle -> IO (Maybe PowBlockRef)
-waitCheckpoint time var = timeout (time * 1000 * 1000) $ do
-  --Just chkp <- atomically $ do
-  --  takeTMVar checkPointLock
-  --  readTVar currentCheckPoint
-  return undefined -- chkp
+-- Returns an STM that blocks until the checkpoint of the given handle has changed
+getChangeMonitor :: ProofOfWorkHandle -> IO (STM ())
+getChangeMonitor var = do
+  SomeBlockchain previousChain <- readTVarIO var
+  let previousCheckpoint = lastCheckpointedBlock previousChain
+  return $ do
+    SomeBlockchain changedChain <- readTVar var
+    let newCheckpoint = lastCheckpointedBlock changedChain
+    when (previousCheckpoint == newCheckpoint) retry
+
+--waitCheckpoint :: Int -> Maybe PowBlockRef -> ProofOfWorkHandle -> IO (Maybe PowBlockRef)
+--waitCheckpoint time ref var = timeout (time * 1000 * 1000) $ do
+--  --Just chkp <- atomically $ do
+--  --  takeTMVar checkPointLock
+--  --  readTVar currentCheckPoint
+--  return undefined -- chkp
 
 blockchainEq :: Blockchain a -> Blockchain b -> Bool
 blockchainEq GenesisBlock GenesisBlock = True
@@ -142,10 +153,10 @@ lastBlockNumber GenesisBlock = 0
 lastBlockNumber (ProofOfWorkBlock _ ref) = powBlockNo ref
 lastBlockNumber (CheckpointBlock (ProofOfWorkBlock _ ref)) = 1 + powBlockNo ref
 
-lastCheckpointedBlock :: Blockchain a -> Maybe PowBlockNo
+lastCheckpointedBlock :: Blockchain a -> Maybe PowBlockRef
 lastCheckpointedBlock GenesisBlock = Nothing
 lastCheckpointedBlock (ProofOfWorkBlock rest _) = lastCheckpointedBlock rest
-lastCheckpointedBlock (CheckpointBlock (ProofOfWorkBlock _ ref)) = Just $ powBlockNo ref
+lastCheckpointedBlock (CheckpointBlock (ProofOfWorkBlock _ ref)) = Just ref
 
 --data PowBlock = PowBlock PowBlockHash | Checkpoint [Signature]
 --  deriving (Eq)

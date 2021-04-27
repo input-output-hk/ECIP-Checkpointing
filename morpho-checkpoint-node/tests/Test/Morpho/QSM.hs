@@ -24,14 +24,13 @@ module Test.Morpho.QSM where
 import Barbies
 import Control.Applicative
 import Control.Concurrent.Async
---import Data.Type.Nat
-
 import Control.Concurrent.STM
-import Control.Monad (forM, forM_, unless)
+import Control.Monad (forM, unless)
 import Control.Monad.IO.Class
 import Data.Bifunctor
+import Data.Foldable
 import Data.Kind (Type)
-import Data.List (union, (\\))
+import Data.List (union)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe
@@ -44,6 +43,7 @@ import Morpho.Ledger.PowTypes
 import Morpho.Node.Env
 import Morpho.Node.Run
 import System.Directory
+import System.Timeout
 import Test.Morpho.Generators ()
 import Test.Morpho.MockRpc
 import Test.QuickCheck
@@ -166,9 +166,9 @@ data Response' (r :: Type -> Type)
   deriving anyclass (Rank2.Foldable)
 
 toMock'' :: Model' r -> Command' r -> Response' r
-toMock'' (Model' _ _) (StartNode _) = NoNewCheckpoint' -- Can't cause new checkpoint, as we assume the state has settled before we would've shut it down
-toMock'' (Model' _ _) (StopNode _) = NoNewCheckpoint' -- Can't cause a new checkpoint
-toMock'' (Model' _ _) (MineBlock _ _) = NoNewCheckpoint' -- Can't cause a new checkpoint, as the newly mined block first has to be sent to other nodes
+toMock'' (Model' _ _) (StartNode _) = NoNewCheckpoint'
+toMock'' (Model' _ _) (StopNode _) = NoNewCheckpoint'
+toMock'' (Model' _ _) (MineBlock _ _) = NoNewCheckpoint'
 toMock'' model cmd = snd $ update model cmd
 
 update :: Model' r -> Command' r -> (Model' r, Response' r)
@@ -285,33 +285,51 @@ postcondition'' :: Model' Concrete -> Command' Concrete -> Response' Concrete ->
 postcondition'' m cmd resp = resp .== snd (update m cmd)
 
 -- | Wait and get the next nextpoint from all the nodes.
-waitAll :: Config -> [(Node, ProofOfWorkHandle)] -> IO [(Node, CheckpointResult)]
-waitAll cfg = mapConcurrently $ waitNode cfg
+-- waitAll :: Config -> [(Node, ProofOfWorkHandle)] -> IO [(Node, CheckpointResult)]
+-- waitAll cfg = mapConcurrently $ waitNode cfg
+--
+-- waitNode :: Config -> (Node, ProofOfWorkHandle) -> IO (Node, CheckpointResult)
+-- waitNode cfg (node, mockHandle) = do
+--  --mCheckpoint <- waitCheckpoint 15 mockHandle
+--  --let res = case mCheckpoint of
+--  --      Nothing -> NoCheckpoint
+--  --      Just chkp -> NewCheckpoint (powBlockHash $ checkpointedBlock chkp) (majority cfg)
+--  --return (node, res)
+--  undefined
 
-waitNode :: Config -> (Node, ProofOfWorkHandle) -> IO (Node, CheckpointResult)
-waitNode cfg (node, mockHandle) = do
-  mCheckpoint <- waitCheckpoint 15 mockHandle
-  --let res = case mCheckpoint of
-  --      Nothing -> NoCheckpoint
-  --      Just chkp -> NewCheckpoint (powBlockHash $ checkpointedBlock chkp) (majority cfg)
-  --return (node, res)
-  undefined
+{-
+   -
+-}
 
 -- TODO extend the generators
-generator' :: Model Symbolic -> Maybe (Gen (Command Symbolic))
-generator' Model {..} = Just $ do
-  case currentCandidate chain of
-    Nothing -> do
-      toNodes <- suchThat (sublistOf nodes) (not . null)
-      let blockNo = nextBlockNo chain
-      block <- genBlockRef blockNo
-      return $ SendPowBlock toNodes block
-    Just (block, oldNodes) -> do
-      newNodes <- suchThat (sublistOf $ nodes \\ oldNodes) (not . null)
-      return $ SendPowBlock newNodes block
-  where
-    genBlockRef blockNo =
-      PowBlockRef blockNo <$> arbitrary
+generator' :: Int -> Model' Symbolic -> Maybe (Gen (Command' Symbolic))
+generator' nodeCount _ =
+  Just $ do
+    -- If
+    targetNode <- Node <$> elements [0 .. nodeCount - 1]
+    frequency
+      [ --(1, pure $ StartNode targetNode),
+        --(1, pure $ StopNode targetNode),
+        (1, MineBlock targetNode <$> arbitrary),
+        ( 10,
+          do
+            sendNode <- Node <$> elements [0 .. nodeCount - 1]
+            pure $ SendChain sendNode targetNode
+        )
+      ]
+
+--case currentCandidate chain of
+--  Nothing -> do
+--    toNodes <- suchThat (sublistOf nodes) (not . null)
+--    let blockNo = nextBlockNo chain
+--    block <- genBlockRef blockNo
+--    return $ SendPowBlock toNodes block
+--  Just (block, oldNodes) -> do
+--    newNodes <- suchThat (sublistOf $ nodes \\ oldNodes) (not . null)
+--    return $ SendPowBlock newNodes block
+--where
+--  genBlockRef blockNo =
+--    PowBlockRef blockNo <$> arbitrary
 
 --toMock' :: Model' r -> Command' r -> Response' r
 --toMock' model command = undefined
@@ -327,7 +345,7 @@ toMock cfg Model {..} cmd = Response $
 mock' :: Config -> Model r -> Command r -> GenSym (Response r)
 mock' cfg m cmd = return $ toMock cfg m cmd
 
-mkSM :: Int -> [NodeHandle] -> StateMachine Model' Command' IO Response'
+mkSM :: Int -> Map Node NodeHandle -> StateMachine Model' Command' IO Response'
 mkSM nodeCount handles =
   StateMachine
     { initModel = initModel'' nodeCount,
@@ -335,12 +353,19 @@ mkSM nodeCount handles =
       precondition = precondition'',
       postcondition = postcondition'',
       invariant = Nothing,
-      generator = undefined, -- generator'',
-      shrinker = undefined, -- shrinker'',
-      semantics = semantics'' undefined,
+      generator = generator' nodeCount, -- generator'',
+      shrinker = shrinker'', -- shrinker'',
+      semantics = semantics'' handles,
       mock = \model cmd -> return $ snd $ update model cmd,
-      cleanup = noCleanup
+      cleanup = cleanup'' handles
     }
+
+shrinker'' :: Model' Symbolic -> Command' Symbolic -> [Command' Symbolic]
+shrinker'' _ _ = []
+
+cleanup'' :: Map Node NodeHandle -> Model' Concrete -> IO ()
+cleanup'' handles _ = do
+  traverse_ stopNode handles
 
 -- where
 
@@ -359,7 +384,17 @@ semantics'' handles (MineBlock node hash) = do
   addPoWBlock (powHandle nodeHandle) hash
   return NoNewCheckpoint'
 semantics'' handles (SendChain from to) = do
-  undefined
+  -- Get monitors for whether a new checkpoint is received
+  newCheckpointMonitor <- asum <$> traverse (getChangeMonitor . powHandle) handles
+  let fromNode = handles M.! from
+      toNode = handles M.! to
+  chainToSend <- readTVarIO (powHandle fromNode)
+  receiveChain (powHandle toNode) chainToSend
+  newCheckpoint <- isJust <$> timeout (15 * 1000 * 1000) (atomically newCheckpointMonitor)
+  return $
+    if newCheckpoint
+      then NewCheckpoint'
+      else NoNewCheckpoint'
 
 --semantics' :: Config -> Map Node ProofOfWorkHandle -> Command Concrete -> IO (Response Concrete)
 --semantics' cfg handles (SendPowBlock toNodes blockRef) = do
@@ -372,8 +407,8 @@ semantics'' handles (SendChain from to) = do
 --  res <- waitAll cfg $ M.toList handles
 --  return $ Response res
 
-unusedSM :: Config -> StateMachine Model Command IO Response
-unusedSM cfg = undefined -- mkSM cfg $ error "NodeHandle not used on generation or shrinking"
+unusedSM :: Config -> StateMachine Model' Command' IO Response'
+unusedSM cfg = mkSM (nodesNumber cfg) $ error "NodeHandle not used on generation or shrinking"
 
 -- | Run one node and send him block references. Test if it generates checkpoints
 prop_1 :: Property
@@ -381,10 +416,10 @@ prop_1 = noShrinking $
   withMaxSuccess 1 $
     forAllCommands (unusedSM config) (Just 2) $
       \cmds -> monadicIO $ do
+        liftIO $ print cmds
         nodeHandles <- liftIO $ setup 1 1
         let sm = mkSM (nodesNumber config) nodeHandles
-        (hist, _model, res) <- undefined -- runCommands sm cmds
-        --liftIO $ mapM_ cleanup' nodeHandles
+        (hist, _model, res) <- runCommands sm cmds
         prettyCommands sm hist (res === Ok)
   where
     config =
@@ -402,8 +437,7 @@ prop_2 = noShrinking $
       \cmds -> monadicIO $ do
         nodeHandles <- liftIO $ setup 2 2
         let sm = mkSM (nodesNumber config) nodeHandles
-        (hist, _model, res) <- undefined -- runCommands sm cmds
-        --liftIO $ mapM_ cleanup' nodeHandles
+        (hist, _model, res) <- runCommands sm cmds
         prettyCommands sm hist (res === Ok)
   where
     config =
@@ -421,8 +455,7 @@ prop_3 = noShrinking $
       \cmds -> monadicIO $ do
         nodeHandles <- liftIO $ setup 2 3
         let sm = mkSM (nodesNumber config) nodeHandles
-        (hist, _model, res) <- undefined -- runCommands sm cmds
-        --liftIO $ mapM_ cleanup' nodeHandles
+        (hist, _model, res) <- runCommands sm cmds
         prettyCommands sm hist (res === Ok)
   where
     config =
@@ -454,21 +487,24 @@ prop_3 = noShrinking $
 --        { nodesNumber = 2,
 --          majority = 2
 --        }
-setup :: Int -> Int -> IO [NodeHandle]
+setup :: Int -> Int -> IO (Map Node NodeHandle)
 setup nodesNum testId = do
   let testDir = mkTestDir testId
   removePathForcibly testDir
   createDirectoryIfMissing True testDir
-  forM [0 .. (nodesNum - 1)] $ \nodeId -> do
+  result <- forM [0 .. nodesNum - 1] $ \nodeId -> do
     var <- newTVarIO Nothing
     handle <- mockRpcUpstream
-    return $
-      NodeHandle
-        { morphoHandle = var,
-          powHandle = handle,
-          testId = testId,
-          nodeId = nodeId
-        }
+    return
+      ( Node nodeId,
+        NodeHandle
+          { morphoHandle = var,
+            powHandle = handle,
+            testId = testId,
+            nodeId = nodeId
+          }
+      )
+  return $ M.fromList result
 
 stopNode :: NodeHandle -> IO ()
 stopNode NodeHandle {..} = do
