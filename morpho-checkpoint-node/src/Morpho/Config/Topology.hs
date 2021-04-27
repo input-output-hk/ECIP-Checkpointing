@@ -51,7 +51,7 @@ instance FromJSON NodeHostAddress where
     panic $
       "Parsing of IP failed due to type mismatch. "
         <> "Encountered: "
-        <> (T.pack $ show invalid)
+        <> T.pack (show invalid)
 
 instance Condense NodeAddress where
   condense (NodeAddress addr port) = show addr ++ ":" ++ show port
@@ -68,7 +68,7 @@ data NodeSetup = NodeSetup
   }
   deriving (Show, Eq)
 
-data NetworkTopology = NetworkTopology [NodeSetup]
+newtype NetworkTopology = NetworkTopology [NodeSetup]
   deriving (Eq, Show)
 
 deriveFromJSON defaultOptions ''NodeSetup

@@ -1,7 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeOperators #-}
 
 module Morpho.Common.Parsers
   ( nodeCliParser,

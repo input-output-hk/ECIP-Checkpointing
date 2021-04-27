@@ -5,7 +5,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -160,10 +159,10 @@ data instance BlockConfig (MorphoBlock h c) = MorphoBlockConfig
   deriving (Generic, NoThunks)
 
 newtype instance CodecConfig (MorphoBlock h c) = MorphoCodecConfig ()
-  deriving newtype (Generic, NoThunks)
+  deriving (Generic, NoThunks)
 
 newtype instance StorageConfig (MorphoBlock h c) = MorphoStorageConfig SecurityParam
-  deriving newtype (Generic, NoThunks)
+  deriving (Generic, NoThunks)
 
 {-------------------------------------------------------------------------------
   Working with 'MorphoBlock'
