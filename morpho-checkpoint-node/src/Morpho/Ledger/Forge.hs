@@ -75,9 +75,8 @@ forgeMorpho ccfg curSlot curBlock prevHash txs =
     body :: MorphoBody
     body =
       MorphoBody
-        { morphoTxs = toMorphoBlockTx <$> txs
+        { morphoTxs = unMorphoGenTx <$> txs
         }
-    toMorphoBlockTx (MorphoGenTx tx txId) = MorphoBlockTx tx txId
     stdHeader :: MorphoStdHeader h c
     stdHeader =
       MorphoStdHeader

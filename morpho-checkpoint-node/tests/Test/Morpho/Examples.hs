@@ -87,9 +87,7 @@ exampleBody :: MorphoBody
 exampleBody = MorphoBody [exampleMorphoBlockTx]
 
 exampleMorphoBlockTx :: MorphoBlockTx
-exampleMorphoBlockTx = MorphoBlockTx tx txId
-  where
-    MorphoGenTx tx txId = exampleGenTx
+exampleMorphoBlockTx = unMorphoGenTx exampleGenTx
 
 exampleTx :: Tx
 exampleTx = Tx exampleVote
