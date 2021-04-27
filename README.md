@@ -90,12 +90,12 @@ Also included in the environment is a working [Haskell Language Server](https://
 
 ## Testing
 
-For every commit and PR, all tests are run by Hydra. To run all tests locally:
+For every commit and PR, all test suites are run by Hydra. To run them locally:
 ```
 $ cabal test all
 ```
 
-There are currently three test suites which can also be ran independently:
+There are currently three test suites which can also be run independently:
 
 ### Unit Tests
 
@@ -132,6 +132,10 @@ You can run those using:
 $ cabal test mantis-integration-tests
 ```
 
+### Full integration testing
+
+In addition to the test suites, it's also possible to manually run a full integration test, running a local mining Mantis node and two Morpho nodes for checkpointing its blocks. See [the example directory](./example) for instructions.
+
 ## Code Formatting
 
 We are using the [ormolu](https://github.com/tweag/ormolu) formatter for the Haskell files, `cabal format` for the cabal files.
@@ -147,3 +151,4 @@ running:
 $ cd $root_of_this_git_repo
 $ ln -s $PWD/pre-commit .git/hooks/pre-commit
 ```
+
