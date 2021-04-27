@@ -1,3 +1,4 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveFunctor #-}
@@ -5,6 +6,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -16,29 +18,49 @@ module Test.Morpho.QSM
   )
 where
 
-import Barbies
+import Cardano.BM.Data.LogItem (LogObject (LogObject))
+import Cardano.BM.Data.Tracer (Tracer (Tracer))
 import Control.Concurrent.Async
-import Control.Monad (forM, forM_, when)
+import Control.Concurrent.MVar (newMVar, withMVar)
+import Control.Monad (forM_, when)
 import Control.Monad.IO.Class
+import Data.Aeson (encode)
+import qualified Data.ByteString.Lazy as LBS
 import Data.Kind (Type)
 import Data.List (union, (\\))
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe
+import qualified Data.Set as Set
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.IO as TIO
+import Data.Time (UTCTime, getCurrentTime, secondsToNominalDiffTime)
 import GHC.Generics (Generic, Generic1)
 import Morpho.Common.Bytes (Bytes)
-import Morpho.Common.Parsers
-import Morpho.Config.Combined
+import Morpho.Common.Conversions (bytesFromHex)
+import Morpho.Config.Logging
+import Morpho.Config.Topology (RemoteAddress (RemoteAddress))
 import Morpho.Config.Types
+import Morpho.Crypto.ECDSASignature (importPrivateKey, importPublicKey)
+import Morpho.Ledger.Block (ConsensusMockCrypto, MorphoMockHash)
 import Morpho.Ledger.PowTypes
 import Morpho.Node.Env
 import Morpho.Node.Run
+import Morpho.Tracing.Tracers (mkTracers)
+import Network.Socket
+import Ouroboros.Consensus.BlockchainTime (SystemStart (SystemStart), mkSlotLength)
+import Ouroboros.Consensus.Config (SecurityParam (SecurityParam))
+import Ouroboros.Consensus.NodeId (CoreNodeId (CoreNodeId, unCoreNodeId))
+import Ouroboros.Network.Magic (NetworkMagic (NetworkMagic))
 import System.Directory
+import Test.Morpho.Common.Utils (fromRight')
 import Test.Morpho.Generators ()
 import Test.Morpho.MockRpc
 import Test.QuickCheck
 import Test.QuickCheck.Monadic (monadicIO)
-import Test.StateMachine
+import Test.StateMachine (CommandNames, Concrete, GenSym, Logic (Top), Reason (Ok), StateMachine, Symbolic, ToExpr, forAllCommands, noCleanup, prettyCommands, runCommands, (.==))
+import Test.StateMachine.Types (StateMachine (StateMachine))
 import qualified Test.StateMachine.Types.Rank2 as Rank2
 import Test.StateMachine.Utils
 import Test.Tasty
@@ -234,8 +256,8 @@ toMock cfg Model {..} cmd = Response $
 mock :: Config -> Model Symbolic -> Command Symbolic -> GenSym (Response Symbolic)
 mock cfg m cmd = return $ toMock cfg m cmd
 
-mkSM :: Config -> [NodeHandle] -> StateMachine Model Command IO Response
-mkSM cfg@Config {..} handles =
+mkSM :: Config -> Map Node NodeHandle -> StateMachine Model Command IO Response
+mkSM cfg handlesMap =
   StateMachine
     (initModel mockMap)
     (transition cfg)
@@ -248,9 +270,7 @@ mkSM cfg@Config {..} handles =
     (mock cfg)
     noCleanup
   where
-    nodes = Node <$> [0 .. (nodesNumber - 1)]
-    handlesMap = M.fromList $ zip nodes handles
-    mockMap = nodes
+    mockMap = Node <$> [0 .. (nodesNumber cfg - 1)]
 
 unusedSM :: Config -> StateMachine Model Command IO Response
 unusedSM cfg = mkSM cfg $ error "NodeHandle not used on generation or shrinking"
@@ -261,7 +281,7 @@ prop_1 = noShrinking $
   withMaxSuccess 1 $
     forAllCommands (unusedSM config) (Just 2) $
       \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 1 1
+        nodeHandles <- liftIO $ setup config >>= traverse runDualNode
         let sm = mkSM config nodeHandles
         (hist, _model, res) <- runCommands sm cmds
         liftIO $ mapM_ cleanup nodeHandles
@@ -269,7 +289,8 @@ prop_1 = noShrinking $
   where
     config =
       Config
-        { nodesNumber = 1,
+        { testId = 1,
+          nodesNumber = 1,
           majority = 1
         }
 
@@ -280,7 +301,7 @@ prop_2 = noShrinking $
   withMaxSuccess 1 $
     forAllCommands (unusedSM config) (Just 2) $
       \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 2 2
+        nodeHandles <- liftIO $ setup config >>= traverse runDualNode
         let sm = mkSM config nodeHandles
         (hist, _model, res) <- runCommands sm cmds
         liftIO $ mapM_ cleanup nodeHandles
@@ -288,7 +309,8 @@ prop_2 = noShrinking $
   where
     config =
       Config
-        { nodesNumber = 2,
+        { testId = 2,
+          nodesNumber = 2,
           majority = 1
         }
 
@@ -299,7 +321,7 @@ prop_3 = noShrinking $
   withMaxSuccess 3 $
     forAllCommands (unusedSM config) (Just 1) $
       \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 2 3
+        nodeHandles <- liftIO $ setup config >>= traverse runDualNode
         let sm = mkSM config nodeHandles
         (hist, _model, res) <- runCommands sm cmds
         liftIO $ mapM_ cleanup nodeHandles
@@ -307,7 +329,8 @@ prop_3 = noShrinking $
   where
     config =
       Config
-        { nodesNumber = 2,
+        { testId = 3,
+          nodesNumber = 2,
           majority = 2
         }
 
@@ -319,61 +342,123 @@ prop_4 = noShrinking $
   withMaxSuccess 1 $
     forAllCommands (unusedSM config) (Just 15) $
       \cmds -> monadicIO $ do
-        nodeHandles <- liftIO $ setup 2 4
+        nodeConfigs <- liftIO $ setup config
+
+        nodeHandles <- liftIO $ traverse runDualNode nodeConfigs
         let sm = mkSM config nodeHandles
         (hist, model, res) <- runCommands sm cmds
         liftIO $ mapM_ cleanup nodeHandles
-        h <- liftIO $ runDualNode False 4 0
-        (_, chkp) <- liftIO $ waitNode config (Node 0, mockNode h)
+
+        let nodeToRestart = Node 0
+        h <- liftIO $ runDualNode (nodeConfigs M.! nodeToRestart)
+        (_, chkp) <- liftIO $ waitNode config (nodeToRestart, mockNode h)
         liftIO $ cleanup h
+
         prettyCommands sm hist (res === Ok)
         whenFailM (return ()) $ toBlockRef chkp === (powBlockHash <$> lastCheckpoint model)
   where
     config =
       Config
-        { nodesNumber = 2,
+        { testId = 4,
+          nodesNumber = 2,
           majority = 2
         }
-
-setup :: Int -> Int -> IO [NodeHandle]
-setup nodesNum testId = do
-  let testDir = mkTestDir testId
-  removePathForcibly testDir
-  createDirectoryIfMissing True testDir
-  forM [0 .. (nodesNum - 1)] $ runDualNode True testId
 
 cleanup :: NodeHandle -> IO ()
 cleanup NodeHandle {..} = do
   cancel mainNode
 
-runDualNode :: Bool -> Int -> Int -> IO NodeHandle
-runDualNode createDir testId nodeId = do
-  let testDir = mkTestDir testId
-  let nodeDir = testDir ++ "/nodedir-" ++ show nodeId
-  let configDir = "tests/configuration/QSM/prop_" ++ show testId
-  when createDir $ createDirectory nodeDir
-  let cliConfig =
-        (bpure (Left CliNoParser))
-          { ncTopologyFile = Right $ TopologyFile $ configDir ++ "/topology.json",
-            ncDatabaseDir = Right $ DbFile $ nodeDir ++ "/db",
-            ncNodePort = Right $ fromIntegral $ 3000 + 2 * nodeId,
-            ncValidateDb = Right True
-          }
-      configFile = configDir ++ "/config-" ++ show nodeId ++ ".yaml"
-  (mockNode, rpcUpstream) <- mockRpcUpstream
+type NodeConfig = (MockNodeHandle, Env MockRpcEvent MorphoMockHash ConsensusMockCrypto)
 
-  nodeConfig <- getConfiguration cliConfig configFile
-
-  node <- async $
-    withEnv nodeConfig $ \(ValidatedEnv env) -> do
-      run $
-        ValidatedEnv $
-          env
-            { eRpcUpstream = rpcUpstream
-            }
+runDualNode :: NodeConfig -> IO NodeHandle
+runDualNode (mockNodeH, env) = do
+  node <- async $ run $ ValidatedEnv env
 
   link node
-  return $ NodeHandle nodeId mockNode node
+  return $ NodeHandle (fromIntegral $ unCoreNodeId $ eNodeId env) mockNodeH node
+
+setup :: Config -> IO (Map Node NodeConfig)
+setup (Config testId nodesNum requiredMajority) = do
+  removePathForcibly testDir
+  createDirectoryIfMissing True testDir
+
+  systemStart <- getCurrentTime
+
+  sequence $ M.fromSet (x systemStart) (Set.fromList $ Node <$> [0 .. nodesNum - 1])
+  where
+    testDir = "db/qsm-tests-" ++ show testId
+    toPublicKey = fromRight' . importPublicKey . fromRight' . bytesFromHex
+    toPrivKey = fromRight' . importPrivateKey . fromRight' . bytesFromHex
+
+    pubKeys =
+      take
+        nodesNum
+        [ toPublicKey "ec33a3689573db2f4db4586bb7089cda045116a21cce20c9a6fe7ccadcf9fb336075b3644ac9f0a20e6d45a9e99db477cc420d050969f2d8bfb7408b2169b167",
+          toPublicKey "3ea6ebf308a16b45bbf3392d1cd226aa6858d2ea6a2402799eeffc576f0187af62ed11677c8d4d01ef03bbf638f49f2fd77e181924a52dd01b86a187af07b724"
+        ]
+
+    privKeys =
+      [ toPrivKey "0093e3cf4be871137e4e11b8d94ec397afb1d3b6db4cdfef01780033b7e3c67f06",
+        toPrivKey "00103becb5b909d34b5a57fc629e305c7ce8f00ef2318939e645a3c161b1d99a03"
+      ]
+
+    topology :: Map Int PortNumber
+    topology =
+      M.fromList
+        [ (i, fromIntegral $ 3000 + 2 * i)
+          | i <- [0 .. nodesNum - 1]
+        ]
+
+    x :: UTCTime -> Node -> IO NodeConfig
+    x systemStart (Node nodeId) = do
+      let nodeDir = testDir ++ "/nodedir-" ++ show nodeId
+          privKey = privKeys !! nodeId
+          producers = map (\port -> RemoteAddress "127.0.0.1" (Just port) 1) $ M.elems $ M.delete nodeId topology
+
+      createDirectory nodeDir
+
+      (handle, rpcUpstream) <- mockRpcUpstream
+      tracers <- fileTrace Info (nodeDir <> "/node.log") >>= mkTracers 0
+      return
+        ( handle,
+          Env
+            { eNodeId = CoreNodeId $ fromIntegral nodeId,
+              eNumCoreNodes = fromIntegral nodesNum,
+              eNetworkMagic = NetworkMagic 12345,
+              eSystemStart = SystemStart systemStart,
+              eSecurityParameter = SecurityParam 5,
+              eStableLedgerDepth = 3,
+              eTimeslotLength = mkSlotLength $ secondsToNominalDiffTime 1,
+              eSnapshotsOnDisk = 60,
+              eSnapshotInterval = 60,
+              ePoWBlockFetchInterval = 5000000,
+              ePrometheusPort = 13888 + 2 * nodeId,
+              eCheckpointingInterval = 4,
+              eRequiredMajority = fromIntegral requiredMajority,
+              eFedPubKeys = pubKeys,
+              ePrivateKey = privKey,
+              eTracers = tracers,
+              eRpcUpstream = rpcUpstream,
+              eProducers = producers,
+              eNodeAddress = NodeAddress (NodeHostAddress Nothing) (topology M.! nodeId),
+              eDatabaseDir = nodeDir ++ "/db",
+              eValidateDb = True
+            }
+        )
+
+fileTrace :: Severity -> FilePath -> IO (Trace IO T.Text)
+fileTrace sev f = do
+  locallock <- newMVar ()
+  return $
+    Tracer $ \(ctx, LogObject _loname lometa lc) ->
+      when (severity lometa >= sev) $
+        withMVar locallock $ \_ ->
+          case lc of
+            (LogMessage logItem) -> output ctx (tstamp lometa) logItem
+            (LogStructuredText _ text) -> output ctx (tstamp lometa) text
+            obj -> output ctx (tstamp lometa) $ T.decodeUtf8 $ LBS.toStrict $ encode obj
+  where
+    output nm ts msg = TIO.appendFile f $ "[" <> nm <> "] [" <> T.pack (show ts) <> "] " <> msg <> "\n"
 
 data NodeHandle = NodeHandle
   { _nodeId :: Int,
@@ -382,9 +467,7 @@ data NodeHandle = NodeHandle
   }
 
 data Config = Config
-  { nodesNumber :: Int,
+  { testId :: Int,
+    nodesNumber :: Int,
     majority :: Int
   }
-
-mkTestDir :: Int -> String
-mkTestDir testId = "db/qsm-tests-" ++ show testId
