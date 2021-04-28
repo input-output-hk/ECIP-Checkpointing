@@ -58,6 +58,7 @@
           cabal = {};
           ghcid = {};
           ormolu = {};
+          eventlog2html = {};
           hlint = {};
           haskell-language-server = "latest";
         };
