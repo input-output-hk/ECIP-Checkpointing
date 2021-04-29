@@ -2,15 +2,17 @@
 
 # Morpho Checkpointing Node
 
-This is the codebase of the checkpointing nodes for [Mantis](https://mantisclient.io/).
+Morpho is an [ECIP1097](https://ecips.ethereumclassic.org/ECIPs/ecip-1097)-based prototype implementation for securing ETC against 51% attacks by having a majority of a small set of trusted parties agree to insert checkpoint blocks at specific positions.
 
-For building and development, a recent Nix version supporting Flakes is recommended, see [here](https://nixos.wiki/wiki/Flakes#Installing_flakes) for installation instructions. The readme assumes such a newer version is available, however older Nix versions can still be used with slightly adjusted commands. Not using Nix is also a possibility but not explicitly shown.
+[User Documentation](./docs)
 
-For an overview of how morpho is implemented, see [overview.md](./overview.md).
+This readme is only meant for developers.
+
+For building and development, a recent Nix version supporting Flakes is recommended, see [installation instructions here](https://nixos.wiki/wiki/Flakes#Installing_flakes). The readme assumes such a newer version is available, however older Nix versions can still be used with slightly adjusted commands. Not using Nix is also a possibility but not explicitly shown.
 
 ## Binary Cache
 
-Unless if you are looking for a rather expensive lap/desk heater, you are probably off better leveraging the [Mantis Hydra](https://hydra.mantis.ist/project/ecip-checkpointing) binary cache instead of rebuilding the whole world by yourself.
+Unless you are looking for a rather expensive lap/desk heater, you are probably off better leveraging the [Mantis Hydra](https://hydra.mantis.ist/project/ecip-checkpointing) binary cache instead of rebuilding the whole world by yourself.
 
 On a NixOS Machine this needs to be done by adding this to your `configuration.nix`:
 ```nix
@@ -109,7 +111,7 @@ $ cabal test test
 ```
 
 ### State Machine Tests
-These tests are acting as integration tests. They'll require to
+These tests are acting as integration tests. They'll require you to
 spin up several morpho nodes and mocked mantis nodes. They are
 pretty long to run (~4 minutes), hence not really meant to be run
 very frequently.
@@ -122,7 +124,7 @@ $ cabal test state-machine-tests
 
 ### Mantis Integration Tests
 Here, we are testing some Morpho node features directly against the
-Mantis node itself. These test require to have Mantis and its
+Mantis node itself. These test require you to have Mantis and its
 associated CLIs (incl. `signatureValidator`) in your `$PATH` when
 running them. This is already taken care of by the Nix environment.
 
@@ -144,7 +146,7 @@ The CI will reject any non-formatted PR, please make sure you properly
 format your code before opening one.
 
 You can use the pre-commit hook to automatically run the formatters
-before comitting. You can enable the provided pre-commit hook by
+before committing. You can enable the provided pre-commit hook by
 running:
 
 ```sh

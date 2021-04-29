@@ -16,7 +16,6 @@
 module Morpho.Ledger.Block
   ( MorphoBlock (..),
     Header (..),
-    MorphoStandardHash,
     MorphoMockHash,
     MorphoStdHeader (..),
     MorphoBody (..),
@@ -46,7 +45,6 @@ module Morpho.Ledger.Block
 where
 
 import Cardano.Crypto.DSIGN.Class
-import Cardano.Crypto.DSIGN.Ed25519
 import Cardano.Crypto.DSIGN.Mock (MockDSIGN)
 import Cardano.Crypto.Hash
 import Cardano.Crypto.Util
@@ -249,18 +247,10 @@ instance (HashAlgorithm h, BftCrypto c) => GetPrevHash (MorphoBlock h c) where
 data ConsensusMockCrypto
   deriving (Generic, NoThunks)
 
-data ConsensusStandardCrypto
-
-type MorphoStandardHash = MD5
-
 type MorphoMockHash = ShortHash
 
 instance BftCrypto ConsensusMockCrypto where
   type BftDSIGN ConsensusMockCrypto = MockDSIGN
-
-instance BftCrypto ConsensusStandardCrypto where
-  -- TODO: do we really want Ed25519DSIGN here?
-  type BftDSIGN ConsensusStandardCrypto = Ed25519DSIGN
 
 {-------------------------------------------------------------------------------
   Condense instances
