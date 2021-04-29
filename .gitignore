@@ -4,6 +4,11 @@
 *~
 \#*
 result*
+*.aux
+*.prof
+*.hp
+*.ps
+*.log
 
 dist-newstyle
 .ghc.environment.*

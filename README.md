@@ -154,3 +154,41 @@ $ cd $root_of_this_git_repo
 $ ln -s $PWD/pre-commit .git/hooks/pre-commit
 ```
 
+## Profiling
+
+To enable profiling, you need to set the `profile` attribute to `true` in `flake.nix` and reload the development environment (done automatically if `direnv` is used). All the dependencies will be rebuilt with profiling enabled (might take a while).
+
+Next, we can add the desired GHC profiling options in `morpho-checkpoint-node/morpho-checkpoint-node.cabal`. For example:
+
+```
+ghc-options:
+    -- ...other GHC options
+    "-with-rtsopts=-T -p -s -h -l -i0.1"
+```
+
+The `-with-rtsopts` GHC option bakes in the runtime settings. Explanation of those runtime settings:
+
+```
+- `-p` generates a time and allocation profiling report in a `.prof` file
+- `-s` outputs a report on garbage collection
+- `-l` outputs an eventlog report
+- `-h` generates a standard report on memory usage which can then be used to produces a plot in a postscript file using `hp2ps` utility.
+
+- `-i0.1` sets the sampling frequency of memory profiling to every tenth of a second
+```
+
+All possible settings are described [here](https://downloads.haskell.org/ghc/latest/docs/html/users_guide/profiling.html#).
+
+Those GHC options should ideally be set on the `Morpho` executable, but can also be set on the `state-machine-tests` test suite.
+
+After the development environment finished loading, run `cabal clean`, configure cabal with `cabal configure --enable-profiling` and build with `cabal build morpho-checkpoint-node`.
+
+To profile the executable, run the full integration test as described in the section [Full integration testing](#full-integration-testing).
+
+To profile the `state-machine-tests` test suite, run the `state-machine-tests` as described in the section [State Machine Tests](#state-machine-tests).
+
+These should produce reports with extensions `.prof` (e.g. `morpho-checkpoint-node.prof`), `.hp` (e.g. `morpho-checkpoint-node.hp`) and `.eventlog` (e.g. `morpho-checkpoint-node.eventlog`).
+
+Run `hp2ps -e8in -c morpho-checkpoint-node.hp` to convert the report on memory usage into a postscript graph which can be opened with a PDF viewer.
+
+Run `eventlog2html morpho-checkpoint-node.eventlog` to convert the eventlog report into a static webpage in order to visualise the heap profile.
