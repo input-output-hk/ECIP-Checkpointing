@@ -172,14 +172,12 @@ ghc-options:
 
 The `-with-rtsopts` GHC option bakes in the runtime settings. Explanation of those runtime settings:
 
-```
 - `-p` generates a time and allocation profiling report in a `.prof` file
 - `-s` outputs a report on garbage collection
 - `-l` outputs an eventlog report
 - `-h` generates a standard report on memory usage which can then be used to produces a plot in a postscript file using `hp2ps` utility.
 
 - `-i0.1` sets the sampling frequency of memory profiling to every tenth of a second
-```
 
 All possible settings are described [here](https://downloads.haskell.org/ghc/latest/docs/html/users_guide/profiling.html#).
 
