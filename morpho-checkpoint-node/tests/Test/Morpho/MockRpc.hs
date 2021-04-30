@@ -233,10 +233,61 @@ getLatestBlock _ interval _
   | interval < 2 = Left IntervalTooSmall
 getLatestBlock chain interval parent = case checkpointCandidates parent chain of
   Left reason -> Left reason
-  Right candidates -> case Seq.lookup i candidates of
+  Right candidates -> case Seq.lookup resultIndex candidates of
     Nothing -> Left NotEnoughBlocks
     Just result -> Right result
     where
-      -- Distance from the first candidate to previously checkpointed block
-      dist = Seq.length candidates + 2
-      i = dist - dist `mod` interval - 2
+      -- The index of the last element
+      lastIndex = Seq.length candidates - 1
+      -- The same index, but shifted to include the previously checkpointed block and the checkpoint
+      lastIndex' = lastIndex + 2
+      -- The latest block divisible by the interval
+      resultIndex' = lastIndex' - lastIndex' `mod` interval
+      -- Shift it back
+      resultIndex = resultIndex' - 2
+
+{-
+  We want a checkpoint every 4'th block:
+  POW <- CHK <- POW <- POW <- POW <- CHK <- POW <- ...
+
+  But we currently have this chain:
+  POW <- CHK <- POW <- POW <- POW <- POW
+               [ candidates             ]    <- We have 4 candidates appearing after the previous checkpoint
+                 0      1      2      3      <- Candidate list indices
+                                      ^
+                                  lastIndex  <- The index of the latest block
+
+   0      1      2      3      4      5      <- candidates indices if the previously chosen
+                               ^      ^         POW block and its checkpoint were included in the list (+2 blocks)
+                               |      |         This makes the previously checkpointed block be at index 0,
+                               |      |         making all block that could be checkpointed be at indices divisible by 4
+                               |      |
+                               |  lastIndex' <- We use a prime (') to indicate the shifted indexes
+                               |
+                               |
+                          resultIndex'       <- This is the candidate for the next block to be checkpointed,
+                                                as it's the latest block having an index divisible by 4
+
+                 0      1      2      3      <- Actual candidate list indices again
+                               ^
+                          resultIndex        <- The resultIndex shifted back into the indices of the candidates (-2 blocks)
+
+  Alternatively, if we only have this shorter chain:
+  POW <- CHK <- POW <- POW
+               [candidates]    <- We now only have 2 candidates
+                 0      1
+                        ^
+                    lastIndex
+
+   0      1      2      3
+   ^                    ^
+   |                lastIndex'
+   |
+resultIndex'                   <- The most recent block with index divisible by 4 is 0
+
+  -2             0      1
+   ^
+resultIndex                    <- But if we shift this value back into the indices of the candidates,
+                                  we will get a negative result, indicating that there is none
+
+-}
