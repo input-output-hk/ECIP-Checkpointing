@@ -24,7 +24,6 @@ import Cardano.Prelude hiding (show)
 import Codec.CBOR.Read (DeserialiseFailure)
 import Data.Aeson
 import qualified Data.HashMap.Strict as HM
-import Morpho.Config.Types
 import Morpho.Ledger.Block
 import Morpho.Ledger.SnapshotTimeTravel
 import Morpho.Ledger.Update
@@ -93,11 +92,11 @@ toGenericObject ::
     MinLogRecursion b,
     ToJSON b
   ) =>
-  NodeConfiguration ->
+  Int ->
   Trace m Text ->
   Tracer m b
-toGenericObject nc tr = Tracer $ \arg ->
-  let logRec = ncVerbosity nc + minLogRecursion arg
+toGenericObject verbosity tr = Tracer $ \arg ->
+  let logRec = verbosity + minLogRecursion arg
       value = snd $ limitRecursion logRec (toJSON arg)
       text = renderStrict $ layoutCompact $ mpretty arg
       -- Insert the formatted text into the structured value, so that we can
@@ -124,66 +123,66 @@ mkTracers ::
     Signable (BftDSIGN c) (MorphoStdHeader h c),
     LedgerSupportsProtocol blk
   ) =>
-  NodeConfiguration ->
+  Int ->
   Trace IO Text ->
   IO (Tracers peer h c)
-mkTracers nc tracer = do
+mkTracers verbosity tracer = do
   pure
     Tracers
       { morphoInitTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "morpho-init" tracer,
         chainDBTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "chain-db" tracer,
         consensusTracers =
           mkConsensusTracers (appendName "consensus" tracer),
         ipSubscriptionTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "ip-subs" tracer,
         dnsSubscriptionTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "dns-subs" tracer,
         dnsResolverTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "dns-resolve" tracer,
         muxTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "mux" tracer,
         muxLocalTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "local-mux" tracer,
         errorPolicyTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "error-policy" tracer,
         extractStateTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "extract-state" tracer,
         powNodeRpcTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "rpc" tracer,
         timeTravelErrorTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "time-travel" tracer,
         nodeToNodeTracers =
-          nodeToNodeTracers' nc tracer,
+          nodeToNodeTracers' verbosity tracer,
         handshakeTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "handshake" tracer,
         handshakeLocalTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "local-handshake" tracer,
         localErrorPolicyTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "local-error-policy" tracer,
         acceptPolicyTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "accept-policy" tracer,
         diffusionInitializationTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "diffusion-init" tracer,
         ledgerPeersTracer =
-          toGenericObject nc $
+          toGenericObject verbosity $
             appendName "ledger-peers" tracer
       }
   where
@@ -191,41 +190,41 @@ mkTracers nc tracer = do
     mkConsensusTracers ctracer =
       Consensus.Tracers
         { Consensus.chainSyncClientTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "chain-sync-client" ctracer,
           Consensus.chainSyncServerHeaderTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "chain-sync-server-header" ctracer,
           Consensus.chainSyncServerBlockTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "chain-sync-server-block" ctracer,
           Consensus.blockFetchDecisionTracer =
             separate $
-              toGenericObject nc $
+              toGenericObject verbosity $
                 appendName "block-fetch-decision" ctracer,
           Consensus.blockFetchClientTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "block-fetch-client" ctracer,
           Consensus.blockFetchServerTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "block-fetch-server" ctracer,
           Consensus.txInboundTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "tx-in" ctracer,
           Consensus.txOutboundTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "tx-out" ctracer,
           Consensus.localTxSubmissionServerTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "local-tx-submission" ctracer,
           Consensus.mempoolTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "mempool" ctracer,
           Consensus.forgeTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "forge" ctracer,
           Consensus.blockchainTimeTracer =
-            toGenericObject nc $
+            toGenericObject verbosity $
               appendName "blockchain-time" ctracer,
           -- TODO: trace the forge state if we add any.
           Consensus.forgeStateInfoTracer = Tracer $ const mempty,
@@ -243,27 +242,27 @@ nodeToNodeTracers' ::
     MorphoStateDefaultConstraints h c,
     blk ~ MorphoBlock h c
   ) =>
-  NodeConfiguration ->
+  Int ->
   Trace IO Text ->
   NodeToNode.Tracers' peer blk DeserialiseFailure (Tracer IO)
-nodeToNodeTracers' nc tracer =
+nodeToNodeTracers' verbosity tracer =
   NodeToNode.Tracers
     { NodeToNode.tChainSyncTracer =
-        toGenericObject nc $
+        toGenericObject verbosity $
           appendName "chain-sync-protocol" tracer,
       NodeToNode.tChainSyncSerialisedTracer =
-        toGenericObject nc $
+        toGenericObject verbosity $
           appendName "chain-sync-protocol-serialized" tracer,
       NodeToNode.tBlockFetchTracer =
-        toGenericObject nc $
+        toGenericObject verbosity $
           appendName "block-fetch-protocol" tracer,
       NodeToNode.tBlockFetchSerialisedTracer =
-        toGenericObject nc $
+        toGenericObject verbosity $
           appendName "block-fetch-protocol-serialized" tracer,
       NodeToNode.tTxSubmissionTracer =
-        toGenericObject nc $
+        toGenericObject verbosity $
           appendName "tx-submission-protocol" tracer,
       NodeToNode.tTxSubmission2Tracer =
-        toGenericObject nc $
+        toGenericObject verbosity $
           appendName "tx-submission-protocol-2" tracer
     }
