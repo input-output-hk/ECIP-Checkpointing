@@ -17,17 +17,25 @@ Morpho only interacts with the outside world by making [JSON RPC](https://www.js
 
 Let `interval` be the first parameter. Let `previousHash` be the second parameter.
 
-This call should return the latest checkpoint candidate in the server's proof-of-work chain, constrained by it being a descendant of `previousHash` with a block distance divisible by `interval`. If `previousHash` is `null`, it needs to be a descendant of the genesis block instead. If the constraints can't be met, an empty object should be returned.
+This call should ensure that the latest checkpoint in the proof-of-work chain matches `previousHash`, and if so, return the latest candidate for the next checkpoint after that. The returned checkpoint candidate has to have a block distance divisible by `interval`. In case this can't be met, return an empty object. This can be implemented as follows:
 
-This may be implemented as follows:
-Let `latest` be the block number of the topmost block in the server's current proof-of-work chain. Then the server should determine the result of this call as follows:
-- If `previousHash` is `null`, let `base` be 0.
-- If `previousHash` is not `null`:
-  - Check whether the current chain contains a block with hash `previousHash`. If it does not, return an empty object as the result of the call.
-  - Otherwise, let `base` be the block number of the block with hash `previousHash`.
-- Let `count` be the largest _positive_ integer such that `number = base + count * interval <= latest`.
-- If no such integer exists, return an empty object as the result of the call.
-- Otherwise, return the `hash` and `number` of the corresponding block.
+- If `interval` is less than 2, return an empty object from the RPC call.
+  Explanation: If we had a checkpoint distance of 1, we would not leave any room for proof-of-work blocks in-between, which would defeat the main motivation for checkpointing: To checkpoint proof-of-work blocks
+- Ensure that the hash of the most recently checkpointed proof-of-work block in the proof-of-work chain matches `previousHash`. If it doesn't, return an empty object as the result of the call.
+  Explanation: This ensures that this node can't issue votes that could fork the proof-of-work chain with conflicting checkpoints, which could happen if this node hasn't received the most recent checkpoint yet.
+- Otherwise, let `candidates` be the list of proof-of-work blocks that follow `previousHash` (or the genesis block if `previousHash` is `null`).
+  Explanation: This also ensures that this node can't issue votes that could fork the proof-of-work chain by signing blocks before the latest checkpoint
+- Let `lastIndex'` be `length(candidates) + 1`.
+  Explanation: This is the last index of the candidate list, but shifted by 2 to include the previously checkpointed block and its checkpoint
+- Let `resultIndex` be `lastIndex' - lastIndex' % interval - 2`.
+  Explanation: This is the latest block with a distance divisible by `interval` to the previously checkpointed block, but shifted back to not include the 2 additional blocks before the candidates.
+- If `resultIndex` is negative, return an empty object from the RPC call.
+- Otherwise return element at index `resultIndex` of `candidates`
+
+Here is an explanatory diagram for this the index calculations of this implementation for an interval of 3:
+![](./getLatestBlock.png)
+
+An implementation of this in Haskell can be found [here](https://github.com/input-output-hk/ECIP-Checkpointing/blob/7f1e4f5b6d16e721d9bcad07fc528f83f97191a4/morpho-checkpoint-node/tests/Test/Morpho/MockRpc.hs#L221-L247).
 
 ### Examples
 
